@@ -1,4 +1,7 @@
-/* eslint-disable no-console */
+/* Copyright(C) 2021-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
+ *
+ * server.ts: homebridge-august.
+ */
 import { HomebridgePluginUiServer } from '@homebridge/plugin-ui-utils';
 import fs from 'fs';
 

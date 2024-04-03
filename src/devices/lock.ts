@@ -1,6 +1,11 @@
+/* Copyright(C) 2021-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
+ *
+ * lock.ts: homebridge-august.
+ */
 import { API, CharacteristicValue, HAP, Logging, PlatformAccessory, Service } from 'homebridge';
 import { interval, Subject } from 'rxjs';
 import { debounceTime, skipWhile, take, tap } from 'rxjs/operators';
+import { deviceBase } from './device.js';
 import { AugustPlatform } from '../platform.js';
 import { AugustPlatformConfig, device, devicesConfig } from '../settings.js';
 import August from 'august-yale';
@@ -11,7 +16,7 @@ import August from 'august-yale';
  * An instance of this class is created for each accessory your platform registers
  * Each accessory may expose multiple services of different service types.
  */
-export class LockMechanism {
+export class LockMechanism extends deviceBase {
   public readonly api: API;
   public readonly log: Logging;
   public readonly config!: AugustPlatformConfig;
@@ -60,10 +65,10 @@ export class LockMechanism {
     this.log = this.platform.log;
     this.config = this.platform.config;
     this.hap = this.api.hap;
-    this.deviceLogType(device);
-    this.refreshRate(device);
+    this.deviceLogs(device);
+    this.getDeviceRefreshRate(device);
     this.lock(device);
-    this.deviceConfig(device);
+    this.deviceConfigOptions(device);
     this.cacheState();
 
     // default placeholders
@@ -442,7 +447,7 @@ export class LockMechanism {
     }
   }
 
-  async deviceConfig(device: device & devicesConfig): Promise<void> {
+  async deviceConfigOptions(device: device & devicesConfig): Promise<void> {
     let config = {};
     if (device.lock) {
       config = device.lock || '';
@@ -461,7 +466,7 @@ export class LockMechanism {
     }
   }
 
-  async refreshRate(device: device & devicesConfig): Promise<void> {
+  async getDeviceRefreshRate(device: device & devicesConfig): Promise<void> {
     if (device.refreshRate) {
       if (device.refreshRate < 1800) {
         device.refreshRate = 1800;
@@ -475,7 +480,7 @@ export class LockMechanism {
     }
   }
 
-  async deviceLogType(device: device & devicesConfig): Promise<void> {
+  async deviceLogs(device: device & devicesConfig): Promise<void> {
     if (this.platform.debugMode) {
       this.deviceLogging = this.accessory.context.logging = 'debugMode';
       this.debugWarnLog(`Lock: ${this.accessory.displayName} Using Debug Mode Logging: ${this.deviceLogging}`);
