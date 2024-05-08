@@ -412,7 +412,7 @@ export class LockMechanism extends deviceBase {
 
   cacheStatusLowBattery() {
     let StatusLowBattery: number = 0;
-    if (Number(this.Battery.BatteryLevel) < 15) {
+    if (this.Battery && this.Battery.BatteryLevel && Number(this.Battery.BatteryLevel) < 15) {
       StatusLowBattery = this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW;
     } else {
       StatusLowBattery = this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL;
