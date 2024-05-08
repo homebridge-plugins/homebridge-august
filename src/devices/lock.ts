@@ -393,18 +393,31 @@ export class LockMechanism extends deviceBase {
 
   async cacheState() {
     if (!this.hide_lock) {
-      if (this.Lock?.LockCurrentState === undefined) {
-        this.Lock!.LockCurrentState = this.accessory.context.LockCurrentState || this.hap.Characteristic.LockCurrentState.SECURED;
-      }
-      if (this.Lock?.LockTargetState === undefined) {
-        this.Lock!.LockTargetState = this.accessory.context.LockTargetState || this.hap.Characteristic.LockTargetState.SECURED;
+      if (this.Lock === undefined) {
+        this.Lock = {
+          LockCurrentState: this.accessory.context.LockCurrentState || this.hap.Characteristic.LockCurrentState.SECURED,
+          LockTargetState: this.accessory.context.LockTargetState || this.hap.Characteristic.LockTargetState.SECURED,
+        };
+      } else {
+        if (this.Lock.LockCurrentState === undefined) {
+          this.Lock.LockCurrentState = this.accessory.context.LockCurrentState || this.hap.Characteristic.LockCurrentState.SECURED;
+        }
+        if (this.Lock.LockTargetState === undefined) {
+          this.Lock.LockTargetState = this.accessory.context.LockTargetState || this.hap.Characteristic.LockTargetState.SECURED;
+        }
       }
     }
     // Contact Sensor
     if (!this.device.lock?.hide_contactsensor) {
-      if (this.ContactSensor?.ContactSensorState === undefined) {
-        this.ContactSensor!.ContactSensorState = this.accessory.context.ContactSensorState
-          || this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED;
+      if (this.ContactSensor === undefined) {
+        this.ContactSensor = {
+          ContactSensorState: this.accessory.context.ContactSensorState || this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED,
+        };
+      } else {
+        if (this.ContactSensor?.ContactSensorState === undefined) {
+          this.ContactSensor!.ContactSensorState = this.accessory.context.ContactSensorState
+            || this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED;
+        }
       }
     }
     if (this.Battery.BatteryLevel === undefined) {
