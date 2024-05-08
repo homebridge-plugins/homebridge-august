@@ -112,9 +112,9 @@ export abstract class deviceBase {
     }
   }
 
-  async statusCode(device: device & devicesConfig, statusCode: string): Promise<void> {
+  async statusCode(device: device & devicesConfig, error: { message: string; }): Promise<void> {
     if (!device.hide_device) {
-      const statusCodeString = String(statusCode); // Convert statusCode to a string
+      const statusCodeString = String(error); // Convert statusCode to a string
       if (statusCodeString.includes('100')) {
         this.debugLog(`Lock: ${this.accessory.displayName} Command successfully sent, statusCode: ${statusCodeString}`);
       } else if (statusCodeString.includes('200')) {
@@ -127,6 +127,8 @@ export abstract class deviceBase {
       } else {
         this.debugLog(`Lock: ${this.accessory.displayName} Unknown statusCode: ${statusCodeString}, Submit Bugs Here: '
       + 'https://tinyurl.com/AugustYaleBug`);
+        this.debugErrorLog(`Lock: ${this.accessory.displayName} failed lockStatus (refreshStatus), Error: ${JSON.stringify(error)}`);
+        this.debugErrorLog(`Lock: ${this.accessory.displayName} failed lockStatus (refreshStatus), Error Message: ${JSON.stringify(error.message)}`);
       }
     }
   }
