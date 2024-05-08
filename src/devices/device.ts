@@ -16,6 +16,7 @@ export abstract class deviceBase {
   // Config
   protected deviceLogging!: string;
   protected deviceRefreshRate!: number;
+  protected hide_lock!: boolean;
 
   constructor(
     protected readonly platform: AugustPlatform,
@@ -104,12 +105,8 @@ export abstract class deviceBase {
   }
 
   async lock(device: device & devicesConfig): Promise<void> {
-    if (device.lock) {
-      if (device.lock?.hide_lock) {
-        this.hide_lock = device.lock.hide_lock!;
-      } else {
-        this.hide_lock = false;
-      }
+    if (device.lock && device.lock.hide_lock) {
+      this.hide_lock = device.lock.hide_lock;
     } else {
       this.hide_lock = false;
     }
