@@ -254,7 +254,7 @@ export class LockMechanism extends deviceBase {
       this.parseStatus();
       this.updateHomeKitCharacteristics();
     } catch (e: any) {
-      this.statusCode(e.statusCode);
+      this.statusCode(this.device, e);
       this.debugErrorLog(`Lock: ${this.accessory.displayName} failed lockStatus (refreshStatus), Error: ${JSON.stringify(e)}`);
       this.debugErrorLog(`Lock: ${this.accessory.displayName} failed lockStatus (refreshStatus), Error Message: ${JSON.stringify(e.message)}`);
     }

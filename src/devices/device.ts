@@ -112,24 +112,21 @@ export abstract class deviceBase {
     }
   }
 
-  async statusCode(statusCode: number): Promise<void> {
-    switch (statusCode) {
-      case 100:
+  async statusCode(device: device & devicesConfig, statusCode: string): Promise<void> {
+    if (!device.hide_device) {
+      if (statusCode.includes('100')) {
         this.debugLog(`Lock: ${this.accessory.displayName} Command successfully sent, statusCode: ${statusCode}`);
-        break;
-      case 200:
+      } else if (statusCode.includes('200')) {
         this.debugLog(`Lock: ${this.accessory.displayName} Request successful, statusCode: ${statusCode}`);
-        break;
-      case 400:
+      } else if (statusCode.includes('400')) {
         this.errorLog(`Lock: ${this.accessory.displayName} Bad Request, statusCode: ${statusCode}`);
-        break;
-      case 429:
+      } else if (statusCode.includes('429')) {
         this.errorLog(`Lock: ${this.accessory.displayName} Too Many Requests,	exceeded the number of `
-          + `requests allowed for a given time window, statusCode: ${statusCode}`);
-        break;
-      default:
+        + `requests allowed for a given time window, statusCode: ${statusCode}`);
+      } else {
         this.infoLog(`Lock: ${this.accessory.displayName} Unknown statusCode: ${statusCode}, Submit Bugs Here: '
-        + 'https://tinyurl.com/AugustYaleBug`);
+      + 'https://tinyurl.com/AugustYaleBug`);
+      }
     }
   }
 
