@@ -29,7 +29,7 @@ export class LockMechanism extends deviceBase {
   };
 
   private Battery!: {
-    Service: Service;
+    Service?: Service;
     BatteryLevel: CharacteristicValue;
     StatusLowBattery: CharacteristicValue;
   };
@@ -173,7 +173,7 @@ export class LockMechanism extends deviceBase {
     }
     // Battery
     this.Battery.BatteryLevel = Number(this.battery);
-    this.Battery.Service.getCharacteristic(this.hap.Characteristic.BatteryLevel).updateValue(this.Battery.BatteryLevel);
+    this.Battery!.Service!.getCharacteristic(this.hap.Characteristic.BatteryLevel).updateValue(this.Battery.BatteryLevel);
     if (this.Battery.BatteryLevel < 15) {
       this.Battery.StatusLowBattery = this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW;
     } else {
@@ -309,14 +309,14 @@ export class LockMechanism extends deviceBase {
       this.debugLog(`Lock: ${this.accessory.displayName} BatteryLevel: ${this.Battery.BatteryLevel}`);
     } else {
       this.accessory.context.BatteryLevel = this.Battery.BatteryLevel;
-      this.Battery.Service.updateCharacteristic(this.hap.Characteristic.BatteryLevel, this.Battery.BatteryLevel);
+      this.Battery!.Service!.updateCharacteristic(this.hap.Characteristic.BatteryLevel, this.Battery.BatteryLevel);
       this.debugLog(`Lock: ${this.accessory.displayName} updateCharacteristic BatteryLevel: ${this.Battery.BatteryLevel}`);
     }
     if (this.Battery.StatusLowBattery === undefined) {
       this.debugLog(`Lock: ${this.accessory.displayName} StatusLowBattery: ${this.Battery.StatusLowBattery}`);
     } else {
       this.accessory.context.StatusLowBattery = this.Battery.StatusLowBattery;
-      this.Battery.Service.updateCharacteristic(this.hap.Characteristic.StatusLowBattery, this.Battery.StatusLowBattery);
+      this.Battery!.Service!.updateCharacteristic(this.hap.Characteristic.StatusLowBattery, this.Battery.StatusLowBattery);
       this.debugLog(`Lock: ${this.accessory.displayName} updateCharacteristic StatusLowBattery: ${this.Battery.StatusLowBattery}`);
     }
     // Contact Sensor
@@ -405,7 +405,6 @@ export class LockMechanism extends deviceBase {
       };
     }
     this.Battery = {
-      Service: this.Battery.Service, // Add this line
       BatteryLevel: this.accessory.context.BatteryLevel || 100,
       StatusLowBattery: this.cacheStatusLowBattery(),
     };
