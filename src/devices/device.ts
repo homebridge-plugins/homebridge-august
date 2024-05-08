@@ -112,9 +112,36 @@ export abstract class deviceBase {
     }
   }
 
+  async statusCode(statusCode: number): Promise<void> {
+    switch (statusCode) {
+      case 100:
+        this.debugLog(`Lock: ${this.accessory.displayName} Command successfully sent, statusCode: ${statusCode}`);
+        break;
+      case 200:
+        this.debugLog(`Lock: ${this.accessory.displayName} Request successful, statusCode: ${statusCode}`);
+        break;
+      case 400:
+        this.errorLog(`Lock: ${this.accessory.displayName} Bad Request, statusCode: ${statusCode}`);
+        break;
+      case 429:
+        this.errorLog(`Lock: ${this.accessory.displayName} Too Many Requests,	exceeded the number of `
+          + `requests allowed for a given time window, statusCode: ${statusCode}`);
+        break;
+      default:
+        this.infoLog(`Lock: ${this.accessory.displayName} Unknown statusCode: ${statusCode}, Submit Bugs Here: '
+        + 'https://tinyurl.com/AugustYaleBug`);
+    }
+  }
+
   /**
    * Logging for Device
    */
+  successLog(...log: any[]): void {
+    if (this.enablingDeviceLogging()) {
+      this.platform.log.success(String(...log));
+    }
+  }
+
   infoLog(...log: any[]): void {
     if (this.enablingDeviceLogging()) {
       this.log.info(String(...log));

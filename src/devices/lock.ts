@@ -254,8 +254,9 @@ export class LockMechanism extends deviceBase {
       this.parseStatus();
       this.updateHomeKitCharacteristics();
     } catch (e: any) {
-      this.errorLog(`refreshStatus: ${e}`);
-      this.errorLog(`Lock: ${this.accessory.displayName} failed lockStatus (refreshStatus), Error Message: ${JSON.stringify(e.message)}`);
+      this.statusCode(e.statusCode);
+      this.debugErrorLog(`Lock: ${this.accessory.displayName} failed lockStatus (refreshStatus), Error: ${JSON.stringify(e)}`);
+      this.debugErrorLog(`Lock: ${this.accessory.displayName} failed lockStatus (refreshStatus), Error Message: ${JSON.stringify(e.message)}`);
     }
   }
 
@@ -266,11 +267,11 @@ export class LockMechanism extends deviceBase {
     try {
       await this.platform.augustCredentials();
       if (this.Lock!.LockTargetState === this.hap.Characteristic.LockTargetState.UNSECURED) {
-        this.debugWarnLog(`Lock: ${this.accessory.displayName} Sending request to August API: Unlock (${this.Lock!.LockTargetState})`);
+        this.successLog(`Lock: ${this.accessory.displayName} Sending request to August API: Unlock (${this.Lock!.LockTargetState})`);
         const lockStatus = await this.platform.augustConfig.unlock(this.device.lockId);
         this.debugWarnLog(`Lock: ${this.accessory.displayName} (pushChanges-unlock) lockStatus: ${JSON.stringify(lockStatus)}`);
       } else if (this.Lock!.LockTargetState === this.hap.Characteristic.LockTargetState.SECURED) {
-        this.debugWarnLog(`Lock: ${this.accessory.displayName} Sending request to August API: Lock (${this.Lock!.LockTargetState})`);
+        this.successLog(`Lock: ${this.accessory.displayName} Sending request to August API: Lock (${this.Lock!.LockTargetState})`);
         const lockStatus = await this.platform.augustConfig.lock(this.device.lockId);
         this.debugWarnLog(`Lock: ${this.accessory.displayName} (pushChanges-lock) lockStatus: ${JSON.stringify(lockStatus)}`);
       } else {
