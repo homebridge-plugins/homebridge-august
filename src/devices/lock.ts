@@ -394,16 +394,16 @@ export class LockMechanism extends deviceBase {
   async cacheState() {
     if (!this.hide_lock) {
       if (this.Lock?.LockCurrentState === undefined) {
-        this.Lock!.LockCurrentState = this.accessory.context.LockCurrentState || this.hap.Characteristic.LockCurrentState.SECURED;
+        this.Lock!.LockCurrentState! = this.accessory.context.LockCurrentState || this.hap.Characteristic.LockCurrentState.SECURED;
       }
       if (this.Lock?.LockTargetState === undefined) {
-        this.Lock!.LockTargetState = this.accessory.context.LockTargetState || this.hap.Characteristic.LockTargetState.SECURED;
+        this.Lock!.LockTargetState! = this.accessory.context.LockTargetState || this.hap.Characteristic.LockTargetState.SECURED;
       }
     }
     // Contact Sensor
     if (!this.device.lock?.hide_contactsensor) {
       if (this.ContactSensor?.ContactSensorState === undefined) {
-        this.ContactSensor!.ContactSensorState
+        this.ContactSensor!.ContactSensorState!
           = this.accessory.context.ContactSensorState || this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED;
       }
     }
