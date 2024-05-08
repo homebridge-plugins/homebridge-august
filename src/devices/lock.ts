@@ -275,7 +275,7 @@ export class LockMechanism extends deviceBase {
         this.debugWarnLog(`Lock: ${this.accessory.displayName} (pushChanges-lock) lockStatus: ${JSON.stringify(lockStatus)}`);
       } else {
         this.errorLog(`Lock: ${this.accessory.displayName} lockStatus (pushChanges) failed,`
-        + ` this.LockTargetState: ${this.Lock!.LockTargetState}`);
+          + ` this.LockTargetState: ${this.Lock!.LockTargetState}`);
       }
     } catch (e: any) {
       this.errorLog(`pushChanges: ${e}`);
@@ -327,7 +327,7 @@ export class LockMechanism extends deviceBase {
         this.accessory.context.ContactSensorState = this.ContactSensor?.ContactSensorState;
         this.ContactSensor!.Service!.updateCharacteristic(this.hap.Characteristic.ContactSensorState, this.ContactSensor?.ContactSensorState);
         this.debugLog(`Lock: ${this.accessory.displayName} updateCharacteristic`
-        + ` ContactSensorState: ${this.ContactSensor?.ContactSensorState}`);
+          + ` ContactSensorState: ${this.ContactSensor?.ContactSensorState}`);
       }
     }
   }
@@ -394,17 +394,17 @@ export class LockMechanism extends deviceBase {
   async cacheState() {
     if (!this.hide_lock) {
       if (this.Lock?.LockCurrentState === undefined) {
-        this.Lock!.LockCurrentState! = this.accessory.context.LockCurrentState || this.hap.Characteristic.LockCurrentState.SECURED;
+        this.Lock!.LockCurrentState = this.accessory.context.LockCurrentState || this.hap.Characteristic.LockCurrentState.SECURED;
       }
       if (this.Lock?.LockTargetState === undefined) {
-        this.Lock!.LockTargetState! = this.accessory.context.LockTargetState || this.hap.Characteristic.LockTargetState.SECURED;
+        this.Lock!.LockTargetState = this.accessory.context.LockTargetState || this.hap.Characteristic.LockTargetState.SECURED;
       }
     }
     // Contact Sensor
     if (!this.device.lock?.hide_contactsensor) {
       if (this.ContactSensor?.ContactSensorState === undefined) {
-        this.ContactSensor!.ContactSensorState!
-          = this.accessory.context.ContactSensorState || this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED;
+        this.ContactSensor!.ContactSensorState = this.accessory.context.ContactSensorState
+          || this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED;
       }
     }
     if (this.Battery.BatteryLevel === undefined) {
