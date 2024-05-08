@@ -393,42 +393,31 @@ export class LockMechanism extends deviceBase {
 
   async cacheState() {
     if (!this.hide_lock) {
-      if (this.Lock === undefined) {
-        this.Lock = {
-          LockCurrentState: this.accessory.context.LockCurrentState || this.hap.Characteristic.LockCurrentState.SECURED,
-          LockTargetState: this.accessory.context.LockTargetState || this.hap.Characteristic.LockTargetState.SECURED,
-        };
-      } else {
-        if (this.Lock.LockCurrentState === undefined) {
-          this.Lock.LockCurrentState = this.accessory.context.LockCurrentState || this.hap.Characteristic.LockCurrentState.SECURED;
-        }
-        if (this.Lock.LockTargetState === undefined) {
-          this.Lock.LockTargetState = this.accessory.context.LockTargetState || this.hap.Characteristic.LockTargetState.SECURED;
-        }
-      }
+      this.Lock = {
+        LockCurrentState: this.accessory.context.LockCurrentState || this.hap.Characteristic.LockCurrentState.SECURED,
+        LockTargetState: this.accessory.context.LockTargetState || this.hap.Characteristic.LockTargetState.SECURED,
+      };
     }
     // Contact Sensor
     if (!this.device.lock?.hide_contactsensor) {
-      if (this.ContactSensor === undefined) {
-        this.ContactSensor = {
-          ContactSensorState: this.accessory.context.ContactSensorState || this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED,
-        };
-      } else {
-        if (this.ContactSensor?.ContactSensorState === undefined) {
-          this.ContactSensor!.ContactSensorState = this.accessory.context.ContactSensorState
-            || this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED;
-        }
-      }
+      this.ContactSensor = {
+        ContactSensorState: this.accessory.context.ContactSensorState || this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED,
+      };
     }
-    if (this.Battery.BatteryLevel === undefined) {
-      this.Battery.BatteryLevel = this.accessory.context.BatteryLevel || 100;
+    this.Battery = {
+      Service: this.Battery.Service, // Add this line
+      BatteryLevel: this.accessory.context.BatteryLevel || 100,
+      StatusLowBattery: this.cacheStatusLowBattery(),
+    };
+  }
+
+  cacheStatusLowBattery() {
+    let StatusLowBattery: number = 0;
+    if (Number(this.Battery.BatteryLevel) < 15) {
+      StatusLowBattery = this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW;
+    } else {
+      StatusLowBattery = this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL;
     }
-    if (this.Battery.StatusLowBattery === undefined) {
-      if (Number(this.Battery.BatteryLevel) < 15) {
-        this.Battery.StatusLowBattery = this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW;
-      } else {
-        this.Battery.StatusLowBattery = this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL;
-      }
-    }
+    return StatusLowBattery;
   }
 }
