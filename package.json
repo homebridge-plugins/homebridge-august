@@ -1,7 +1,7 @@
 {
   "displayName": "August",
   "name": "homebridge-august",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "The August plugin allows you to access your August & Yale device(s) from HomeKit.",
   "author": {
     "name": "donavanbecker",
@@ -18,22 +18,20 @@
     "url": "https://github.com/donavanbecker/homebridge-august/issues"
   },
   "engines": {
-    "homebridge": "^1.7.0",
-    "node": "^18 || ^20"
+    "homebridge": "^1.8.1",
+    "node": "^18 || ^20 || ^22"
   },
   "main": "dist/index.js",
   "scripts": {
     "check": "npm install && npm outdated",
     "update": "ncu -u && npm update && npm install",
-    "updateDependencies": "npm run check && npm run update",
-    "lint": "eslint src/**.ts",
+    "lint": "eslint src/**/*.ts",
     "watch": "npm run build && npm run plugin-ui && npm link && nodemon",
     "plugin-ui": "rsync ./src/homebridge-ui/public/index.html ./dist/homebridge-ui/public/",
     "build": "rimraf ./dist && tsc",
     "prepublishOnly": "npm run lint && npm run build && npm run plugin-ui",
     "postpublish": "npm run clean",
-    "clean": "rimraf ./dist",
-    "test": "eslint src/**.ts"
+    "clean": "rimraf ./dist"
   },
   "funding": [
     {
@@ -52,21 +50,21 @@
     "lock"
   ],
   "dependencies": {
-    "@homebridge/plugin-ui-utils": "^1.0.1",
-    "august-yale": "^0.2.0",
+    "@homebridge/plugin-ui-utils": "^1.0.3",
+    "august-yale": "^1.0.0",
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
-    "@types/node": "^20.11.13",
-    "@typescript-eslint/eslint-plugin": "^6.20.0",
-    "@typescript-eslint/parser": "^6.20.0",
-    "eslint": "^8.56.0",
-    "homebridge": "^1.7.0",
-    "homebridge-config-ui-x": "4.55.1",
-    "nodemon": "^3.0.3",
-    "npm-check-updates": "^16.14.14",
+    "@types/node": "^20.12.10",
+    "@typescript-eslint/eslint-plugin": "^7.8.0",
+    "@typescript-eslint/parser": "^7.8.0",
+    "eslint": "^8.57.0",
+    "homebridge": "^1.8.1",
+    "homebridge-config-ui-x": "4.56.2",
+    "nodemon": "^3.1.0",
+    "npm-check-updates": "^16.14.20",
     "rimraf": "^5.0.5",
     "ts-node": "^10.9.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.4.5"
   }
 }

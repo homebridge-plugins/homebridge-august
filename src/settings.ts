@@ -1,3 +1,7 @@
+/* Copyright(C) 2021-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
+ *
+ * setting.ts: homebridge-august.
+ */
 import { PlatformConfig } from 'homebridge';
 /**
  * This is the name of the platform that users will use to register the plugin in the Homebridge config.json
@@ -27,10 +31,10 @@ export type credentials = {
 };
 
 export type options = {
+  devices?: Array<devicesConfig>;
   refreshRate?: number;
   pushRate?: number;
   logging?: string;
-  devices?: Array<devicesConfig>;
 };
 
 export type device = {
