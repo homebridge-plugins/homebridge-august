@@ -124,8 +124,8 @@ export abstract class deviceBase {
       } else if (statusCodeString.includes('429')) {
         this.errorLog(`Lock: ${this.accessory.displayName} Too Many Requests, exceeded the number of `
         + `requests allowed for a given time window, statusCode: ${statusCodeString}`);
-      } else if (statusCodeString !== 'undefined') {
-        this.infoLog(`Lock: ${this.accessory.displayName} Unknown statusCode: ${statusCodeString}, Submit Bugs Here: '
+      } else {
+        this.debugLog(`Lock: ${this.accessory.displayName} Unknown statusCode: ${statusCodeString}, Submit Bugs Here: '
       + 'https://tinyurl.com/AugustYaleBug`);
       }
     }
