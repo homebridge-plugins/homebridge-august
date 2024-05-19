@@ -74,7 +74,7 @@ export class LockMechanism extends deviceBase {
       accessory.removeService(this.LockMechanism!.Service);
     } else {
       this.LockMechanism = {
-        Name: device.LockName ?? accessory.context.LockMechanism.Name ?? accessory.displayName,
+        Name: accessory.context.LockMechanismName ?? device.LockName ?? accessory.displayName,
         Service: accessory.getService(this.hap.Service.LockMechanism) ?? accessory.addService(this.hap.Service.LockMechanism) as Service,
         LockTargetState:  accessory.context.LockTargetState ?? this.hap.Characteristic.LockTargetState.SECURED,
         LockCurrentState: accessory.context.LockCurrentState ?? this.hap.Characteristic.LockCurrentState.SECURED,
@@ -87,7 +87,7 @@ export class LockMechanism extends deviceBase {
           return this.LockMechanism!.LockTargetState;
         })
         .onSet(this.setLockTargetState.bind(this));
-      accessory.context.LockMechanism.Name = this.LockMechanism.Name;
+      accessory.context.LockMechanismName = this.LockMechanism.Name;
     }
 
     // Initialize Contact Sensor Service
@@ -97,7 +97,7 @@ export class LockMechanism extends deviceBase {
       accessory.removeService(this.ContactSensor!.Service);
     } else {
       this.ContactSensor = {
-        Name: accessory.context.ContactSensor.Name ?? `${accessory.displayName} Contact Sensor`,
+        Name: accessory.context.ContactSensorName ?? `${accessory.displayName} Contact Sensor`,
         Service: accessory.getService(this.hap.Service.ContactSensor) ?? accessory.addService(this.hap.Service.ContactSensor) as Service,
         ContactSensorState: accessory.context.ContactSensorState ?? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED,
       };
@@ -108,12 +108,12 @@ export class LockMechanism extends deviceBase {
         .onGet(() => {
           return this.ContactSensor!.ContactSensorState;
         });
-      accessory.context.ContactSensor.Name = this.ContactSensor.Name;
+      accessory.context.ContactSensorName = this.ContactSensor.Name;
     }
 
     // Initialize Battery Service
     this.Battery = {
-      Name: accessory.context.Battery.Name ?? `${accessory.displayName} Battery`,
+      Name: accessory.context.BatteryName ?? `${accessory.displayName} Battery`,
       Service: accessory.getService(this.hap.Service.Battery) ?? accessory.addService(this.hap.Service.Battery) as Service,
       BatteryLevel: accessory.context.BatteryLevel ?? 100,
       StatusLowBattery: accessory.context.StatusLowBattery ?? this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
@@ -133,7 +133,7 @@ export class LockMechanism extends deviceBase {
       .onGet(() => {
         return this.Battery.StatusLowBattery!;
       });
-    accessory.context.Battery.Name = this.Battery.Name;
+    accessory.context.BatteryName = this.Battery.Name;
 
     // Initial Device Parse
     if (this.deviceRefreshRate !== 0) {
