@@ -3,7 +3,7 @@
  * lock.ts: homebridge-august.
  */
 import { interval, Subject } from 'rxjs';
-import { debounceTime, skipWhile, take, tap } from 'rxjs/operators';
+import { debounceTime, skipWhile, tap } from 'rxjs/operators';
 import { deviceBase } from './device.js';
 import August from 'august-yale';
 
@@ -19,20 +19,24 @@ import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge
 export class LockMechanism extends deviceBase {
   // Service
   private LockMechanism?: {
+    Name: CharacteristicValue;
     Service?: Service;
     LockTargetState?: CharacteristicValue;
     LockCurrentState?: CharacteristicValue;
   };
 
-  private ContactSensor?: {
-    Service?: Service;
-    ContactSensorState?: CharacteristicValue;
-  };
-
-  private Battery!: {
+  private Battery: {
+    Name: CharacteristicValue;
     Service?: Service;
     BatteryLevel: CharacteristicValue;
     StatusLowBattery: CharacteristicValue;
+    ChargingState: CharacteristicValue;
+  };
+
+  private ContactSensor?: {
+    Name: CharacteristicValue;
+    Service?: Service;
+    ContactSensorState?: CharacteristicValue;
   };
 
   // Lock Status
@@ -63,48 +67,78 @@ export class LockMechanism extends deviceBase {
     this.doLockUpdate = new Subject();
     this.lockUpdateInProgress = false;
 
-    // Initialize Motion Sensor property
-    if (!device.lock?.hide_lock) {
-      this.LockMechanism = {
-        Service: accessory.getService(this.hap.Service.LockMechanism) || accessory.addService(this.hap.Service.LockMechanism) as Service,
-        LockTargetState: this.hap.Characteristic.LockTargetState.SECURED,
-        LockCurrentState: this.hap.Characteristic.LockCurrentState.SECURED,
-      };
-      // Service Name
-      this.LockMechanism!.Service!.setCharacteristic(this.hap.Characteristic.Name, accessory.displayName);
-      // Create handlers for required characteristics
-      this.LockMechanism!.Service!.getCharacteristic(this.hap.Characteristic.LockTargetState).onSet(this.setLockTargetState.bind(this));
-    } else {
+    // Initialize Lock Mechanism Service
+    if (device.lock?.hide_lock) {
       this.warnLog(`Lock: ${accessory.displayName} Removing Lock Mechanism Service`);
       this.LockMechanism!.Service = accessory.getService(this.hap.Service.LockMechanism) as Service;
       accessory.removeService(this.LockMechanism!.Service);
+    } else {
+      this.LockMechanism = {
+        Name: accessory.context.LockMechanism.Name ?? accessory.displayName,
+        Service: accessory.getService(this.hap.Service.LockMechanism) ?? accessory.addService(this.hap.Service.LockMechanism) as Service,
+        LockTargetState:  accessory.context.LockTargetState ?? this.hap.Characteristic.LockTargetState.SECURED,
+        LockCurrentState: accessory.context.LockCurrentState ?? this.hap.Characteristic.LockCurrentState.SECURED,
+      };
+      // Initialize Lock Mechanism Characteristics
+      this.LockMechanism!.Service!
+        .setCharacteristic(this.hap.Characteristic.Name, accessory.displayName)
+        .getCharacteristic(this.hap.Characteristic.LockTargetState)
+        .onGet(() => {
+          return this.LockMechanism!.LockTargetState!;
+        })
+        .onSet(this.setLockTargetState.bind(this));
+      accessory.context.LockMechanism.Name = this.LockMechanism.Name;
     }
 
-
-    // Contact Sensor
-    if (!device.lock?.hide_contactsensor) {
-      this.ContactSensor = {
-        Service: accessory.getService(this.hap.Service.ContactSensor) || accessory.addService(this.hap.Service.ContactSensor) as Service,
-        ContactSensorState: accessory.context.ContactSensorState || this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED,
-      };
-      // Service Name
-      this.ContactSensor!.Service!.setCharacteristic(this.hap.Characteristic.Name, `${accessory.displayName} Contact Sensor`);
-    } else {
+    // Initialize Contact Sensor Service
+    if (device.lock?.hide_contactsensor) {
       this.warnLog(`Lock: ${accessory.displayName} Removing Contact Sensor Service`);
       this.ContactSensor!.Service = accessory.getService(this.hap.Service.ContactSensor) as Service;
       accessory.removeService(this.ContactSensor!.Service);
+    } else {
+      this.ContactSensor = {
+        Name: accessory.context.ContactSensor.Name ?? `${accessory.displayName} Contact Sensor`,
+        Service: accessory.getService(this.hap.Service.ContactSensor) ?? accessory.addService(this.hap.Service.ContactSensor) as Service,
+        ContactSensorState: accessory.context.ContactSensorState ?? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED,
+      };
+      // Initialize Conact Sensor Characteristics
+      this.ContactSensor!.Service!
+        .setCharacteristic(this.hap.Characteristic.Name, this.ContactSensor.Name)
+        .getCharacteristic(this.hap.Characteristic.ContactSensorState)
+        .onGet(() => {
+          return this.ContactSensor!.ContactSensorState!;
+        });
+      accessory.context.ContactSensor.Name = this.ContactSensor.Name;
     }
 
+    // Initialize Battery Service
     this.Battery = {
-      Service: accessory.getService(this.hap.Service.Battery) || accessory.addService(this.hap.Service.Battery) as Service,
-      BatteryLevel: this.accessory.context.BatteryLevel || 100,
-      StatusLowBattery: this.cacheStatusLowBattery(),
+      Name: accessory.context.Battery.Name ?? `${accessory.displayName} Battery`,
+      Service: accessory.getService(this.hap.Service.Battery) ?? accessory.addService(this.hap.Service.Battery) as Service,
+      BatteryLevel: accessory.context.BatteryLevel ?? 100,
+      StatusLowBattery: accessory.context.StatusLowBattery ?? this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
+      ChargingState: accessory.context.ChargingState ?? this.hap.Characteristic.ChargingState.NOT_CHARGING,
     };
-    // Service Name
-    this.Battery!.Service!.setCharacteristic(this.hap.Characteristic.Name, `${accessory.displayName} Battery`);
+    // Initialize Battery Characteristics
+    this.Battery!.Service!
+      .setCharacteristic(this.hap.Characteristic.Name, this.Battery.Name)
+      .setCharacteristic(this.hap.Characteristic.ChargingState, this.hap.Characteristic.ChargingState.NOT_CHARGEABLE)
+      .getCharacteristic(this.hap.Characteristic.BatteryLevel)
+      .onGet(() => {
+        return this.Battery.BatteryLevel!;
+      });
+
+    this.Battery.Service!
+      .getCharacteristic(this.hap.Characteristic.StatusLowBattery)
+      .onGet(() => {
+        return this.Battery.StatusLowBattery!;
+      });
+    accessory.context.Battery.Name = this.Battery.Name;
 
     // Initial Device Parse
-    this.refreshStatus();
+    if (this.deviceRefreshRate !== 0) {
+      this.refreshStatus();
+    }
 
     // Retrieve initial values and updateHomekit
     this.updateHomeKitCharacteristics();
@@ -113,38 +147,35 @@ export class LockMechanism extends deviceBase {
     this.subscribeAugust();
 
     // Start an update interval
-    interval(this.deviceRefreshRate * 1000)
-      .pipe(skipWhile(() => this.lockUpdateInProgress))
-      .subscribe(async () => {
-        await this.refreshStatus();
-      });
+
+    if (this.deviceRefreshRate !== 0) {
+      interval(this.deviceRefreshRate * 1000)
+        .pipe(skipWhile(() => this.lockUpdateInProgress))
+        .subscribe(async () => {
+          await this.refreshStatus();
+        });
+    }
 
     // Watch for Lock change events
     // We put in a debounce of 100ms so we don't make duplicate calls
-    this.doLockUpdate
-      .pipe(
-        tap(() => {
-          this.lockUpdateInProgress = true;
-        }),
-        debounceTime(this.platform.config.options!.pushRate! * 1000),
-      )
-      .subscribe(async () => {
-        try {
-          if (!device.lock?.hide_lock) {
+    if (!device.lock?.hide_lock) {
+      this.doLockUpdate
+        .pipe(
+          tap(() => {
+            this.lockUpdateInProgress = true;
+          }),
+          debounceTime(this.platform.config.options!.pushRate! * 1000),
+        )
+        .subscribe(async () => {
+          try {
             await this.pushChanges();
-          }
-        } catch (e: any) {
-          this.errorLog(`doLockUpdate pushChanges: ${e}`);
-        }
-        // Refresh the status from the API
-        interval(this.deviceRefreshRate * 500)
-          .pipe(skipWhile(() => this.lockUpdateInProgress))
-          .pipe(take(1))
-          .subscribe(async () => {
+          } catch (e: any) {
+            this.errorLog(`doLockUpdate pushChanges: ${e}`);
             await this.refreshStatus();
-          });
-        this.lockUpdateInProgress = false;
-      });
+          }
+          this.lockUpdateInProgress = false;
+        });
+    }
   }
 
   /**
@@ -153,23 +184,6 @@ export class LockMechanism extends deviceBase {
   async parseStatus(lockDetails: lockDetails): Promise<void> {
     this.debugLog(`Lock: ${this.accessory.displayName} parseStatus`);
 
-    //const lockStatus = lockDetails.LockStatus;
-    //this.platform.augustConfig.addSimpleProps(lockStatus);
-
-    const retryCount = 1;
-    // Lock Mechanism
-    if (!this.device.lock?.hide_lock) {
-      if (lockDetails.LockStatus.state.locked) {
-        this.LockMechanism!.LockCurrentState = this.hap.Characteristic.LockCurrentState.SECURED;
-      } else if (lockDetails.LockStatus.state.unlocked) {
-        this.LockMechanism!.LockCurrentState = this.hap.Characteristic.LockCurrentState.UNSECURED;
-      } else if (retryCount > 1) {
-        this.LockMechanism!.LockCurrentState = this.hap.Characteristic.LockCurrentState.JAMMED;
-      } else {
-        this.LockMechanism!.LockCurrentState = this.hap.Characteristic.LockCurrentState.UNKNOWN;
-        //await this.refreshStatus();
-      }
-    }
     // Battery
     this.Battery.BatteryLevel = Number((lockDetails.battery * 100).toFixed());
     this.Battery!.Service!.getCharacteristic(this.hap.Characteristic.BatteryLevel).updateValue(this.Battery.BatteryLevel);
@@ -181,26 +195,6 @@ export class LockMechanism extends deviceBase {
     this.debugLog(`Lock: ${this.accessory.displayName} BatteryLevel: ${this.Battery.BatteryLevel},`
       + ` StatusLowBattery: ${this.Battery.StatusLowBattery}`);
 
-    // Contact Sensor
-    if (!this.device.lock?.hide_contactsensor) {
-      if (lockDetails.LockStatus.state.open) {
-        this.ContactSensor!.ContactSensorState = this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED;
-        this.debugLog(`Lock: ${this.accessory.displayName} ContactSensorState: ${this.ContactSensor?.ContactSensorState}`);
-      } else if (lockDetails.LockStatus.state.closed) {
-        this.ContactSensor!.ContactSensorState = this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED;
-        this.debugLog(`Lock: ${this.accessory.displayName} ContactSensorState: ${this.ContactSensor?.ContactSensorState}`);
-      } else if (lockDetails.LockStatus.doorState.includes('open')) {
-        this.ContactSensor!.ContactSensorState = this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED;
-        this.debugLog(`Lock: ${this.accessory.displayName} ContactSensorState: ${this.ContactSensor?.ContactSensorState}`);
-      } else if (lockDetails.LockStatus.doorState.includes('closed')) {
-        this.ContactSensor!.ContactSensorState = this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED;
-        this.debugLog(`Lock: ${this.accessory.displayName} ContactSensorState: ${this.ContactSensor?.ContactSensorState}`);
-      } else {
-        this.errorLog(`Lock: ${this.accessory.displayName} doorState: ${this.doorState}, closed: ${lockDetails.LockStatus.state.closed},`
-          + ` open: ${lockDetails.LockStatus.state.open}`);
-      }
-    }
-
     // Firmware Version
     if (lockDetails.currentFirmwareVersion !== this.accessory.context.currentFirmwareVersion) {
       this.warnLog(`Lock: ${this.accessory.displayName} Firmware Version changed to Current Firmware Version: ${this.currentFirmwareVersion}`);
@@ -211,6 +205,45 @@ export class LockMechanism extends deviceBase {
         .updateValue(this.currentFirmwareVersion);
       this.accessory.context.currentFirmwareVersion = this.currentFirmwareVersion;
     }
+
+    // Lock Status
+    const retryCount = 1;
+    const LockStatus = lockDetails.LockStatus;
+    this.platform.augustConfig.addSimpleProps(LockStatus);
+
+    // Lock Mechanism
+    if (!this.device.lock?.hide_lock) {
+      if (LockStatus.state.locked) {
+        this.LockMechanism!.LockCurrentState = this.hap.Characteristic.LockCurrentState.SECURED;
+      } else if (LockStatus.state.unlocked) {
+        this.LockMechanism!.LockCurrentState = this.hap.Characteristic.LockCurrentState.UNSECURED;
+      } else if (retryCount > 1) {
+        this.LockMechanism!.LockCurrentState = this.hap.Characteristic.LockCurrentState.JAMMED;
+      } else {
+        this.LockMechanism!.LockCurrentState = this.hap.Characteristic.LockCurrentState.UNKNOWN;
+        await this.refreshStatus();
+      }
+    }
+
+    // Contact Sensor
+    if (!this.device.lock?.hide_contactsensor) {
+      if (LockStatus.state.open) {
+        this.ContactSensor!.ContactSensorState = this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED;
+        this.debugLog(`Lock: ${this.accessory.displayName} ContactSensorState: ${this.ContactSensor?.ContactSensorState}`);
+      } else if (LockStatus.state.closed) {
+        this.ContactSensor!.ContactSensorState = this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED;
+        this.debugLog(`Lock: ${this.accessory.displayName} ContactSensorState: ${this.ContactSensor?.ContactSensorState}`);
+      } else if (LockStatus.doorState.includes('open')) {
+        this.ContactSensor!.ContactSensorState = this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED;
+        this.debugLog(`Lock: ${this.accessory.displayName} ContactSensorState: ${this.ContactSensor?.ContactSensorState}`);
+      } else if (LockStatus.doorState.includes('closed')) {
+        this.ContactSensor!.ContactSensorState = this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED;
+        this.debugLog(`Lock: ${this.accessory.displayName} ContactSensorState: ${this.ContactSensor?.ContactSensorState}`);
+      } else {
+        this.errorLog(`Lock: ${this.accessory.displayName} doorState: ${this.doorState}, closed: ${LockStatus.state.closed},`
+          + ` open: ${LockStatus.state.open}`);
+      }
+    }
   }
 
   /**
@@ -218,7 +251,6 @@ export class LockMechanism extends deviceBase {
    */
   async refreshStatus(): Promise<void> {
     try {
-      //await this.platform.augustCredentials();
       // Update Lock Details
       const lockDetails: any = await this.platform.augustConfig.details(this.device.lockId);
       this.debugSuccessLog(`Lock: ${this.accessory.displayName} (refreshStatus) lockDetails: ${JSON.stringify(lockDetails)}`);
@@ -318,7 +350,7 @@ export class LockMechanism extends deviceBase {
 
   async subscribeAugust(): Promise<void> {
     await this.platform.augustCredentials();
-    await August.subscribe(this.config.credentials!, this.device.lockId, (AugustEvent: any, timestamp: any) => {
+    await August.subscribe(this.config.credentials!, this.device.lockId, async (AugustEvent: any, timestamp: any) => {
       this.debugLog(`Lock: ${this.accessory.displayName} AugustEvent: ${JSON.stringify(AugustEvent)}, ${JSON.stringify(timestamp)}`);
       //LockCurrentState
       if (!this.device.lock?.hide_lock) {
@@ -335,7 +367,7 @@ export class LockMechanism extends deviceBase {
             this.infoLog(`Lock: ${this.accessory.displayName} was Locked`);
           }
         } else {
-          this.refreshStatus();
+          await this.refreshStatus();
         }
       }
       // Contact Sensor
@@ -353,21 +385,11 @@ export class LockMechanism extends deviceBase {
             this.infoLog(`Lock: ${this.accessory.displayName} was Closed`);
           }
         } else {
-          this.refreshStatus();
+          await this.refreshStatus();
         }
       }
       // Update HomeKit
       this.updateHomeKitCharacteristics();
     });
-  }
-
-  cacheStatusLowBattery() {
-    let StatusLowBattery: number = 0;
-    if (this.Battery && this.Battery.BatteryLevel && Number(this.Battery.BatteryLevel) < 15) {
-      StatusLowBattery = this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW;
-    } else {
-      StatusLowBattery = this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL;
-    }
-    return StatusLowBattery;
   }
 }

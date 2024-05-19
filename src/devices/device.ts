@@ -60,11 +60,15 @@ export abstract class deviceBase {
 
   async getDeviceRefreshRate(device: device & devicesConfig): Promise<void> {
     if (device.refreshRate) {
-      if (device.refreshRate < 1800) {
-        device.refreshRate = 1800;
+      if (device.refreshRate === 0) {
+        this.deviceRefreshRate = 0;
+      } else if (device.refreshRate < 1800) {
+        this.deviceRefreshRate = 1800;
         this.warnLog('Refresh Rate cannot be set to lower the 5 mins, as Lock detail (battery level, etc) are unlikely to change within that period');
+      } else {
+        this.deviceRefreshRate = device.refreshRate;
       }
-      this.deviceRefreshRate = this.accessory.context.refreshRate = device.refreshRate;
+      this.accessory.context.deviceRefreshRate = this.deviceRefreshRate;
       this.debugLog(`Lock: ${this.accessory.displayName} Using Device Config refreshRate: ${this.deviceRefreshRate}`);
     } else if (this.config.refreshRate) {
       this.deviceRefreshRate = this.accessory.context.refreshRate = this.config.refreshRate;

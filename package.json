@@ -60,7 +60,7 @@
     "@types/eslint__js": "^8.42.3",
     "@types/node": "^20.12.12",
     "eslint": "^9.3.0",
-    "globals": "^15.2.0",
+    "globals": "^15.3.0",
     "homebridge": "^1.8.2",
     "homebridge-config-ui-x": "4.56.2",
     "nodemon": "^3.1.0",
