@@ -19,10 +19,10 @@ import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge
 export class LockMechanism extends deviceBase {
   // Service
   private LockMechanism?: {
-    Name?: CharacteristicValue;
-    Service?: Service;
-    LockTargetState?: CharacteristicValue;
-    LockCurrentState?: CharacteristicValue;
+    Name: CharacteristicValue;
+    Service: Service;
+    LockTargetState: CharacteristicValue;
+    LockCurrentState: CharacteristicValue;
   };
 
   private Battery: {
@@ -74,17 +74,17 @@ export class LockMechanism extends deviceBase {
       accessory.removeService(this.LockMechanism!.Service);
     } else {
       this.LockMechanism = {
-        Name: accessory.context.LockMechanism.Name ?? device.LockName ?? accessory.displayName,
+        Name: device.LockName ?? accessory.context.LockMechanism.Name ?? accessory.displayName,
         Service: accessory.getService(this.hap.Service.LockMechanism) ?? accessory.addService(this.hap.Service.LockMechanism) as Service,
         LockTargetState:  accessory.context.LockTargetState ?? this.hap.Characteristic.LockTargetState.SECURED,
         LockCurrentState: accessory.context.LockCurrentState ?? this.hap.Characteristic.LockCurrentState.SECURED,
       };
       // Initialize Lock Mechanism Characteristics
-      this.LockMechanism.Service!
-        .setCharacteristic(this.hap.Characteristic.Name, this.LockMechanism.Name!)
+      this.LockMechanism.Service
+        .setCharacteristic(this.hap.Characteristic.Name, this.LockMechanism.Name)
         .getCharacteristic(this.hap.Characteristic.LockTargetState)
         .onGet(() => {
-          return this.LockMechanism!.LockTargetState!;
+          return this.LockMechanism!.LockTargetState;
         })
         .onSet(this.setLockTargetState.bind(this));
       accessory.context.LockMechanism.Name = this.LockMechanism.Name;
