@@ -2,7 +2,7 @@
  *
  * setting.ts: homebridge-august.
  */
-import { PlatformConfig } from 'homebridge';
+import type { PlatformConfig } from 'homebridge';
 /**
  * This is the name of the platform that users will use to register the plugin in the Homebridge config.json
  */
@@ -132,3 +132,24 @@ export type lock = {
   hide_lock?: boolean;
   hide_contactsensor?: boolean;
 };
+
+export type lockDetails = {
+  lockName: string;
+  battery: number;
+  LockStatus: lockStatus;
+  currentFirmwareVersion: string;
+}
+
+export type lockStatus = {
+  lockID: string;
+  status: string;
+  doorState: string;
+  state: state;
+}
+
+export type state = {
+  unlocked: boolean;
+  locked: boolean;
+  open: boolean;
+  closed: boolean;
+}

@@ -2,10 +2,9 @@
  *
  * device.ts: homebridge-august.
  */
-import { API, HAP, Logging, PlatformAccessory } from 'homebridge';
-
-import { AugustPlatform } from '../platform.js';
-import { AugustPlatformConfig, device, devicesConfig } from '../settings.js';
+import type { AugustPlatform } from '../platform.js';
+import type { device, devicesConfig, AugustPlatformConfig } from '../settings.js';
+import type { API, HAP, Logging, PlatformAccessory } from 'homebridge';
 
 export abstract class deviceBase {
   public readonly api: API;
@@ -16,7 +15,6 @@ export abstract class deviceBase {
   // Config
   protected deviceLogging!: string;
   protected deviceRefreshRate!: number;
-  protected hide_lock!: boolean;
 
   constructor(
     protected readonly platform: AugustPlatform,
@@ -32,7 +30,6 @@ export abstract class deviceBase {
     this.getDeviceRefreshRate(device);
     this.deviceConfigOptions(device);
     this.deviceContext(accessory, device);
-    this.lock(device);
 
     // Set accessory information
     accessory
@@ -76,19 +73,18 @@ export abstract class deviceBase {
   }
 
   async deviceConfigOptions(device: device & devicesConfig): Promise<void> {
-    let config = {};
-    if (device.lock) {
-      config = device.lock || '';
-    }
+    const deviceConfig = {};
     if (device.logging !== undefined) {
-      config['logging'] = device.logging;
+      deviceConfig['logging'] = device.logging;
     }
     if (device.refreshRate !== undefined) {
-      config['refreshRate'] = device.refreshRate;
+      deviceConfig['refreshRate'] = device.refreshRate;
     }
-    if (device.lock?.hide_lock !== undefined) {
-      config['hide_lock'] = this.hide_lock;
+    let lockConfig = {};
+    if (device.lock) {
+      lockConfig = device.lock;
     }
+    const config = Object.assign({}, deviceConfig, lockConfig);
     if (Object.entries(config).length !== 0) {
       this.infoLog(`Lock: ${this.accessory.displayName} Config: ${JSON.stringify(config)}`);
     }
@@ -104,14 +100,6 @@ export abstract class deviceBase {
     }
   }
 
-  async lock(device: device & devicesConfig): Promise<void> {
-    if (device.lock && device.lock.hide_lock) {
-      this.hide_lock = device.lock.hide_lock;
-    } else {
-      this.hide_lock = false;
-    }
-  }
-
   async statusCode(device: device & devicesConfig, error: { message: string; }): Promise<void> {
     if (!device.hide_device) {
       const statusCodeString = String(error); // Convert statusCode to a string
@@ -123,7 +111,7 @@ export abstract class deviceBase {
         this.errorLog(`Lock: ${this.accessory.displayName} Bad Request, statusCode: ${statusCodeString}`);
       } else if (statusCodeString.includes('429')) {
         this.errorLog(`Lock: ${this.accessory.displayName} Too Many Requests, exceeded the number of `
-        + `requests allowed for a given time window, statusCode: ${statusCodeString}`);
+          + `requests allowed for a given time window, statusCode: ${statusCodeString}`);
       } else {
         this.debugLog(`Lock: ${this.accessory.displayName} Unknown statusCode: ${statusCodeString}, Submit Bugs Here: '
       + 'https://tinyurl.com/AugustYaleBug`);
@@ -136,15 +124,23 @@ export abstract class deviceBase {
   /**
    * Logging for Device
    */
-  successLog(...log: any[]): void {
-    if (this.enablingDeviceLogging()) {
-      this.platform.log.success(String(...log));
-    }
-  }
-
   infoLog(...log: any[]): void {
     if (this.enablingDeviceLogging()) {
       this.log.info(String(...log));
+    }
+  }
+
+  successLog(...log: any[]): void {
+    if (this.enablingDeviceLogging()) {
+      this.log.success(String(...log));
+    }
+  }
+
+  debugSuccessLog(...log: any[]): void {
+    if (this.enablingDeviceLogging()) {
+      if (this.deviceLogging?.includes('debug')) {
+        this.log.success('[DEBUG]', String(...log));
+      }
     }
   }
 

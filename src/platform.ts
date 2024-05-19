@@ -4,11 +4,12 @@
  * platform.ts: homebridge-august.
  */
 import August from 'august-yale';
-/*import August from '/Users/Shared/GitHub/${}/august-yale/dist/index.js';*/
 import { readFileSync, writeFileSync } from 'fs';
 import { LockMechanism } from './devices/lock.js';
-import { API, DynamicPlatformPlugin, HAP, Logging, PlatformAccessory } from 'homebridge';
-import { AugustPlatformConfig, PLUGIN_NAME, PLATFORM_NAME, device, devicesConfig } from './settings.js';
+import { PLUGIN_NAME, PLATFORM_NAME } from './settings.js';
+
+import type { AugustPlatformConfig, device, devicesConfig } from './settings.js';
+import type { API, DynamicPlatformPlugin, Logging, PlatformAccessory } from 'homebridge';
 
 /**
  * HomebridgePlatform
@@ -19,7 +20,6 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   public accessories: PlatformAccessory[];
   public readonly api: API;
   public readonly log: Logging;
-  protected readonly hap: HAP;
   public config!: AugustPlatformConfig;
 
   platformConfig!: AugustPlatformConfig['options'];
@@ -38,7 +38,6 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   ) {
     this.accessories = [];
     this.api = api;
-    this.hap = this.api.hap;
     this.log = log;
 
     if (!config) {
