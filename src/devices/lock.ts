@@ -19,14 +19,14 @@ import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge
 export class LockMechanism extends deviceBase {
   // Service
   private LockMechanism?: {
-    Name: CharacteristicValue;
+    Name: string;
     Service: Service;
     LockTargetState: CharacteristicValue;
     LockCurrentState: CharacteristicValue;
   };
 
   private Battery: {
-    Name: CharacteristicValue;
+    Name: string;
     Service: Service;
     BatteryLevel: CharacteristicValue;
     StatusLowBattery: CharacteristicValue;
@@ -34,9 +34,9 @@ export class LockMechanism extends deviceBase {
   };
 
   private ContactSensor?: {
-    Name?: CharacteristicValue;
-    Service?: Service;
-    ContactSensorState?: CharacteristicValue;
+    Name: string;
+    Service: Service;
+    ContactSensorState: CharacteristicValue;
   };
 
   // Lock Status
@@ -102,11 +102,11 @@ export class LockMechanism extends deviceBase {
         ContactSensorState: accessory.context.ContactSensorState ?? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED,
       };
       // Initialize Conact Sensor Characteristics
-      this.ContactSensor.Service!
-        .setCharacteristic(this.hap.Characteristic.Name, this.ContactSensor.Name!)
+      this.ContactSensor.Service
+        .setCharacteristic(this.hap.Characteristic.Name, this.ContactSensor.Name)
         .getCharacteristic(this.hap.Characteristic.ContactSensorState)
         .onGet(() => {
-          return this.ContactSensor!.ContactSensorState!;
+          return this.ContactSensor!.ContactSensorState;
         });
       accessory.context.ContactSensor.Name = this.ContactSensor.Name;
     }
