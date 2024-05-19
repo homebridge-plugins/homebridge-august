@@ -74,14 +74,14 @@ export class LockMechanism extends deviceBase {
       accessory.removeService(this.LockMechanism!.Service);
     } else {
       this.LockMechanism = {
-        Name: accessory.context.LockMechanism.Name ?? accessory.displayName,
+        Name: accessory.context.LockMechanism.Name ?? device.LockName ?? accessory.displayName,
         Service: accessory.getService(this.hap.Service.LockMechanism) ?? accessory.addService(this.hap.Service.LockMechanism) as Service,
         LockTargetState:  accessory.context.LockTargetState ?? this.hap.Characteristic.LockTargetState.SECURED,
         LockCurrentState: accessory.context.LockCurrentState ?? this.hap.Characteristic.LockCurrentState.SECURED,
       };
       // Initialize Lock Mechanism Characteristics
-      this.LockMechanism!.Service!
-        .setCharacteristic(this.hap.Characteristic.Name, accessory.displayName)
+      this.LockMechanism.Service!
+        .setCharacteristic(this.hap.Characteristic.Name, this.LockMechanism.Name!)
         .getCharacteristic(this.hap.Characteristic.LockTargetState)
         .onGet(() => {
           return this.LockMechanism!.LockTargetState!;
