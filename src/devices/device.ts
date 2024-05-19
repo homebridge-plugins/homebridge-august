@@ -62,6 +62,7 @@ export abstract class deviceBase {
     if (device.refreshRate) {
       if (device.refreshRate === 0) {
         this.deviceRefreshRate = 0;
+        this.warnLog('Refresh Rate set to 0, this will disable the refresh rate for this device');
       } else if (device.refreshRate < 1800) {
         this.deviceRefreshRate = 1800;
         this.warnLog('Refresh Rate cannot be set to lower the 5 mins, as Lock detail (battery level, etc) are unlikely to change within that period');
