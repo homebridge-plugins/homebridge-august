@@ -155,7 +155,6 @@ export class LockMechanism extends deviceBase {
     this.subscribeAugust();
 
     // Start an update interval
-
     if (this.deviceRefreshRate !== 0) {
       interval(this.deviceRefreshRate * 1000)
         .pipe(skipWhile(() => this.lockUpdateInProgress))
@@ -179,7 +178,9 @@ export class LockMechanism extends deviceBase {
             await this.pushChanges();
           } catch (e: any) {
             this.errorLog(`doLockUpdate pushChanges: ${e}`);
-            await this.refreshStatus();
+            if (this.deviceRefreshRate !== 0) {
+              await this.refreshStatus();
+            }
           }
           this.lockUpdateInProgress = false;
         });
@@ -229,7 +230,9 @@ export class LockMechanism extends deviceBase {
         this.LockMechanism!.LockCurrentState = this.hap.Characteristic.LockCurrentState.JAMMED;
       } else {
         this.LockMechanism!.LockCurrentState = this.hap.Characteristic.LockCurrentState.UNKNOWN;
-        await this.refreshStatus();
+        if (this.deviceRefreshRate !== 0) {
+          await this.refreshStatus();
+        }
       }
     }
 
@@ -375,7 +378,9 @@ export class LockMechanism extends deviceBase {
             this.infoLog(`Lock: ${this.accessory.displayName} was Locked`);
           }
         } else {
-          await this.refreshStatus();
+          if (this.deviceRefreshRate !== 0) {
+            await this.refreshStatus();
+          }
         }
       }
       // Contact Sensor
@@ -393,7 +398,9 @@ export class LockMechanism extends deviceBase {
             this.infoLog(`Lock: ${this.accessory.displayName} was Closed`);
           }
         } else {
-          await this.refreshStatus();
+          if (this.deviceRefreshRate !== 0) {
+            await this.refreshStatus();
+          }
         }
       }
       // Update HomeKit
