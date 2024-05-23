@@ -121,7 +121,6 @@ export abstract class deviceBase {
         this.debugLog(`Lock: ${this.accessory.displayName} Unknown statusCode: ${statusCodeString}, Submit Bugs Here: '
       + 'https://tinyurl.com/AugustYaleBug`);
         this.debugErrorLog(`Lock: ${this.accessory.displayName} failed lockStatus (refreshStatus), Error: ${JSON.stringify(error)}`);
-        this.debugErrorLog(`Lock: ${this.accessory.displayName} failed lockStatus (refreshStatus), Error Message: ${JSON.stringify(error.message)}`);
       }
     }
   }

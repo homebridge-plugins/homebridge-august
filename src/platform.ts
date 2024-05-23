@@ -210,7 +210,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     if (!this.config.credentials) {
       throw 'Missing Credentials';
     } else {
-      this.augustConfig = new August(this.config.credentials!);
+      this.augustConfig = new August(this.config.credentials);
       this.debugLog(`August Credentials: ${JSON.stringify(this.augustConfig)}`);
     }
   }

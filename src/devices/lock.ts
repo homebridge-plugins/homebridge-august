@@ -73,15 +73,14 @@ export class LockMechanism extends deviceBase {
       this.LockMechanism!.Service = accessory.getService(this.hap.Service.LockMechanism) as Service;
       accessory.removeService(this.LockMechanism!.Service);
     } else {
-      if (!accessory.context.LockMechanism) {
-        accessory.context.LockMechanism = {};
-      }
+      accessory.context.LockMechanism = accessory.context.LockMechanism ?? {};
       this.LockMechanism = {
-        Name: accessory.context.LockMechanismName ?? device.LockName ?? accessory.displayName,
+        Name: accessory.context.LockMechanism.Name ?? device.LockName ?? accessory.displayName,
         Service: accessory.getService(this.hap.Service.LockMechanism) ?? accessory.addService(this.hap.Service.LockMechanism) as Service,
         LockTargetState:  accessory.context.LockTargetState ?? this.hap.Characteristic.LockTargetState.SECURED,
         LockCurrentState: accessory.context.LockCurrentState ?? this.hap.Characteristic.LockCurrentState.SECURED,
       };
+      accessory.context.LockMechanism = this.LockMechanism as object;
       // Initialize Lock Mechanism Characteristics
       this.LockMechanism.Service
         .setCharacteristic(this.hap.Characteristic.Name, this.LockMechanism.Name)
@@ -90,7 +89,6 @@ export class LockMechanism extends deviceBase {
           return this.LockMechanism!.LockTargetState;
         })
         .onSet(this.setLockTargetState.bind(this));
-      accessory.context.LockMechanismName = this.LockMechanism.Name;
     }
     // Initialize Contact Sensor Service
     if (device.lock?.hide_contactsensor) {
@@ -98,14 +96,13 @@ export class LockMechanism extends deviceBase {
       this.ContactSensor!.Service = accessory.getService(this.hap.Service.ContactSensor) as Service;
       accessory.removeService(this.ContactSensor!.Service);
     } else {
-      if (!accessory.context.ContactSensor) {
-        accessory.context.ContactSensor = {};
-      }
+      accessory.context.ContactSensor = accessory.context.ContactSensor ?? {};
       this.ContactSensor = {
         Name: accessory.context.ContactSensor.Name ?? `${accessory.displayName} Contact Sensor`,
         Service: accessory.getService(this.hap.Service.ContactSensor) ?? accessory.addService(this.hap.Service.ContactSensor) as Service,
         ContactSensorState: accessory.context.ContactSensorState ?? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED,
       };
+      accessory.context.ContactSensor = this.ContactSensor as object;
       // Initialize Conact Sensor Characteristics
       this.ContactSensor.Service
         .setCharacteristic(this.hap.Characteristic.Name, this.ContactSensor.Name)
@@ -113,13 +110,13 @@ export class LockMechanism extends deviceBase {
         .onGet(() => {
           return this.ContactSensor!.ContactSensorState;
         });
-      accessory.context.ContactSensor.Name = this.ContactSensor.Name;
     }
 
     if (!accessory.context.Battery) {
       accessory.context.Battery = {};
     }
     // Initialize Battery Service
+    accessory.context.Battery = accessory.context.Battery ?? {};
     this.Battery = {
       Name: accessory.context.Battery.Name ?? `${accessory.displayName} Battery`,
       Service: accessory.getService(this.hap.Service.Battery) ?? accessory.addService(this.hap.Service.Battery) as Service,
@@ -127,6 +124,7 @@ export class LockMechanism extends deviceBase {
       StatusLowBattery: accessory.context.StatusLowBattery ?? this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
       ChargingState: accessory.context.ChargingState ?? this.hap.Characteristic.ChargingState.NOT_CHARGING,
     };
+    accessory.context.Battery = this.Battery as object;
     // Initialize Battery Characteristics
     this.Battery!.Service!
       .setCharacteristic(this.hap.Characteristic.Name, this.Battery.Name)
@@ -141,7 +139,6 @@ export class LockMechanism extends deviceBase {
       .onGet(() => {
         return this.Battery.StatusLowBattery!;
       });
-    accessory.context.Battery.Name = this.Battery.Name;
 
     // Initial Device Parse
     if (this.deviceRefreshRate !== 0) {
@@ -228,6 +225,7 @@ export class LockMechanism extends deviceBase {
         this.LockMechanism!.LockCurrentState = this.hap.Characteristic.LockCurrentState.UNSECURED;
       } else if (retryCount > 1) {
         this.LockMechanism!.LockCurrentState = this.hap.Characteristic.LockCurrentState.JAMMED;
+        //this.pushChanges();
       } else {
         this.LockMechanism!.LockCurrentState = this.hap.Characteristic.LockCurrentState.UNKNOWN;
         if (this.deviceRefreshRate !== 0) {
@@ -278,22 +276,25 @@ export class LockMechanism extends deviceBase {
    */
   async pushChanges(): Promise<void> {
     try {
-      await this.platform.augustCredentials();
+      //await this.platform.augustCredentials();
       if (this.LockMechanism!.LockTargetState === this.hap.Characteristic.LockTargetState.UNSECURED) {
-        this.successLog(`Lock: ${this.accessory.displayName} Sending request to August API: Unlock (${this.LockMechanism!.LockTargetState})`);
-        const lockStatus = await this.platform.augustConfig.unlock(this.device.lockId);
-        this.debugWarnLog(`Lock: ${this.accessory.displayName} (pushChanges-unlock) lockStatus: ${JSON.stringify(lockStatus)}`);
+        await this.platform.augustConfig.unlock(this.device.lockId);
       } else if (this.LockMechanism!.LockTargetState === this.hap.Characteristic.LockTargetState.SECURED) {
-        this.successLog(`Lock: ${this.accessory.displayName} Sending request to August API: Lock (${this.LockMechanism!.LockTargetState})`);
-        const lockStatus = await this.platform.augustConfig.lock(this.device.lockId);
-        this.debugWarnLog(`Lock: ${this.accessory.displayName} (pushChanges-lock) lockStatus: ${JSON.stringify(lockStatus)}`);
+        await this.platform.augustConfig.lock(this.device.lockId);
       } else {
         this.errorLog(`Lock: ${this.accessory.displayName} lockStatus (pushChanges) failed,`
           + ` this.LockTargetState: ${this.LockMechanism!.LockTargetState}`);
       }
+      if (this.deviceRefreshRate !== 0) {
+        await this.refreshStatus();
+      }
+      if (this.LockMechanism) {
+        this.successLog(`Lock: ${this.accessory.displayName} Sending request to August API: ${(this.LockMechanism.LockTargetState === 1)
+          ? 'Locked' : 'Unlocked'}`);
+      }
     } catch (e: any) {
-      this.errorLog(`pushChanges: ${e}`);
-      this.errorLog(`Lock: ${this.accessory.displayName} failed pushChanges, Error Message: ${JSON.stringify(e.message)}`);
+      this.statusCode(this.device, e);
+      this.debugLog(`pushChanges: ${e}`);
     }
   }
 
