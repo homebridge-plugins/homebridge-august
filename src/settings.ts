@@ -31,8 +31,9 @@ export type credentials = {
 };
 
 export type options = {
-  devices?: Array<devicesConfig>;
+  devices?: devicesConfig[];
   refreshRate?: number;
+  updateRate?: number;
   pushRate?: number;
   logging?: string;
 };
@@ -68,7 +69,7 @@ export type device = {
   ruleHash: any;
   cameras: any[];
   lockId: string;
-}
+};
 
 export type BatteryInfo = {
   level: number
@@ -76,14 +77,14 @@ export type BatteryInfo = {
   infoUpdatedDate: string
   lastChangeDate: string
   lastChangeVoltage: number
-}
+};
 
 export type HostLockInfo = {
   serialNumber: string
   manufacturer: string
   productID: number
   productTypeID: number
-}
+};
 
 export type LockStatus = {
   status: string
@@ -91,7 +92,7 @@ export type LockStatus = {
   isLockStatusChanged: boolean
   valid: boolean
   doorState: string
-}
+};
 
 export type Bridge = {
   _id: string
@@ -102,20 +103,20 @@ export type Bridge = {
   status: Status
   locks: Lock[]
   hyperBridge: boolean
-}
+};
 
 export type Status = {
   current: string
   lastOffline: string
   updated: string
   lastOnline: string
-}
+};
 
 export type Lock = {
   _id: string
   LockID: string
   macAddress: string
-}
+};
 
 export interface devicesConfig extends device {
   configLockName?: string;
@@ -125,6 +126,8 @@ export interface devicesConfig extends device {
   external?: boolean;
   logging?: string;
   refreshRate?: number;
+  updateRate?: number;
+  pushRate?: number;
   firmware?: string;
 }
 
@@ -138,18 +141,18 @@ export type lockDetails = {
   battery: number;
   LockStatus: lockStatus;
   currentFirmwareVersion: string;
-}
+};
 
 export type lockStatus = {
   lockID: string;
   status: string;
   doorState: string;
   state: state;
-}
+};
 
 export type state = {
   unlocked: boolean;
   locked: boolean;
   open: boolean;
   closed: boolean;
-}
+};

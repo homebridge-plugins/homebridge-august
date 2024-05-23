@@ -168,7 +168,7 @@ export class LockMechanism extends deviceBase {
           tap(() => {
             this.lockUpdateInProgress = true;
           }),
-          debounceTime(this.platform.config.options!.pushRate! * 1000),
+          debounceTime(this.devicePushRate * 1000),
         )
         .subscribe(async () => {
           try {
@@ -267,7 +267,7 @@ export class LockMechanism extends deviceBase {
       await this.parseStatus(lockDetails);
       await this.updateHomeKitCharacteristics();
     } catch (e: any) {
-      this.statusCode(this.device, e);
+      this.statusCode(this.accessory, this.device, e);
     }
   }
 
@@ -277,23 +277,22 @@ export class LockMechanism extends deviceBase {
   async pushChanges(): Promise<void> {
     try {
       //await this.platform.augustCredentials();
-      if (this.LockMechanism!.LockTargetState === this.hap.Characteristic.LockTargetState.UNSECURED) {
-        await this.platform.augustConfig.unlock(this.device.lockId);
-      } else if (this.LockMechanism!.LockTargetState === this.hap.Characteristic.LockTargetState.SECURED) {
-        await this.platform.augustConfig.lock(this.device.lockId);
-      } else {
-        this.errorLog(`Lock: ${this.accessory.displayName} lockStatus (pushChanges) failed,`
-          + ` this.LockTargetState: ${this.LockMechanism!.LockTargetState}`);
-      }
-      if (this.deviceRefreshRate !== 0) {
-        await this.refreshStatus();
-      }
       if (this.LockMechanism) {
+        if (this.LockMechanism.LockTargetState === this.hap.Characteristic.LockTargetState.UNSECURED) {
+          await this.platform.augustConfig.unlock(this.device.lockId);
+        } else {
+          await this.platform.augustConfig.lock(this.device.lockId);
+        }
         this.successLog(`Lock: ${this.accessory.displayName} Sending request to August API: ${(this.LockMechanism.LockTargetState === 1)
           ? 'Locked' : 'Unlocked'}`);
+        if (this.deviceRefreshRate !== 0) {
+          await this.refreshStatus();
+        }
+      } else {
+        this.errorLog(`Lock: ${this.accessory.displayName} lockTargetState: ${JSON.stringify(this.LockMechanism)}`);
       }
     } catch (e: any) {
-      this.statusCode(this.device, e);
+      this.statusCode(this.accessory, this.device, e);
       this.debugLog(`pushChanges: ${e}`);
     }
   }
@@ -348,15 +347,10 @@ export class LockMechanism extends deviceBase {
   }
 
   async setLockTargetState(value: CharacteristicValue): Promise<void> {
-    this.debugLog(`Lock: ${this.accessory.displayName} Set LockTargetState: ${value}`);
-    this.LockMechanism!.LockTargetState = value;
-    this.accessory.context.LockTargetState = this.LockMechanism!.LockTargetState;
-    this.doLockUpdate.next();
-    if (this.LockMechanism!.LockCurrentState === this.hap.Characteristic.LockCurrentState.UNSECURED) {
-      this.infoLog(`Lock: ${this.accessory.displayName} was Unlocked`);
-    }
-    if (this.LockMechanism!.LockCurrentState === this.hap.Characteristic.LockCurrentState.SECURED) {
-      this.infoLog(`Lock: ${this.accessory.displayName} was Locked`);
+    if (this.LockMechanism) {
+      this.debugLog(`Lock: ${this.accessory.displayName} Set LockTargetState: ${value}`);
+      this.accessory.context.LockMechanism.LockTargetState = this.LockMechanism.LockTargetState = value;
+      this.doLockUpdate.next();
     }
   }
 
