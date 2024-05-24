@@ -117,7 +117,7 @@ export abstract class deviceBase {
 
   async getDeviceConfigSettings(accessory: PlatformAccessory, device: device & devicesConfig): Promise<void> {
     const deviceConfig = {};
-    if (device.logging !== undefined) {
+    if ((device.logging !== 'standard') || (device.logging !== undefined)) {
       deviceConfig['logging'] = device.logging;
     }
     if (device.refreshRate !== undefined) {
