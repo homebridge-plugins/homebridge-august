@@ -349,7 +349,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   }
 
   private registerDevice(device: device & devicesConfig) {
-    if (!device.hide_device && (!device.homeKitEnabled && device.overrideHomeKitEnabled)) {
+    if (!device.hide_device && !device.homeKitEnabled) {
       this.registeringDevice = true;
       this.debugLog(`Device: ${device.LockName} Enabled`);
     } else if (device.homeKitEnabled && device.overrideHomeKitEnabled) {
