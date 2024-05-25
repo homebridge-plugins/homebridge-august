@@ -9,6 +9,13 @@ All notable changes to this project will be documented in this file. This projec
 
 **Full Changelog**: https://github.com/donavanbecker/homebridge-august/compare/v2.0.0...v2.1.0
 
+## [2.1.0](https://github.com/donavanbecker/homebridge-august/releases/tag/v2.1.0) (2024-05-07)
+
+### What's Changes
+- Housekeeping and updated dependencies.
+
+**Full Changelog**: https://github.com/donavanbecker/homebridge-august/compare/v2.0.0...v2.1.0
+
 ## [2.0.0](https://github.com/donavanbecker/homebridge-august/releases/tag/v2.0.0) (2024-01-31)
 
 ### What's Changes

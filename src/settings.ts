@@ -23,8 +23,8 @@ export type credentials = {
   apiKey?: string;
   pnSubKey?: string;
   installId: string;
-  augustId?: string; // Phone must be formatted +[countrycode][number]
-  password?: string;
+  augustId: string; // Phone must be formatted +[countrycode][number]
+  password: string;
   countryCode: string;
   validateCode?: string;
   isValidated?: boolean;
@@ -122,6 +122,7 @@ export interface devicesConfig extends device {
   configLockName?: string;
   lockId: string;
   lock?: lock;
+  overrideHomeKitEnabled: boolean
   hide_device?: boolean;
   external?: boolean;
   logging?: string;

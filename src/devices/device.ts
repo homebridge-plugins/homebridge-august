@@ -37,11 +37,10 @@ export abstract class deviceBase {
     accessory
       .getService(this.hap.Service.AccessoryInformation)!
       .setCharacteristic(this.hap.Characteristic.Manufacturer, 'August Home Inc.')
-      .setCharacteristic(this.hap.Characteristic.Model, accessory.context.model)
-      .setCharacteristic(this.hap.Characteristic.SerialNumber, accessory.context.serialnumber)
-      .setCharacteristic(this.hap.Characteristic.FirmwareRevision, accessory.context.currentFirmwareVersion)
-      .getCharacteristic(this.hap.Characteristic.FirmwareRevision)
-      .updateValue(accessory.context.currentFirmwareVersion);
+      .setCharacteristic(this.hap.Characteristic.AppMatchingIdentifier, 'id648730592')
+      .setCharacteristic(this.hap.Characteristic.Model, device.skuNumber ?? accessory.context.model)
+      .setCharacteristic(this.hap.Characteristic.ProductData, accessory.context.serialnumber)
+      .setCharacteristic(this.hap.Characteristic.SerialNumber, device.LockId ?? accessory.context.serialnumber);
   }
 
   async getDeviceLogSettings(accessory: PlatformAccessory, device: device & devicesConfig): Promise<void> {
@@ -117,7 +116,7 @@ export abstract class deviceBase {
 
   async getDeviceConfigSettings(accessory: PlatformAccessory, device: device & devicesConfig): Promise<void> {
     const deviceConfig = {};
-    if ((device.logging !== 'standard') || (device.logging !== undefined)) {
+    if ((device.logging !== 'standard') && (device.logging !== undefined)) {
       deviceConfig['logging'] = device.logging;
     }
     if (device.refreshRate !== undefined) {
@@ -144,13 +143,45 @@ export abstract class deviceBase {
   }
 
   async getDeviceContext(accessory: PlatformAccessory, device: device & devicesConfig): Promise<void> {
+    // Firmware Version
+    let deviceFirmwareVersion: string;
     if (device.firmware) {
-      accessory.context.FirmwareRevision = device.firmware;
-    } else if (accessory.context.FirmwareRevision === undefined) {
-      accessory.context.FirmwareRevision = await this.platform.getVersion();
+      deviceFirmwareVersion = device.firmware;
+      this.debugSuccessLog(`${device.Type}: ${accessory.displayName} 1 FirmwareRevision: ${device.firmware}`);
+    } else if (device.currentFirmwareVersion) {
+      deviceFirmwareVersion = device.currentFirmwareVersion;
+      this.debugSuccessLog(`${device.Type}: ${accessory.displayName} 2 FirmwareRevision: ${device.currentFirmwareVersion}`);
+    } else if (accessory.context.deviceVersion) {
+      deviceFirmwareVersion = accessory.context.deviceVersion;
+      this.debugSuccessLog(`${device.Type}: ${accessory.displayName} 3 FirmwareRevision: ${accessory.context.deviceVersion}`);
     } else {
-      accessory.context.FirmwareRevision = '3';
+      deviceFirmwareVersion = this.platform.version ?? '0.0.0';
+      if (this.platform.version) {
+        this.debugSuccessLog(`${device.Type}: ${accessory.displayName} 4 FirmwareRevision: ${this.platform.version}`);
+      } else {
+        this.debugSuccessLog(`${device.Type}: ${accessory.displayName} 5 FirmwareRevision: ${deviceFirmwareVersion}`);
+      }
     }
+    const version = deviceFirmwareVersion.toString();
+    this.debugLog(`${this.device.Type}: ${accessory.displayName} Firmware Version: ${version?.replace(/^V|-.*$/g, '')}`);
+    let deviceVersion: string;
+    if (version?.includes('.') === false) {
+      const replace = version?.replace(/^V|-.*$/g, '');
+      const match = replace?.match(/.{1,1}/g);
+      const validVersion = match?.join('.');
+      deviceVersion = validVersion ?? '0.0.0';
+    } else {
+      deviceVersion = version?.replace(/^V|-.*$/g, '') ?? '0.0.0';
+    }
+    accessory
+      .getService(this.hap.Service.AccessoryInformation)!
+      .setCharacteristic(this.hap.Characteristic.HardwareRevision, deviceVersion)
+      .setCharacteristic(this.hap.Characteristic.SoftwareRevision, deviceVersion)
+      .setCharacteristic(this.hap.Characteristic.FirmwareRevision, deviceVersion)
+      .getCharacteristic(this.hap.Characteristic.FirmwareRevision)
+      .updateValue(deviceVersion);
+    accessory.context.deviceVersion = deviceVersion;
+    this.debugSuccessLog(`${device.Type}: ${accessory.displayName} deviceVersion: ${accessory.context.deviceVersion}`);
   }
 
   async statusCode(accessory: PlatformAccessory, device: device & devicesConfig, error: { message: string; }): Promise<void> {

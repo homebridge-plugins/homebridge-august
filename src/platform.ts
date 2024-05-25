@@ -8,7 +8,7 @@ import { readFileSync, writeFileSync } from 'fs';
 import { LockMechanism } from './devices/lock.js';
 import { PLUGIN_NAME, PLATFORM_NAME } from './settings.js';
 
-import type { AugustPlatformConfig, device, devicesConfig } from './settings.js';
+import type { AugustPlatformConfig, credentials, device, devicesConfig } from './settings.js';
 import type { API, DynamicPlatformPlugin, Logging, PlatformAccessory } from 'homebridge';
 
 /**
@@ -36,10 +36,12 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     config: AugustPlatformConfig,
     api: API,
   ) {
+    // Initialize
     this.accessories = [];
     this.api = api;
     this.log = log;
 
+    // only load if configured
     if (!config) {
       return;
     }
@@ -48,18 +50,22 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     this.config = {
       platform: 'August',
       name: config.name,
-      credentials: config.credentials, // Fix: Update the type to 'credentials'
-      options: config.options,
+      credentials: config.credentials as credentials,
+      options: config.options as object,
     };
-    this.platformConfigOptions();
-    this.platformLogs();
+
+    // Plugin Configuration
+    this.getPlatformConfigSettings();
+    this.getPlatformLogSettings();
     this.getVersion();
+
+    // Finish initializing the plugin
     this.debugLog(`Finished initializing platform: ${config.name}`);
 
     // verify the config
     (async () => {
       try {
-        await this.verifyConfig();
+        this.verifyConfig();
         this.debugLog('Config OK');
       } catch (e: any) {
         this.errorLog(`Verify Config, Error Message: ${e.message}, Submit Bugs Here: https://bit.ly/homebridge-cloudflared-tunnel-bug-report`);
@@ -256,7 +262,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
           device.deviceName = device.configDeviceName;
         }
         this.debugLog(`August Devices: ${JSON.stringify(device)}`);
-        this.createLock(device);
+        this.Lock(device);
       }
     } else if (this.config.options.devices) {
       this.debugWarnLog(`August Platform Config Set: ${JSON.stringify(this.config.options?.devices)}`);
@@ -277,14 +283,14 @@ export class AugustPlatform implements DynamicPlatformPlugin {
           device.deviceName = device.configDeviceName;
         }
         this.debugLog(`device: ${JSON.stringify(device)}`);
-        this.createLock(device);
+        this.Lock(device);
       }
     } else {
       this.errorLog('August ID & Password Supplied, Issue with Auth.');
     }
   }
 
-  private async createLock(device: device & devicesConfig) {
+  private async Lock(device: device & devicesConfig) {
     const uuid = this.api.hap.uuid.generate(device.lockId);
     // see if an accessory with the same uuid has already been registered and restored from
     // the cached devices we stored in the `configureAccessory` method above
@@ -343,12 +349,20 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   }
 
   private registerDevice(device: device & devicesConfig) {
-    if (!device.hide_device) {
+    if (!device.hide_device && (!device.homeKitEnabled && device.overrideHomeKitEnabled)) {
       this.registeringDevice = true;
       this.debugLog(`Device: ${device.LockName} Enabled`);
+    } else if (device.homeKitEnabled && device.overrideHomeKitEnabled) {
+      this.registeringDevice = true;
+      this.debugWarnLog(`Device: ${device.LockName} HomeKit Enabled: ${device.homeKitEnabled}, `
+      + `Override HomeKit Enabled: ${device.overrideHomeKitEnabled}`);
+    } else if (device.homeKitEnabled && !device.overrideHomeKitEnabled) {
+      this.registeringDevice = false;
+      this.debugErrorLog(`Device: ${device.LockName} HomeKit Enabled: `
+      + `${device.homeKitEnabled}, device will not be registered. To enable, set overrideHomeKitEnabled to true.`);
     } else {
       this.registeringDevice = false;
-      this.debugLog(`Device: ${device.LockName} is Disabled`);
+      this.debugLog(`Device: ${device.LockName} is Hidden.`);
     }
     return this.registeringDevice;
   }
@@ -373,50 +387,6 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     this.warnLog(`Removing existing accessory from cache: ${device.LockName}`);
   }
 
-  async platformConfigOptions() {
-    const platformConfig: AugustPlatformConfig['options'] = {
-    };
-    if (this.config.options) {
-      if (this.config.options.logging) {
-        platformConfig.logging = this.config.options.logging;
-      }
-      if (this.config.options.refreshRate) {
-        platformConfig.refreshRate = this.config.options.refreshRate;
-      }
-      if (this.config.options.pushRate) {
-        platformConfig.refreshRate = this.config.options.pushRate;
-      }
-      if (Object.entries(platformConfig).length !== 0) {
-        this.debugLog(`Platform Config: ${JSON.stringify(platformConfig)}`);
-      }
-      this.platformConfig = platformConfig;
-    }
-  }
-
-  async platformLogs() {
-    this.debugMode = process.argv.includes('-D') || process.argv.includes('--debug');
-    this.platformLogging = this.config.options?.logging ?? 'standard';
-    if (this.config.options?.logging === 'debug' || this.config.options?.logging === 'standard' || this.config.options?.logging === 'none') {
-      this.platformLogging = this.config.options.logging;
-      if (this.platformLogging?.includes('debug')) {
-        this.debugWarnLog(`Using Config Logging: ${this.platformLogging}`);
-      }
-    } else if (this.debugMode) {
-      this.platformLogging = 'debugMode';
-      if (this.platformLogging?.includes('debug')) {
-        this.debugWarnLog(`Using ${this.platformLogging} Logging`);
-      }
-    } else {
-      this.platformLogging = 'standard';
-      if (this.platformLogging?.includes('debug')) {
-        this.debugWarnLog(`Using ${this.platformLogging} Logging`);
-      }
-    }
-    if (this.debugMode) {
-      this.platformLogging = 'debugMode';
-    }
-  }
-
   async getVersion() {
     const json = JSON.parse(
       readFileSync(
@@ -428,24 +398,74 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     this.version = json.version;
   }
 
+  async getPlatformConfigSettings() {
+    const platformConfig: AugustPlatformConfig['options'] = {};
+    if (this.config.options) {
+      if (this.config.options.logging) {
+        platformConfig.logging = this.config.options.logging;
+      }
+      if (this.config.options.refreshRate) {
+        platformConfig.refreshRate = this.config.options.refreshRate;
+      }
+      if (this.config.options.updateRate) {
+        platformConfig.updateRate = this.config.options.updateRate;
+      }
+      if (this.config.options.pushRate) {
+        platformConfig.pushRate = this.config.options.pushRate;
+      }
+      if (Object.entries(platformConfig).length !== 0) {
+        this.debugLog(`Platform Config: ${JSON.stringify(platformConfig)}`);
+      }
+      this.platformConfig = platformConfig;
+    }
+  }
+
+  async getPlatformLogSettings() {
+    this.debugMode = process.argv.includes('-D') || process.argv.includes('--debug');
+    if (this.config.options?.logging === 'debug' || this.config.options?.logging === 'standard' || this.config.options?.logging === 'none') {
+      this.platformLogging = this.config.options.logging;
+      this.debugWarnLog(`Using Platform Config Logging: ${this.platformLogging}`);
+    } else if (this.debugMode) {
+      this.platformLogging = 'debugMode';
+      this.debugWarnLog(`Using ${this.platformLogging} Logging`);
+    } else {
+      this.platformLogging = 'standard';
+      this.debugWarnLog(`Using ${this.platformLogging} Logging`);
+    }
+  }
+
   /**
-   * If device level logging is turned on, log to log.warn
-   * Otherwise send debug logs to log.debug
-   */
+    * If device level logging is turned on, log to log.warn
+    * Otherwise send debug logs to log.debug
+    */
   infoLog(...log: any[]): void {
-    if (this.enablingPlatfromLogging()) {
+    if (this.enablingPlatformLogging()) {
       this.log.info(String(...log));
     }
   }
 
+  successLog(...log: any[]): void {
+    if (this.enablingPlatformLogging()) {
+      this.log.success(String(...log));
+    }
+  }
+
+  debugSuccessLog(...log: any[]): void {
+    if (this.enablingPlatformLogging()) {
+      if (this.platformLogging?.includes('debug')) {
+        this.log.success('[DEBUG]', String(...log));
+      }
+    }
+  }
+
   warnLog(...log: any[]): void {
-    if (this.enablingPlatfromLogging()) {
+    if (this.enablingPlatformLogging()) {
       this.log.warn(String(...log));
     }
   }
 
   debugWarnLog(...log: any[]): void {
-    if (this.enablingPlatfromLogging()) {
+    if (this.enablingPlatformLogging()) {
       if (this.platformLogging?.includes('debug')) {
         this.log.warn('[DEBUG]', String(...log));
       }
@@ -453,13 +473,13 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   }
 
   errorLog(...log: any[]): void {
-    if (this.enablingPlatfromLogging()) {
+    if (this.enablingPlatformLogging()) {
       this.log.error(String(...log));
     }
   }
 
   debugErrorLog(...log: any[]): void {
-    if (this.enablingPlatfromLogging()) {
+    if (this.enablingPlatformLogging()) {
       if (this.platformLogging?.includes('debug')) {
         this.log.error('[DEBUG]', String(...log));
       }
@@ -467,7 +487,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   }
 
   debugLog(...log: any[]): void {
-    if (this.enablingPlatfromLogging()) {
+    if (this.enablingPlatformLogging()) {
       if (this.platformLogging === 'debugMode') {
         this.log.debug(String(...log));
       } else if (this.platformLogging === 'debug') {
@@ -476,7 +496,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     }
   }
 
-  enablingPlatfromLogging(): boolean {
+  enablingPlatformLogging(): boolean {
     return this.platformLogging?.includes('debug') || this.platformLogging === 'standard';
   }
 }

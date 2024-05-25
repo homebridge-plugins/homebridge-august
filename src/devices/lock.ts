@@ -132,18 +132,18 @@ export class LockMechanism extends deviceBase {
     };
     accessory.context.Battery = this.Battery as object;
     // Initialize Battery Characteristics
-    this.Battery!.Service!
+    this.Battery.Service
       .setCharacteristic(this.hap.Characteristic.Name, this.Battery.Name)
       .setCharacteristic(this.hap.Characteristic.ChargingState, this.hap.Characteristic.ChargingState.NOT_CHARGEABLE)
       .getCharacteristic(this.hap.Characteristic.BatteryLevel)
       .onGet(() => {
-        return this.Battery.BatteryLevel!;
+        return this.Battery.BatteryLevel;
       });
 
-    this.Battery.Service!
+    this.Battery.Service
       .getCharacteristic(this.hap.Characteristic.StatusLowBattery)
       .onGet(() => {
-        return this.Battery.StatusLowBattery!;
+        return this.Battery.StatusLowBattery;
       });
 
     // Initial Device Parse
@@ -208,15 +208,16 @@ export class LockMechanism extends deviceBase {
       + ` StatusLowBattery: ${this.Battery.StatusLowBattery}`);
 
     // Firmware Version
-    if (lockDetails.currentFirmwareVersion !== this.accessory.context.currentFirmwareVersion) {
+    if (this.accessory.context.currentFirmwareVersion !== lockDetails.currentFirmwareVersion) {
       this.warnLog(`${this.device.Type} ${this.accessory.displayName} Firmware Version changed to `
-        + `Current Firmware Version: ${this.currentFirmwareVersion}`);
+        + `Current Firmware Version: ${lockDetails.currentFirmwareVersion}`);
       this.accessory
         .getService(this.hap.Service.AccessoryInformation)!
-        .setCharacteristic(this.hap.Characteristic.FirmwareRevision, this.currentFirmwareVersion)
+        .setCharacteristic(this.hap.Characteristic.HardwareRevision, lockDetails.currentFirmwareVersion)
+        .setCharacteristic(this.hap.Characteristic.FirmwareRevision, lockDetails.currentFirmwareVersion)
         .getCharacteristic(this.hap.Characteristic.FirmwareRevision)
-        .updateValue(this.currentFirmwareVersion);
-      this.accessory.context.currentFirmwareVersion = this.currentFirmwareVersion;
+        .updateValue(lockDetails.currentFirmwareVersion);
+      this.accessory.context.currentFirmwareVersion = lockDetails.currentFirmwareVersion;
     }
 
     // Lock Status
