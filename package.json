@@ -1,7 +1,7 @@
 {
   "displayName": "August",
   "name": "homebridge-august",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "The August plugin allows you to access your August & Yale device(s) from HomeKit.",
   "author": {
     "name": "donavanbecker",
@@ -18,7 +18,7 @@
     "url": "https://github.com/donavanbecker/homebridge-august/issues"
   },
   "engines": {
-    "homebridge": "^1.8.1",
+    "homebridge": "^1.8.2",
     "node": "^18 || ^20 || ^22"
   },
   "main": "dist/index.js",
@@ -51,20 +51,23 @@
   ],
   "dependencies": {
     "@homebridge/plugin-ui-utils": "^1.0.3",
-    "august-yale": "^1.0.0",
+    "august-yale": "^1.0.1",
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
-    "@types/node": "^20.12.10",
-    "@typescript-eslint/eslint-plugin": "^7.8.0",
-    "@typescript-eslint/parser": "^7.8.0",
-    "eslint": "^8.57.0",
-    "homebridge": "^1.8.1",
+    "@eslint/js": "^9.3.0",
+    "@stylistic/eslint-plugin": "^2.1.0",
+    "@types/eslint__js": "^8.42.3",
+    "@types/node": "^20.12.12",
+    "eslint": "^9.3.0",
+    "globals": "^15.3.0",
+    "homebridge": "^1.8.2",
     "homebridge-config-ui-x": "4.56.2",
     "nodemon": "^3.1.0",
     "npm-check-updates": "^16.14.20",
-    "rimraf": "^5.0.5",
+    "rimraf": "^5.0.7",
     "ts-node": "^10.9.2",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "typescript-eslint": "^8.0.0-alpha.14"
   }
 }

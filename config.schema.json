@@ -217,7 +217,7 @@
               "type": "object",
               "properties": {
                 "lockId": {
-                  "title": "Device ID",
+                  "title": "Lock ID",
                   "type": "string",
                   "placeholder": "TSSQ97FRDMX7TPGU3Z2HWNRDPQXJ9YSM"
                 },
@@ -245,16 +245,24 @@
                       "description": "Allows you to hide the lock and only show the Contact Sensor. Useful for locks that already support HomeKit.",
                       "type": "boolean",
                       "condition": {
-                        "functionBody": "return (model.options && model.options.devices && !model.options.devices[arrayIndices].hide_device && model.options.devices[arrayIndices].lockId);"
+                        "functionBody": "return (model.options && model.options.devices && model.options.devices[arrayIndices].lockId && !model.options.devices[arrayIndices].hide_device);"
                       }
                     },
                     "hide_contactsensor": {
                       "title": "Hide Lock's Contact Sensor",
                       "type": "boolean",
                       "condition": {
-                        "functionBody": "return (model.options && model.options.devices && !model.options.devices[arrayIndices].hide_device && model.options.devices[arrayIndices].lockId);"
+                        "functionBody": "return (model.options && model.options.devices && model.options.devices[arrayIndices].lockId && !model.options.devices[arrayIndices].hide_device);"
                       }
                     }
+                  }
+                },
+                "overrideHomeKitEnabled": {
+                  "title": "Override HomeKit Enabled",
+                  "type": "boolean",
+                  "description": "By default, devices tht are HomeKit enabled will be shown in HomeKit. If you want to override this, set this to true and the device will display in the Home app.",
+                  "condition": {
+                    "functionBody": "return (model.options && model.options.devices && model.options.devices[arrayIndices].lockId && !model.options.devices[arrayIndices].hide_device);"
                   }
                 },
                 "firmware": {
@@ -262,7 +270,7 @@
                   "type": "string",
                   "placeholder": "1.2.8",
                   "condition": {
-                    "functionBody": "return (model.options && model.options.devices && !model.options.devices[arrayIndices].hide_device && model.options.devices[arrayIndices].lockId);"
+                    "functionBody": "return (model.options && model.options.devices && model.options.devices[arrayIndices].lockId && !model.options.devices[arrayIndices].hide_device);"
                   }
                 },
                 "refreshRate": {
@@ -270,6 +278,24 @@
                   "type": "number",
                   "placeholder": 300,
                   "description": "Indicates the number of seconds between polls of August API.",
+                  "condition": {
+                    "functionBody": "return (model.options && model.options.devices && model.options.devices[arrayIndices].lockId && !model.options.devices[arrayIndices].hide_device);"
+                  }
+                },
+                "updateRate": {
+                  "title": "Device Update Rate",
+                  "type": "number",
+                  "placeholder": 1,
+                  "description": "Indicates the number of seconds between pushes to August API.",
+                  "condition": {
+                    "functionBody": "return (model.options && model.options.devices && model.options.devices[arrayIndices].lockId && !model.options.devices[arrayIndices].hide_device);"
+                  }
+                },
+                "pushRate": {
+                  "title": "Device Push Rate",
+                  "type": "number",
+                  "placeholder": 1,
+                  "description": "Indicates the number of seconds between pushes to August API.",
                   "condition": {
                     "functionBody": "return (model.options && model.options.devices && model.options.devices[arrayIndices].lockId && !model.options.devices[arrayIndices].hide_device);"
                   }
@@ -419,10 +445,20 @@
             "options.devices[].configLockName",
             "options.devices[].lockId",
             "options.devices[].hide_device",
+            "options.devices[].overrideHomeKitEnabled",
             "options.devices[].lock.hide_lock",
             "options.devices[].lock.hide_contactsensor",
             "options.devices[].firmware",
+            {
+              "key": "options.devices[].refreshRate",
+              "description": "<em class='primary-text'>Specifies the interval, in seconds, for retrieving the latest device status from the August API. This interval applies only to this specific device. Set to </em>0<em class='primary-text'> if you would like to just receive updates from the August API</em>"
+            },
+            {
+              "key": "options.devices[].pushRate",
+              "description": "<em class='primary-text'>Specifies the interval, in seconds, between pushes to the August API for this specific device.</em>"
+            },
             "options.devices[].refreshRate",
+            "options.devices[].pushRate",
             "options.devices[].external",
             "options.devices[].logging"
           ]
@@ -436,20 +472,12 @@
       "expanded": false,
       "items": [
         {
-          "type": "help",
-          "helpvalue": "<h5>Refresh Rate</h5><em class='primary-text'>Refresh Rate indicates the number of seconds between polls of August API.</em>"
-        },
-        {
           "key": "options.refreshRate",
-          "notitle": true
-        },
-        {
-          "type": "help",
-          "helpvalue": "<h5>Push Rate</h5><em class='primary-text'>Push Rate indicates the number of seconds between pushes to August API.</em>"
+          "description": "<em class='primary-text'>Specifies the interval, in seconds, for retrieving the latest device status from the August API.</em>"
         },
         {
           "key": "options.pushRate",
-          "notitle": true
+          "description": "<em class='primary-text'>Specifies the interval, in seconds, between pushes to the August API.</em>"
         },
         "options.logging"
       ]

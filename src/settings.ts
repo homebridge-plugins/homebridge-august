@@ -2,7 +2,7 @@
  *
  * setting.ts: homebridge-august.
  */
-import { PlatformConfig } from 'homebridge';
+import type { PlatformConfig } from 'homebridge';
 /**
  * This is the name of the platform that users will use to register the plugin in the Homebridge config.json
  */
@@ -23,16 +23,17 @@ export type credentials = {
   apiKey?: string;
   pnSubKey?: string;
   installId: string;
-  augustId?: string; // Phone must be formatted +[countrycode][number]
-  password?: string;
+  augustId: string; // Phone must be formatted +[countrycode][number]
+  password: string;
   countryCode: string;
   validateCode?: string;
   isValidated?: boolean;
 };
 
 export type options = {
-  devices?: Array<devicesConfig>;
+  devices?: devicesConfig[];
   refreshRate?: number;
+  updateRate?: number;
   pushRate?: number;
   logging?: string;
 };
@@ -68,7 +69,7 @@ export type device = {
   ruleHash: any;
   cameras: any[];
   lockId: string;
-}
+};
 
 export type BatteryInfo = {
   level: number
@@ -76,14 +77,14 @@ export type BatteryInfo = {
   infoUpdatedDate: string
   lastChangeDate: string
   lastChangeVoltage: number
-}
+};
 
 export type HostLockInfo = {
   serialNumber: string
   manufacturer: string
   productID: number
   productTypeID: number
-}
+};
 
 export type LockStatus = {
   status: string
@@ -91,7 +92,7 @@ export type LockStatus = {
   isLockStatusChanged: boolean
   valid: boolean
   doorState: string
-}
+};
 
 export type Bridge = {
   _id: string
@@ -102,33 +103,57 @@ export type Bridge = {
   status: Status
   locks: Lock[]
   hyperBridge: boolean
-}
+};
 
 export type Status = {
   current: string
   lastOffline: string
   updated: string
   lastOnline: string
-}
+};
 
 export type Lock = {
   _id: string
   LockID: string
   macAddress: string
-}
+};
 
 export interface devicesConfig extends device {
   configLockName?: string;
   lockId: string;
   lock?: lock;
+  overrideHomeKitEnabled: boolean
   hide_device?: boolean;
   external?: boolean;
   logging?: string;
   refreshRate?: number;
+  updateRate?: number;
+  pushRate?: number;
   firmware?: string;
 }
 
 export type lock = {
   hide_lock?: boolean;
   hide_contactsensor?: boolean;
+};
+
+export type lockDetails = {
+  lockName: string;
+  battery: number;
+  LockStatus: lockStatus;
+  currentFirmwareVersion: string;
+};
+
+export type lockStatus = {
+  lockID: string;
+  status: string;
+  doorState: string;
+  state: state;
+};
+
+export type state = {
+  unlocked: boolean;
+  locked: boolean;
+  open: boolean;
+  closed: boolean;
 };

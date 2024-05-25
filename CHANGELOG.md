@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/)
 
+## [2.2.0](https://github.com/donavanbecker/homebridge-august/releases/tag/v2.2.0) (2024-05-25)
+
+### What's Changes
+#### Major Changes
+- Devices that are Homekit enabled will now not display unless the new `overrideHomekitEnabled` device config flag is set.
+
+#### Other Changes
+- All for overriding `PushRate` which allows you to set how quick changes are pushed to August API with the `PushRate` config
+  - This can be set at device or plugin level
+- Added Success Logs(`green`) which requires Homebridge 1.8.0 or higher
+- Housekeeping and updated dependencies.
+
+**Full Changelog**: https://github.com/donavanbecker/homebridge-august/compare/v2.1.0...v2.2.0
+
 ## [2.1.0](https://github.com/donavanbecker/homebridge-august/releases/tag/v2.1.0) (2024-05-07)
 
 ### What's Changes
