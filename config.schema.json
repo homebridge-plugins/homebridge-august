@@ -449,8 +449,15 @@
             "options.devices[].lock.hide_lock",
             "options.devices[].lock.hide_contactsensor",
             "options.devices[].firmware",
+            {
+              "key": "options.devices[].refreshRate",
+              "description": "<em class='primary-text'>Specifies the interval, in seconds, for retrieving the latest device status from the August API. This interval applies only to this specific device. Set to </em>0<em class='primary-text'> if you would like to just receive updates from the August API</em>"
+            },
+            {
+              "key": "options.devices[].pushRate",
+              "description": "<em class='primary-text'>Specifies the interval, in seconds, between pushes to the August API for this specific device.</em>"
+            },
             "options.devices[].refreshRate",
-            "options.devices[].updateRate",
             "options.devices[].pushRate",
             "options.devices[].external",
             "options.devices[].logging"
@@ -466,16 +473,12 @@
       "items": [
         {
           "key": "options.refreshRate",
-          "description": "<em class='primary-text'>Specifies the interval, in seconds, for retrieving the latest device status from the SwitchBot API.</em>"
-          },
-        {
-          "key": "options.updateRate",
-          "description": "<em class='primary-text'>Specifies the interval, in seconds, at which devices will request updates from the SwitchBot API while in motion, for Curtain(s) and Blind Tilt(s) only.</em>"
-          },
+          "description": "<em class='primary-text'>Specifies the interval, in seconds, for retrieving the latest device status from the August API.</em>"
+        },
         {
           "key": "options.pushRate",
-          "description": "<em class='primary-text'>Specifies the interval, in seconds, between pushes to the SwitchBot API.</em>"
-          },
+          "description": "<em class='primary-text'>Specifies the interval, in seconds, between pushes to the August API.</em>"
+        },
         "options.logging"
       ]
     }

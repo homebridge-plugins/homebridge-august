@@ -2,10 +2,10 @@
  *
  * lock.ts: homebridge-august.
  */
+import August from 'august-yale';
+import { deviceBase } from './device.js';
 import { interval, Subject } from 'rxjs';
 import { debounceTime, skipWhile, tap } from 'rxjs/operators';
-import { deviceBase } from './device.js';
-import August from 'august-yale';
 
 import type { AugustPlatform } from '../platform.js';
 import type { device, lockDetails, devicesConfig } from '../settings.js';

@@ -3,8 +3,8 @@
  * device.ts: homebridge-august.
  */
 import type { AugustPlatform } from '../platform.js';
-import type { device, devicesConfig, AugustPlatformConfig } from '../settings.js';
 import type { API, HAP, Logging, PlatformAccessory } from 'homebridge';
+import type { device, devicesConfig, AugustPlatformConfig } from '../settings.js';
 
 export abstract class deviceBase {
   public readonly api: API;
@@ -120,6 +120,9 @@ export abstract class deviceBase {
       deviceConfig['logging'] = device.logging;
     }
     if (device.refreshRate !== undefined) {
+      deviceConfig['refreshRate'] = device.refreshRate;
+    }
+    if (device.overrideHomeKitEnabled === true) {
       deviceConfig['refreshRate'] = device.refreshRate;
     }
     if (device.updateRate !== undefined) {
