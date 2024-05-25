@@ -4,21 +4,13 @@
  */
 import type { AugustPlatform } from '../platform.js';
 import type { device, devicesConfig, AugustPlatformConfig } from '../settings.js';
-import type { API, HAP, Logging, PlatformAccessory, CharacteristicValue, Service } from 'homebridge';
+import type { API, HAP, Logging, PlatformAccessory } from 'homebridge';
 
 export abstract class deviceBase {
   public readonly api: API;
   public readonly log: Logging;
   public readonly config!: AugustPlatformConfig;
   protected readonly hap: HAP;
-
-  // Service
-  FirmwareUpdate!: {
-    Name: string;
-    Service: Service;
-    FirmwareUpdateReadiness: CharacteristicValue;
-    FirmwareUpdateStatus: CharacteristicValue;
-  };
 
   // Config
   protected deviceLogging!: string;
@@ -190,25 +182,6 @@ export abstract class deviceBase {
       .updateValue(deviceVersion);
     accessory.context.deviceVersion = deviceVersion;
     this.debugSuccessLog(`${device.Type}: ${accessory.displayName} deviceVersion: ${accessory.context.deviceVersion}`);
-
-    // Initialize FirmwareUpdate Service
-    accessory.context.FirmwareUpdate = accessory.context.FirmwareUpdate ?? {};
-    this.FirmwareUpdate = {
-      Name: accessory.context.Battery.Name ?? `${accessory.displayName} Firmware Update`,
-      Service: accessory.getService(this.hap.Service.Battery) ?? accessory.addService(this.hap.Service.Battery) as Service,
-      FirmwareUpdateStatus: accessory.context.FirmwareUpdateStatus ?? 0,
-      FirmwareUpdateReadiness: accessory.context.FirmwareUpdateReadiness ?? 0,
-    };
-    accessory.context.FirmwareUpdate = this.FirmwareUpdate as object;
-    // Initialize FirmwareUpdate Characteristics
-    this.FirmwareUpdate.Service
-      .setCharacteristic(this.hap.Characteristic.Name, this.FirmwareUpdate.Name)
-      .setCharacteristic(this.hap.Characteristic.FirmwareUpdateStatus, true)
-      .setCharacteristic(this.hap.Characteristic.FirmwareUpdateReadiness, true)
-      .getCharacteristic(this.hap.Characteristic.FirmwareUpdateReadiness)
-      .onGet(() => {
-        return this.FirmwareUpdate.FirmwareUpdateReadiness;
-      });
   }
 
   async statusCode(accessory: PlatformAccessory, device: device & devicesConfig, error: { message: string; }): Promise<void> {
