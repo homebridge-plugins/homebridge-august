@@ -189,7 +189,7 @@ export abstract class deviceBase {
 
   async statusCode(device: device & devicesConfig, error: { message: string; }): Promise<void> {
     if (!device.hide_device) {
-      const statusCodeString = JSON.stringify(JSON.parse(error.message)); // Convert statusCode to a string
+      const statusCodeString = error.message; // Convert statusCode to a string
       if (statusCodeString.includes('100')) {
         this.debugLog(`Command successfully sent, statusCode: ${statusCodeString}`);
       } else if (statusCodeString.includes('200')) {
