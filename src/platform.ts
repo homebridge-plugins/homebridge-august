@@ -300,7 +300,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
 
       // the accessory already exists
       if (this.registerDevice(device)) {
-        this.infoLog(`Restoring existing accessory from cache: ${device.LockName} Lock ID: ${device.lockId}`);
+        this.infoLog(`Restoring existing accessory from cache: ${device.LockName}, Lock ID: ${device.lockId}`);
 
         // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
         existingAccessory.context.device = device;
@@ -313,14 +313,14 @@ export class AugustPlatform implements DynamicPlatformPlugin {
         // create the accessory handler for the restored accessory
         // this is imported from `platformAccessory.ts`
         new LockMechanism(this, existingAccessory, device);
-        this.debugLog(`${device.LockName} (${device.lockId}) uuid: ${existingAccessory.UUID}`);
+        this.debugLog(`Lock: ${device.LockName} (${device.lockId}) uuid: ${existingAccessory.UUID}`);
       } else {
         this.unregisterPlatformAccessories(existingAccessory, device);
       }
     } else if (this.registerDevice(device)) {
       // the accessory does not yet exist, so we need to create it
       if (!device.external) {
-        this.infoLog(`Adding new accessory: ${device.LockName} Lock ID: ${device.lockId}`);
+        this.infoLog(`Adding new accessory: ${device.LockName}, Lock ID: ${device.lockId}`);
       }
 
       // create a new accessory
@@ -337,13 +337,13 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       // create the accessory handler for the newly create accessory
       // this is imported from `platformAccessory.ts`
       new LockMechanism(this, accessory, device);
-      this.debugLog(`${device.LockName} (${device.lockId}) uuid:  ${accessory.UUID}`);
+      this.debugLog(`Lock: ${device.LockName} (${device.lockId}) uuid:  ${accessory.UUID}`);
 
       // link the accessory to your platform
       this.externalOrPlatform(device, accessory);
       this.accessories.push(accessory);
     } else {
-      this.debugErrorLog(`Unable to Register new device: ${device.LockName} Lock ID: ${device.lockId}`);
+      this.debugErrorLog(`Unable to Register new device: ${device.LockName}, Lock ID: ${device.lockId}`);
       this.debugErrorLog('Check Config to see if lockId is being Hidden.');
     }
   }

@@ -46,16 +46,16 @@ export abstract class deviceBase {
   async getDeviceLogSettings(accessory: PlatformAccessory, device: device & devicesConfig): Promise<void> {
     if (this.platform.debugMode) {
       this.deviceLogging = this.accessory.context.logging = 'debugMode';
-      this.debugWarnLog(`Using Debug Mode Logging: ${this.deviceLogging}`);
+      await this.debugWarnLog(`Using Debug Mode Logging: ${this.deviceLogging}`);
     } else if (device.logging) {
       this.deviceLogging = this.accessory.context.logging = device.logging;
-      this.debugWarnLog(`Using Device Config Logging: ${this.deviceLogging}`);
+      await this.debugWarnLog(`Using Device Config Logging: ${this.deviceLogging}`);
     } else if (this.config.logging) {
       this.deviceLogging = this.accessory.context.logging = this.config.logging;
-      this.debugWarnLog(`Using Platform Config Logging: ${this.deviceLogging}`);
+      await this.debugWarnLog(`Using Platform Config Logging: ${this.deviceLogging}`);
     } else {
       this.deviceLogging = this.accessory.context.logging = 'standard';
-      this.debugWarnLog(`Logging Not Set, Using: ${this.deviceLogging}`);
+      await this.debugWarnLog(`Logging Not Set, Using: ${this.deviceLogging}`);
     }
   }
 
@@ -63,53 +63,53 @@ export abstract class deviceBase {
     if (device.refreshRate) {
       if (device.refreshRate === 0) {
         this.deviceRefreshRate = 0;
-        this.warnLog('Refresh Rate set to 0, this will disable the refresh rate for this device');
+        await this.warnLog('Refresh Rate set to 0, this will disable the refresh rate for this device');
       } else if (device.refreshRate < 1800) {
         this.deviceRefreshRate = 1800;
-        this.warnLog('Refresh Rate cannot be set to lower the 5 mins, as Lock detail (battery level, etc) are unlikely to change within that period');
+        await this.warnLog('Refresh Rate cannot be set to lower the 5 mins, Lock detail are unlikely to change within that period');
       } else {
         this.deviceRefreshRate = device.refreshRate;
       }
       this.accessory.context.deviceRefreshRate = this.deviceRefreshRate;
-      this.debugLog(`Using Device Config refreshRate: ${this.deviceRefreshRate}`);
+      await this.debugLog(`Using Device Config refreshRate: ${this.deviceRefreshRate}`);
     } else if (this.config.refreshRate) {
       this.deviceRefreshRate = this.accessory.context.refreshRate = this.config.refreshRate;
-      this.debugLog(`Using Platform Config refreshRate: ${this.deviceRefreshRate}`);
+      await this.debugLog(`Using Platform Config refreshRate: ${this.deviceRefreshRate}`);
     }
     // refreshRate
     if (device.refreshRate) {
       this.deviceRefreshRate = device.refreshRate;
-      this.debugLog(`Using Device Config refreshRate: ${this.deviceRefreshRate}`);
+      await this.debugLog(`Using Device Config refreshRate: ${this.deviceRefreshRate}`);
     } else if (this.config.options?.refreshRate) {
       this.deviceRefreshRate = this.config.options.refreshRate;
-      this.debugLog(`Using Platform Config refreshRate: ${this.deviceRefreshRate}`);
+      await this.debugLog(`Using Platform Config refreshRate: ${this.deviceRefreshRate}`);
     } else {
       this.deviceRefreshRate = 5;
-      this.debugLog(`Using Default refreshRate: ${this.deviceRefreshRate}`);
+      await this.debugLog(`Using Default refreshRate: ${this.deviceRefreshRate}`);
     }
     accessory.context.deviceRefreshRate = this.deviceRefreshRate;
     // updateRate
     if (device.updateRate) {
       this.deviceUpdateRate = device.updateRate;
-      this.debugLog(`Using Device Config updateRate: ${this.deviceUpdateRate}`);
+      await this.debugLog(`Using Device Config updateRate: ${this.deviceUpdateRate}`);
     } else if (this.config.options?.updateRate) {
       this.deviceUpdateRate = this.config.options.updateRate;
-      this.debugLog(`Using Platform Config updateRate: ${this.deviceUpdateRate}`);
+      await this.debugLog(`Using Platform Config updateRate: ${this.deviceUpdateRate}`);
     } else {
       this.deviceUpdateRate = 5;
-      this.debugLog(`Using Default updateRate: ${this.deviceUpdateRate}`);
+      await this.debugLog(`Using Default updateRate: ${this.deviceUpdateRate}`);
     }
     accessory.context.deviceUpdateRate = this.deviceUpdateRate;
     // pushRate
     if (device.pushRate) {
       this.devicePushRate = device.pushRate;
-      this.debugLog(`Using Device Config pushRate: ${this.deviceUpdateRate}`);
+      await this.debugLog(`Using Device Config pushRate: ${this.deviceUpdateRate}`);
     } else if (this.config.options?.pushRate) {
       this.devicePushRate = this.config.options.pushRate;
-      this.debugLog(`Using Platform Config pushRate: ${this.deviceUpdateRate}`);
+      await this.debugLog(`Using Platform Config pushRate: ${this.deviceUpdateRate}`);
     } else {
       this.devicePushRate = 1;
-      this.debugLog(`Using Default pushRate: ${this.deviceUpdateRate}`);
+      await this.debugLog(`Using Default pushRate: ${this.deviceUpdateRate}`);
     }
     accessory.context.devicePushRate = this.devicePushRate;
   }
@@ -141,7 +141,7 @@ export abstract class deviceBase {
     }
     const config = Object.assign({}, deviceConfig);
     if (Object.entries(config).length !== 0) {
-      this.infoLog(`Config: ${JSON.stringify(config)}`);
+      await this.infoLog(`Config: ${JSON.stringify(config)}`);
     }
   }
 
@@ -150,23 +150,23 @@ export abstract class deviceBase {
     let deviceFirmwareVersion: string;
     if (device.firmware) {
       deviceFirmwareVersion = device.firmware;
-      this.debugSuccessLog(`1 FirmwareRevision: ${device.firmware}`);
+      await this.debugSuccessLog(`1 FirmwareRevision: ${device.firmware}`);
     } else if (device.currentFirmwareVersion) {
       deviceFirmwareVersion = device.currentFirmwareVersion;
-      this.debugSuccessLog(`2 FirmwareRevision: ${device.currentFirmwareVersion}`);
+      await this.debugSuccessLog(`2 FirmwareRevision: ${device.currentFirmwareVersion}`);
     } else if (accessory.context.deviceVersion) {
       deviceFirmwareVersion = accessory.context.deviceVersion;
-      this.debugSuccessLog(`3 FirmwareRevision: ${accessory.context.deviceVersion}`);
+      await this.debugSuccessLog(`3 FirmwareRevision: ${accessory.context.deviceVersion}`);
     } else {
       deviceFirmwareVersion = this.platform.version ?? '0.0.0';
       if (this.platform.version) {
-        this.debugSuccessLog(`4 FirmwareRevision: ${this.platform.version}`);
+        await this.debugSuccessLog(`4 FirmwareRevision: ${this.platform.version}`);
       } else {
-        this.debugSuccessLog(`5 FirmwareRevision: ${deviceFirmwareVersion}`);
+        await this.debugSuccessLog(`5 FirmwareRevision: ${deviceFirmwareVersion}`);
       }
     }
     const version = deviceFirmwareVersion.toString();
-    this.debugLog(`${this.device.Type}: ${accessory.displayName} Firmware Version: ${version?.replace(/^V|-.*$/g, '')}`);
+    await this.debugLog(`${this.device.Type}: ${accessory.displayName} Firmware Version: ${version?.replace(/^V|-.*$/g, '')}`);
     let deviceVersion: string;
     if (version?.includes('.') === false) {
       const replace = version?.replace(/^V|-.*$/g, '');
@@ -184,24 +184,23 @@ export abstract class deviceBase {
       .getCharacteristic(this.hap.Characteristic.FirmwareRevision)
       .updateValue(deviceVersion);
     accessory.context.deviceVersion = deviceVersion;
-    this.debugSuccessLog(`deviceVersion: ${accessory.context.deviceVersion}`);
+    await this.debugSuccessLog(`deviceVersion: ${accessory.context.deviceVersion}`);
   }
 
   async statusCode(device: device & devicesConfig, error: { message: string; }): Promise<void> {
     if (!device.hide_device) {
       const statusCodeString = error.message; // Convert statusCode to a string
       if (statusCodeString.includes('100')) {
-        this.debugLog(`Command successfully sent, statusCode: ${statusCodeString}`);
+        await this.debugLog(`Command successfully sent, statusCode: ${statusCodeString}`);
       } else if (statusCodeString.includes('200')) {
-        this.debugLog(`Request successful, statusCode: ${statusCodeString}`);
+        await this.debugLog(`Request successful, statusCode: ${statusCodeString}`);
       } else if (statusCodeString.includes('400')) {
-        this.errorLog(`Bad Request, statusCode: ${statusCodeString}`);
+        await this.errorLog(`Bad Request, statusCode: ${statusCodeString}`);
       } else if (statusCodeString.includes('429')) {
-        this.errorLog(`Too Many Requests, exceeded the number of requests allowed for a given time window, statusCode: ${statusCodeString}`);
+        await this.errorLog(`Too Many Requests, exceeded the number of requests allowed for a given time window, statusCode: ${statusCodeString}`);
       } else {
-        this.debugLog(`Unknown statusCode: ${statusCodeString}, Submit Bugs Here: '
-      + 'https://tinyurl.com/AugustYaleBug`);
-        this.debugErrorLog(`failed lockStatus (refreshStatus), Error: ${JSON.stringify(error)}`);
+        await this.debugLog(`Unknown statusCode: ${statusCodeString}, Submit Bugs Here: https://tinyurl.com/AugustYaleBug`);
+        await this.debugErrorLog(`failed lockStatus (refreshStatus), Error: ${JSON.stringify(error)}`);
       }
     }
   }
