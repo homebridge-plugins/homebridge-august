@@ -3,7 +3,7 @@
  * device.ts: homebridge-august.
  */
 import type { AugustPlatform } from '../platform.js';
-import type { API, HAP, Logging, PlatformAccessory } from 'homebridge';
+import type { API, HAP, Logging, PlatformAccessory, Service, CharacteristicValue } from 'homebridge';
 import type { device, devicesConfig, AugustPlatformConfig } from '../settings.js';
 
 export abstract class deviceBase {
@@ -185,6 +185,29 @@ export abstract class deviceBase {
       .updateValue(deviceVersion);
     accessory.context.deviceVersion = deviceVersion;
     await this.debugSuccessLog(`deviceVersion: ${accessory.context.deviceVersion}`);
+  }
+
+  /**
+  * Update the characteristic value and log the change.
+  *
+  * @param Service: Service
+  * @param Characteristic: Characteristic
+  * @param CharacteristicValue: CharacteristicValue | undefined
+  * @param CharacteristicName: string
+  * @return: void
+  *
+  */
+  async updateCharacteristic(Service: Service, Characteristic: any,
+    CharacteristicValue: CharacteristicValue | undefined, CharacteristicName: string): Promise<void> {
+    if (CharacteristicValue === undefined) {
+      this.debugLog(`${CharacteristicName}: ${CharacteristicValue}`);
+    } else {
+      Service.updateCharacteristic(Characteristic, CharacteristicValue);
+      this.debugLog(`updateCharacteristic ${CharacteristicName}: ${CharacteristicValue}`);
+      this.debugWarnLog(`context before: ${this.accessory.context[CharacteristicName]}`);
+      this.accessory.context[CharacteristicName] = CharacteristicValue;
+      this.debugWarnLog(`context after: ${this.accessory.context[CharacteristicName]}`);
+    }
   }
 
   async statusCode(device: device & devicesConfig, error: { message: string; }): Promise<void> {
