@@ -83,14 +83,15 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       // run the method to discover / register your devices as accessories
 
       if (this.config.credentials?.isValidated === false || this.config.credentials?.isValidated === undefined) {
-        this.debugWarnLog(`Config Credentials: ${JSON.stringify(this.config.credentials)}`);
+        await this.debugWarnLog(`Config Credentials: ${JSON.stringify(this.config.credentials)}`);
         try {
           await this.validated();
         } catch (e: any) {
           this.errorLog(`Validate: ${e}`);
         }
       } else {
-        this.debugWarnLog(`Config Credentials: ${JSON.stringify(this.config.credentials)}, isValidated: ${this.config.credentials?.isValidated}`);
+        await this.debugWarnLog(`Config Credentials: ${JSON.stringify(this.config.credentials)},`
+        + ` isValidated: ${this.config.credentials?.isValidated}`);
         try {
           await this.discoverDevices();
         } catch (e: any) {
@@ -104,8 +105,8 @@ export class AugustPlatform implements DynamicPlatformPlugin {
    * This function is invoked when homebridge restores cached accessories from disk at startup.
    * It should be used to setup event handlers for characteristics and update respective values.
    */
-  configureAccessory(accessory: PlatformAccessory) {
-    this.debugLog(`Loading accessory from cache: ${accessory.displayName}`);
+  async configureAccessory(accessory: PlatformAccessory): Promise<void> {
+    await this.debugLog(`Loading accessory from cache: ${accessory.displayName}`);
 
     // add the restored accessory to the accessories cache so we can track if it has already been registered
     this.accessories.push(accessory);
@@ -180,8 +181,8 @@ export class AugustPlatform implements DynamicPlatformPlugin {
         pluginConfig.credentials.validateCode = undefined;
       }
 
-      this.debugWarnLog(`isValidated: ${pluginConfig.credentials.isValidated}`);
-      this.debugWarnLog(`validateCode: ${pluginConfig.credentials.validateCode}`);
+      await this.debugWarnLog(`isValidated: ${pluginConfig.credentials.isValidated}`);
+      await this.debugWarnLog(`validateCode: ${pluginConfig.credentials.validateCode}`);
 
       // save the config, ensuring we maintain pretty json
       writeFileSync(this.api.user.configPath(), JSON.stringify(currentConfig, null, 4));
@@ -190,7 +191,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       } else {
         try {
           await this.discoverDevices();
-          this.debugWarnLog(`isValidated: ${this.config.credentials?.isValidated}`);
+          await this.debugWarnLog(`isValidated: ${this.config.credentials?.isValidated}`);
         } catch (e: any) {
           this.errorLog(`Validate, Discover Devices: ${e}`);
         }
@@ -201,7 +202,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       // set the refresh token
       pluginConfig.credentials.installId = this.config.credentials?.installId;
 
-      this.debugWarnLog(`installId: ${pluginConfig.credentials.installId}`);
+      await this.debugWarnLog(`installId: ${pluginConfig.credentials.installId}`);
       // save the config, ensuring we maintain pretty json
       writeFileSync(this.api.user.configPath(), JSON.stringify(currentConfig, null, 4));
 
@@ -217,7 +218,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       throw 'Missing Credentials';
     } else {
       this.augustConfig = new August(this.config.credentials);
-      this.debugLog(`August Credentials: ${JSON.stringify(this.augustConfig)}`);
+      await this.debugLog(`August Credentials: ${JSON.stringify(this.augustConfig)}`);
     }
   }
 
@@ -255,17 +256,17 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       this.infoLog(`Total August Locks Found: ${deviceLists.length}`);
     }
     if (!this.config.options?.devices) {
-      this.debugWarnLog(`August Platform Config Not Set: ${JSON.stringify(this.config.options?.devices)}`);
+      await this.debugWarnLog(`August Platform Config Not Set: ${JSON.stringify(this.config.options?.devices)}`);
       const devices = deviceLists.map((v: any) => v);
       for (const device of devices) {
         if (device.configDeviceName) {
           device.deviceName = device.configDeviceName;
         }
-        this.debugLog(`August Devices: ${JSON.stringify(device)}`);
+        await this.debugLog(`August Devices: ${JSON.stringify(device)}`);
         this.Lock(device);
       }
     } else if (this.config.options.devices) {
-      this.debugWarnLog(`August Platform Config Set: ${JSON.stringify(this.config.options?.devices)}`);
+      await this.debugWarnLog(`August Platform Config Set: ${JSON.stringify(this.config.options?.devices)}`);
       const deviceConfigs = this.config.options?.devices;
 
       const mergeBylockId = (a1: { lockId: string }[], a2: any[]) =>
@@ -277,12 +278,12 @@ export class AugustPlatform implements DynamicPlatformPlugin {
           ...itm,
         }));
       const devices = mergeBylockId(deviceLists, deviceConfigs);
-      this.debugLog(`August Lock(s): ${JSON.stringify(devices)}`);
+      await this.debugLog(`August Lock(s): ${JSON.stringify(devices)}`);
       for (const device of devices) {
         if (device.configDeviceName) {
           device.deviceName = device.configDeviceName;
         }
-        this.debugLog(`device: ${JSON.stringify(device)}`);
+        await this.debugLog(`device: ${JSON.stringify(device)}`);
         this.Lock(device);
       }
     } else {
@@ -299,8 +300,8 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     if (existingAccessory) {
 
       // the accessory already exists
-      if (this.registerDevice(device)) {
-        this.infoLog(`Restoring existing accessory from cache: ${device.LockName} Lock ID: ${device.lockId}`);
+      if (await this.registerDevice(device)) {
+        this.infoLog(`Restoring existing accessory from cache: ${device.LockName}, Lock ID: ${device.lockId}`);
 
         // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
         existingAccessory.context.device = device;
@@ -313,14 +314,14 @@ export class AugustPlatform implements DynamicPlatformPlugin {
         // create the accessory handler for the restored accessory
         // this is imported from `platformAccessory.ts`
         new LockMechanism(this, existingAccessory, device);
-        this.debugLog(`${device.LockName} (${device.lockId}) uuid: ${existingAccessory.UUID}`);
+        await this.debugLog(`Lock: ${device.LockName} (${device.lockId}) uuid: ${existingAccessory.UUID}`);
       } else {
         this.unregisterPlatformAccessories(existingAccessory, device);
       }
-    } else if (this.registerDevice(device)) {
+    } else if (await this.registerDevice(device)) {
       // the accessory does not yet exist, so we need to create it
       if (!device.external) {
-        this.infoLog(`Adding new accessory: ${device.LockName} Lock ID: ${device.lockId}`);
+        this.infoLog(`Adding new accessory: ${device.LockName}, Lock ID: ${device.lockId}`);
       }
 
       // create a new accessory
@@ -337,24 +338,24 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       // create the accessory handler for the newly create accessory
       // this is imported from `platformAccessory.ts`
       new LockMechanism(this, accessory, device);
-      this.debugLog(`${device.LockName} (${device.lockId}) uuid:  ${accessory.UUID}`);
+      await this.debugLog(`Lock: ${device.LockName} (${device.lockId}) uuid:  ${accessory.UUID}`);
 
       // link the accessory to your platform
       this.externalOrPlatform(device, accessory);
       this.accessories.push(accessory);
     } else {
-      this.debugErrorLog(`Unable to Register new device: ${device.LockName} Lock ID: ${device.lockId}`);
+      this.debugErrorLog(`Unable to Register new device: ${device.LockName}, Lock ID: ${device.lockId}`);
       this.debugErrorLog('Check Config to see if lockId is being Hidden.');
     }
   }
 
-  private registerDevice(device: device & devicesConfig) {
+  async registerDevice(device: device & devicesConfig) {
     if (!device.hide_device && !device.homeKitEnabled) {
       this.registeringDevice = true;
-      this.debugLog(`Device: ${device.LockName} Enabled`);
+      await this.debugLog(`Device: ${device.LockName} Enabled`);
     } else if (device.homeKitEnabled && device.overrideHomeKitEnabled) {
       this.registeringDevice = true;
-      this.debugWarnLog(`Device: ${device.LockName} HomeKit Enabled: ${device.homeKitEnabled}, `
+      await this.debugWarnLog(`Device: ${device.LockName} HomeKit Enabled: ${device.homeKitEnabled}, `
       + `Override HomeKit Enabled: ${device.overrideHomeKitEnabled}`);
     } else if (device.homeKitEnabled && !device.overrideHomeKitEnabled) {
       this.registeringDevice = false;
@@ -362,7 +363,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       + `${device.homeKitEnabled}, device will not be registered. To enable, set overrideHomeKitEnabled to true.`);
     } else {
       this.registeringDevice = false;
-      this.debugLog(`Device: ${device.LockName} is Hidden.`);
+      await this.debugLog(`Device: ${device.LockName} is Hidden.`);
     }
     return this.registeringDevice;
   }
@@ -372,7 +373,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       this.infoLog(`${accessory.displayName} External Accessory Mode: ${device.external}`);
       this.externalAccessory(accessory);
     } else {
-      this.debugLog(`${accessory.displayName} External Accessory Mode: ${device.external}`);
+      await this.debugLog(`${accessory.displayName} External Accessory Mode: ${device.external}`);
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
     }
   }
@@ -394,7 +395,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
         'utf-8',
       ),
     );
-    this.debugLog(`Plugin Version: ${json.version}`);
+    await this.debugLog(`Plugin Version: ${json.version}`);
     this.version = json.version;
   }
 
@@ -414,7 +415,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
         platformConfig.pushRate = this.config.options.pushRate;
       }
       if (Object.entries(platformConfig).length !== 0) {
-        this.debugLog(`Platform Config: ${JSON.stringify(platformConfig)}`);
+        await this.debugLog(`Platform Config: ${JSON.stringify(platformConfig)}`);
       }
       this.platformConfig = platformConfig;
     }
@@ -424,13 +425,13 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     this.debugMode = process.argv.includes('-D') || process.argv.includes('--debug');
     if (this.config.options?.logging === 'debug' || this.config.options?.logging === 'standard' || this.config.options?.logging === 'none') {
       this.platformLogging = this.config.options.logging;
-      this.debugWarnLog(`Using Platform Config Logging: ${this.platformLogging}`);
+      await this.debugWarnLog(`Using Platform Config Logging: ${this.platformLogging}`);
     } else if (this.debugMode) {
       this.platformLogging = 'debugMode';
-      this.debugWarnLog(`Using ${this.platformLogging} Logging`);
+      await this.debugWarnLog(`Using ${this.platformLogging} Logging`);
     } else {
       this.platformLogging = 'standard';
-      this.debugWarnLog(`Using ${this.platformLogging} Logging`);
+      await this.debugWarnLog(`Using ${this.platformLogging} Logging`);
     }
   }
 
@@ -438,56 +439,56 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     * If device level logging is turned on, log to log.warn
     * Otherwise send debug logs to log.debug
     */
-  infoLog(...log: any[]): void {
-    if (this.enablingPlatformLogging()) {
+  async infoLog(...log: any[]): Promise<void> {
+    if (await this.enablingPlatformLogging()) {
       this.log.info(String(...log));
     }
   }
 
-  successLog(...log: any[]): void {
-    if (this.enablingPlatformLogging()) {
+  async successLog(...log: any[]): Promise<void> {
+    if (await this.enablingPlatformLogging()) {
       this.log.success(String(...log));
     }
   }
 
-  debugSuccessLog(...log: any[]): void {
-    if (this.enablingPlatformLogging()) {
+  async debugSuccessLog(...log: any[]): Promise<void> {
+    if (await this.enablingPlatformLogging()) {
       if (this.platformLogging?.includes('debug')) {
         this.log.success('[DEBUG]', String(...log));
       }
     }
   }
 
-  warnLog(...log: any[]): void {
-    if (this.enablingPlatformLogging()) {
+  async warnLog(...log: any[]): Promise<void> {
+    if (await this.enablingPlatformLogging()) {
       this.log.warn(String(...log));
     }
   }
 
-  debugWarnLog(...log: any[]): void {
-    if (this.enablingPlatformLogging()) {
+  async debugWarnLog(...log: any[]): Promise<void> {
+    if (await this.enablingPlatformLogging()) {
       if (this.platformLogging?.includes('debug')) {
         this.log.warn('[DEBUG]', String(...log));
       }
     }
   }
 
-  errorLog(...log: any[]): void {
-    if (this.enablingPlatformLogging()) {
+  async errorLog(...log: any[]): Promise<void> {
+    if (await this.enablingPlatformLogging()) {
       this.log.error(String(...log));
     }
   }
 
-  debugErrorLog(...log: any[]): void {
-    if (this.enablingPlatformLogging()) {
+  async debugErrorLog(...log: any[]): Promise<void> {
+    if (await this.enablingPlatformLogging()) {
       if (this.platformLogging?.includes('debug')) {
         this.log.error('[DEBUG]', String(...log));
       }
     }
   }
 
-  debugLog(...log: any[]): void {
-    if (this.enablingPlatformLogging()) {
+  async debugLog(...log: any[]): Promise<void> {
+    if (await this.enablingPlatformLogging()) {
       if (this.platformLogging === 'debugMode') {
         this.log.debug(String(...log));
       } else if (this.platformLogging === 'debug') {
@@ -496,7 +497,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     }
   }
 
-  enablingPlatformLogging(): boolean {
+  async enablingPlatformLogging(): Promise<boolean> {
     return this.platformLogging?.includes('debug') || this.platformLogging === 'standard';
   }
 }
