@@ -145,7 +145,7 @@ export type lockDetails = {
 };
 
 export type lockStatus = {
-  lockID: string;
+  lockId: string;
   status: string;
   doorState: string;
   state: state;
@@ -154,6 +154,21 @@ export type lockStatus = {
 export type state = {
   unlocked: boolean;
   locked: boolean;
+  open: boolean;
+  closed: boolean;
+};
+
+export type lockEvent = {
+  status: string;
+  callingUserID: string;
+  doorState: string;
+  state: stateEvent;
+  lockId: string;
+};
+
+export type stateEvent = {
+  locked: boolean;
+  unlocked: boolean;
   open: boolean;
   closed: boolean;
 };
