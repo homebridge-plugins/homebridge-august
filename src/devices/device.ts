@@ -79,13 +79,13 @@ export abstract class deviceBase {
       deviceConfig['refreshRate'] = device.refreshRate;
     }
     if (device.overrideHomeKitEnabled === true) {
-      deviceConfig['refreshRate'] = device.refreshRate;
+      deviceConfig['overrideHomeKitEnabled'] = device.overrideHomeKitEnabled;
     }
     if (device.updateRate !== undefined) {
-      deviceConfig['refreshRate'] = device.updateRate;
+      deviceConfig['updateRate'] = device.updateRate;
     }
     if (device.pushRate !== undefined) {
-      deviceConfig['refreshRate'] = device.pushRate;
+      deviceConfig['pushRate'] = device.pushRate;
     }
     if (device.lock) {
       if (device.lock.hide_contactsensor === true) {
