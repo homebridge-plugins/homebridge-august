@@ -117,7 +117,6 @@ export class AugustPlatform implements DynamicPlatformPlugin {
    */
   verifyConfig() {
     this.config.options = this.config.options || {};
-
     const platformConfig = {};
     if (this.config.options.logging) {
       platformConfig['logging'] = this.config.options.logging;
@@ -134,7 +133,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
 
     if (!this.config.options.refreshRate) {
       // default 1800 seconds (30 minutes)
-      this.config.options!.refreshRate! = 1800;
+      this.config.options.refreshRate = 1800;
       this.debugWarnLog('Using Default Refresh Rate (5 minutes).');
     } else if (this.config.options.refreshRate < 1800) {
       this.config.options.refreshRate = 1800;

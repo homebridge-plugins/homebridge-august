@@ -456,8 +456,6 @@
               "key": "options.devices[].pushRate",
               "description": "<em class='primary-text'>Specifies the interval, in seconds, between pushes to the August API for this specific device.</em>"
             },
-            "options.devices[].refreshRate",
-            "options.devices[].pushRate",
             "options.devices[].external",
             "options.devices[].logging"
           ]
