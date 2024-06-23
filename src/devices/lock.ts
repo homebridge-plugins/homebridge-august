@@ -221,6 +221,35 @@ export class LockMechanism extends deviceBase {
   }
 
   /**
+   * Parse the device status from the August api
+   */
+  async parseEventStatus(): Promise<void> {
+    await this.debugLog('parseStatus');
+    const retryCount = 1;
+    if (this.lockStatus) {
+      this.warnLog(`lockStatus: ${JSON.stringify(this.lockStatus)}`);
+      // Lock Mechanism
+      this.platform.augustConfig.addSimpleProps(this.lockStatus);
+      if (!this.device.lock?.hide_lock && this.LockMechanism?.Service) {
+        this.LockMechanism.LockCurrentState = this.lockStatus.state.locked ? this.hap.Characteristic.LockCurrentState.SECURED
+          : this.lockStatus.state.unlocked ? this.hap.Characteristic.LockCurrentState.UNSECURED
+            : retryCount > 1 ? this.hap.Characteristic.LockCurrentState.JAMMED : this.hap.Characteristic.LockCurrentState.UNKNOWN;
+        await this.debugLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}`);
+      }
+      // Contact Sensor
+      if (!this.device.lock?.hide_contactsensor && this.ContactSensor?.Service) {
+      // ContactSensorState
+        this.ContactSensor.ContactSensorState = this.lockStatus.state.open ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+          : this.lockStatus.state.closed ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
+            //: this.lockStatus.doorState.includes('open') ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+            //: this.lockStatus.doorState.includes('closed') ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
+            : this.ContactSensor.ContactSensorState;
+        await this.debugLog(`ContactSensorState: ${this.ContactSensor.ContactSensorState}`);
+      }
+    }
+  }
+
+  /**
    * Asks the August Home API for the latest device information
    */
   async refreshStatus(): Promise<void> {
@@ -342,7 +371,7 @@ export class LockMechanism extends deviceBase {
       }
       // Update HomeKit
       this.lockStatus = AugustEvent;
-      await this.parseStatus();
+      await this.parseEventStatus();
       await this.updateHomeKitCharacteristics();
     });
   }
