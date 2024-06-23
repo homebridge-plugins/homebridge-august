@@ -159,16 +159,37 @@ export type state = {
 };
 
 export type lockEvent = {
+  remoteEvent?: boolean;
   status: string;
-  callingUserID: string;
+  info?: info;
+  callingUserID?: string;
   doorState: string;
   state: stateEvent;
+  lockID: string;
   lockId: string;
 };
 
 export type stateEvent = {
   locked: boolean;
   unlocked: boolean;
-  open: boolean;
-  closed: boolean;
+  open?: boolean;
+  closed?: boolean;
+};
+
+export type info = {
+  action: string;
+  startTime: Date;
+  context: {
+    transactionID: string;
+    startDate: Date;
+    retryCount: number;
+  };
+  lockType: string;
+  serialNumber: string;
+  rssi: number;
+  wlanRSSI: number;
+  wlanSNR: number;
+  duration: number;
+  lockID: string;
+  bridgeID: string;
 };

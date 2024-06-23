@@ -190,7 +190,7 @@ export class LockMechanism extends deviceBase {
       }
       // Contact Sensor
       if (!this.device.lock?.hide_contactsensor && this.ContactSensor?.Service) {
-      // ContactSensorState
+        // ContactSensorState
         this.ContactSensor.ContactSensorState = this.lockStatus.state.open ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
           : this.lockStatus.state.closed ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
             : this.lockStatus.doorState.includes('open') ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
@@ -200,7 +200,7 @@ export class LockMechanism extends deviceBase {
       }
     }
     if (this.lockDetails) {
-    // BatteryLevel
+      // BatteryLevel
       this.Battery.BatteryLevel = Number((this.lockDetails.battery * 100).toFixed());
       await this.debugLog(`BatteryLevel: ${this.Battery.BatteryLevel}`);
       // StatusLowBattery
@@ -225,7 +225,7 @@ export class LockMechanism extends deviceBase {
    * Parse the device status from the August api
    */
   async parseEventStatus(): Promise<void> {
-    await this.debugLog('parseStatus');
+    await this.debugLog('parseEventStatus');
     const retryCount = 1;
     if (this.lockEvent) {
       this.warnLog(`lockEvent: ${JSON.stringify(this.lockEvent)}`);
@@ -239,7 +239,7 @@ export class LockMechanism extends deviceBase {
       }
       // Contact Sensor
       if (!this.device.lock?.hide_contactsensor && this.ContactSensor?.Service) {
-      // ContactSensorState
+        // ContactSensorState
         this.ContactSensor.ContactSensorState = this.lockEvent.state.open ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
           : this.lockEvent.state.closed ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
             : this.lockEvent.doorState === 'open' ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
@@ -256,7 +256,7 @@ export class LockMechanism extends deviceBase {
   async refreshStatus(): Promise<void> {
     if (this.deviceRefreshRate !== 0) {
       try {
-      // Update Lock Details
+        // Update Lock Details
         const lockDetails: any = await this.platform.augustConfig.details(this.device.lockId);
         await this.debugSuccessLog(`(refreshStatus) lockDetails: ${JSON.stringify(lockDetails)}`);
         // Update HomeKit
@@ -300,6 +300,7 @@ export class LockMechanism extends deviceBase {
    * Updates the status for each of the HomeKit Characteristics
    */
   async updateHomeKitCharacteristics(): Promise<void> {
+    await this.debugLog('updateHomeKitCharacteristics');
     // Lock Mechanism
     if (!this.device.lock?.hide_lock && this.LockMechanism?.Service) {
       // LockTargetState
@@ -339,9 +340,10 @@ export class LockMechanism extends deviceBase {
   }
 
   async subscribeAugust(): Promise<void> {
+    await this.debugLog('subscribeAugust');
     await this.platform.augustCredentials();
     if (this.config.credentials) {
-      await August.subscribe(this.config.credentials, this.device.lockId, async (AugustEvent: any, timestamp: any) => {
+      await August.subscribe(this.config.credentials, this.device.lockId, async (AugustEvent: lockEvent, timestamp: Date) => {
         await this.debugLog(`AugustEvent: ${JSON.stringify(AugustEvent)}, ${JSON.stringify(timestamp)}`);
         //LockCurrentState
         if (!this.device.lock?.hide_lock && this.LockMechanism?.Service) {
