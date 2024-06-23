@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/)
 
+## [2.2.4](https://github.com/donavanbecker/homebridge-august/releases/tag/v2.2.4) (2024-06-23)
+
+### What's Changes
+- Fix parsing Issue that caused plugin to restart
+
+**Full Changelog**: https://github.com/donavanbecker/homebridge-august/compare/v2.2.3...v2.2.4
+
 ## [2.2.3](https://github.com/donavanbecker/homebridge-august/releases/tag/v2.2.3) (2024-06-22)
 
 ### What's Changes

@@ -178,41 +178,45 @@ export class LockMechanism extends deviceBase {
   async parseStatus(): Promise<void> {
     await this.debugLog('parseStatus');
     const retryCount = 1;
-    this.platform.augustConfig.addSimpleProps(this.lockStatus);
-    // BatteryLevel
-    this.Battery.BatteryLevel = Number((this.lockDetails.battery * 100).toFixed());
-    await this.debugLog(`BatteryLevel: ${this.Battery.BatteryLevel}`);
-    // StatusLowBattery
-    this.Battery.StatusLowBattery = this.Battery.BatteryLevel < 15
-      ? this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW : this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL;
-    await this.debugLog(`StatusLowBattery: ${this.Battery.StatusLowBattery}`);
-    // Lock Mechanism
-    if (!this.device.lock?.hide_lock && this.LockMechanism?.Service) {
-      this.LockMechanism.LockCurrentState = this.lockStatus.state.locked ? this.hap.Characteristic.LockCurrentState.SECURED
-        : this.lockStatus.state.unlocked ? this.hap.Characteristic.LockCurrentState.UNSECURED
-          : retryCount > 1 ? this.hap.Characteristic.LockCurrentState.JAMMED : this.hap.Characteristic.LockCurrentState.UNKNOWN;
-      await this.debugLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}`);
-    }
-    // Contact Sensor
-    if (!this.device.lock?.hide_contactsensor && this.ContactSensor?.Service) {
+    if (this.lockStatus) {
+      // Lock Mechanism
+      this.platform.augustConfig.addSimpleProps(this.lockStatus);
+      if (!this.device.lock?.hide_lock && this.LockMechanism?.Service) {
+        this.LockMechanism.LockCurrentState = this.lockStatus.state.locked ? this.hap.Characteristic.LockCurrentState.SECURED
+          : this.lockStatus.state.unlocked ? this.hap.Characteristic.LockCurrentState.UNSECURED
+            : retryCount > 1 ? this.hap.Characteristic.LockCurrentState.JAMMED : this.hap.Characteristic.LockCurrentState.UNKNOWN;
+        await this.debugLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}`);
+      }
+      // Contact Sensor
+      if (!this.device.lock?.hide_contactsensor && this.ContactSensor?.Service) {
       // ContactSensorState
-      this.ContactSensor.ContactSensorState = this.lockStatus.state.open ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
-        : this.lockStatus.state.closed ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
-          : this.lockStatus.doorState.includes('open') ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
-            : this.lockStatus.doorState.includes('closed') ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
-              : this.ContactSensor.ContactSensorState;
-      await this.debugLog(`ContactSensorState: ${this.ContactSensor.ContactSensorState}`);
+        this.ContactSensor.ContactSensorState = this.lockStatus.state.open ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+          : this.lockStatus.state.closed ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
+            : this.lockStatus.doorState.includes('open') ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+              : this.lockStatus.doorState.includes('closed') ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
+                : this.ContactSensor.ContactSensorState;
+        await this.debugLog(`ContactSensorState: ${this.ContactSensor.ContactSensorState}`);
+      }
     }
-    // Firmware Version
-    if (this.accessory.context.currentFirmwareVersion !== this.lockDetails.currentFirmwareVersion) {
-      await this.warnLog(`Firmware Version changed to Current Firmware Version: ${this.lockDetails.currentFirmwareVersion}`);
-      this.accessory
-        .getService(this.hap.Service.AccessoryInformation)!
-        .setCharacteristic(this.hap.Characteristic.HardwareRevision, this.lockDetails.currentFirmwareVersion)
-        .setCharacteristic(this.hap.Characteristic.FirmwareRevision, this.lockDetails.currentFirmwareVersion)
-        .getCharacteristic(this.hap.Characteristic.FirmwareRevision)
-        .updateValue(this.lockDetails.currentFirmwareVersion);
-      this.accessory.context.currentFirmwareVersion = this.lockDetails.currentFirmwareVersion;
+    if (this.lockDetails) {
+    // BatteryLevel
+      this.Battery.BatteryLevel = Number((this.lockDetails.battery * 100).toFixed());
+      await this.debugLog(`BatteryLevel: ${this.Battery.BatteryLevel}`);
+      // StatusLowBattery
+      this.Battery.StatusLowBattery = this.Battery.BatteryLevel < 15
+        ? this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW : this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL;
+      await this.debugLog(`StatusLowBattery: ${this.Battery.StatusLowBattery}`);
+      // Firmware Version
+      if (this.accessory.context.currentFirmwareVersion !== this.lockDetails.currentFirmwareVersion) {
+        await this.warnLog(`Firmware Version changed to Current Firmware Version: ${this.lockDetails.currentFirmwareVersion}`);
+        this.accessory
+          .getService(this.hap.Service.AccessoryInformation)!
+          .setCharacteristic(this.hap.Characteristic.HardwareRevision, this.lockDetails.currentFirmwareVersion)
+          .setCharacteristic(this.hap.Characteristic.FirmwareRevision, this.lockDetails.currentFirmwareVersion)
+          .getCharacteristic(this.hap.Characteristic.FirmwareRevision)
+          .updateValue(this.lockDetails.currentFirmwareVersion);
+        this.accessory.context.currentFirmwareVersion = this.lockDetails.currentFirmwareVersion;
+      }
     }
   }
 
