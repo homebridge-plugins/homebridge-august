@@ -8,7 +8,7 @@ import { interval, Subject } from 'rxjs';
 import { debounceTime, skipWhile, tap } from 'rxjs/operators';
 
 import type { AugustPlatform } from '../platform.js';
-import type { device, lockDetails, devicesConfig } from '../settings.js';
+import type { device, lockDetails, devicesConfig, lockStatus } from '../settings.js';
 import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
 
 /**
@@ -38,6 +38,10 @@ export class LockMechanism extends deviceBase {
     Service: Service;
     ContactSensorState: CharacteristicValue;
   };
+
+  // Lock Mechanism
+  lockDetails!: lockDetails;
+  lockStatus!: lockStatus;
 
   // Lock Updates
   lockUpdateInProgress: boolean;
@@ -105,9 +109,6 @@ export class LockMechanism extends deviceBase {
         });
     }
 
-    if (!accessory.context.Battery) {
-      accessory.context.Battery = {};
-    }
     // Initialize Battery Service
     accessory.context.Battery = accessory.context.Battery ?? {};
     this.Battery = {
@@ -133,10 +134,8 @@ export class LockMechanism extends deviceBase {
         return this.Battery.StatusLowBattery;
       });
 
-    // Initial Device Parse
-    if (this.deviceRefreshRate !== 0) {
-      this.refreshStatus();
-    }
+    // Initial Device Refresh
+    this.refreshStatus();
 
     // Retrieve initial values and updateHomekit
     this.updateHomeKitCharacteristics();
@@ -145,13 +144,11 @@ export class LockMechanism extends deviceBase {
     this.subscribeAugust();
 
     // Start an update interval
-    if (this.deviceRefreshRate !== 0) {
-      interval(this.deviceRefreshRate * 1000)
-        .pipe(skipWhile(() => this.lockUpdateInProgress))
-        .subscribe(async () => {
-          await this.refreshStatus();
-        });
-    }
+    interval(this.deviceRefreshRate * 1000)
+      .pipe(skipWhile(() => this.lockUpdateInProgress))
+      .subscribe(async () => {
+        await this.refreshStatus();
+      });
 
     // Watch for Lock change events
     // We put in a debounce of 100ms so we don't make duplicate calls
@@ -167,10 +164,8 @@ export class LockMechanism extends deviceBase {
           try {
             await this.pushChanges();
           } catch (e: any) {
+            await this.statusCode(this.device, 'pushChanges', e);
             await this.errorLog(`doLockUpdate pushChanges: ${e}`);
-            if (this.deviceRefreshRate !== 0) {
-              await this.refreshStatus();
-            }
           }
           this.lockUpdateInProgress = false;
         });
@@ -180,13 +175,12 @@ export class LockMechanism extends deviceBase {
   /**
    * Parse the device status from the August api
    */
-  async parseStatus(lockDetails: lockDetails): Promise<void> {
+  async parseStatus(): Promise<void> {
     await this.debugLog('parseStatus');
     const retryCount = 1;
-    const LockStatus = lockDetails.LockStatus;
-    this.platform.augustConfig.addSimpleProps(LockStatus);
+    this.platform.augustConfig.addSimpleProps(this.lockStatus);
     // BatteryLevel
-    this.Battery.BatteryLevel = Number((lockDetails.battery * 100).toFixed());
+    this.Battery.BatteryLevel = Number((this.lockDetails.battery * 100).toFixed());
     await this.debugLog(`BatteryLevel: ${this.Battery.BatteryLevel}`);
     // StatusLowBattery
     this.Battery.StatusLowBattery = this.Battery.BatteryLevel < 15
@@ -194,35 +188,31 @@ export class LockMechanism extends deviceBase {
     await this.debugLog(`StatusLowBattery: ${this.Battery.StatusLowBattery}`);
     // Lock Mechanism
     if (!this.device.lock?.hide_lock && this.LockMechanism?.Service) {
-      this.LockMechanism.LockCurrentState = LockStatus.state.locked ? this.hap.Characteristic.LockCurrentState.SECURED
-        : LockStatus.state.unlocked ? this.hap.Characteristic.LockCurrentState.UNSECURED
+      this.LockMechanism.LockCurrentState = this.lockStatus.state.locked ? this.hap.Characteristic.LockCurrentState.SECURED
+        : this.lockStatus.state.unlocked ? this.hap.Characteristic.LockCurrentState.UNSECURED
           : retryCount > 1 ? this.hap.Characteristic.LockCurrentState.JAMMED : this.hap.Characteristic.LockCurrentState.UNKNOWN;
-      if (this.LockMechanism.LockCurrentState !== this.hap.Characteristic.LockCurrentState.SECURED
-        || this.hap.Characteristic.LockCurrentState.UNSECURED) {
-        await this.refreshStatus();
-      }
       await this.debugLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}`);
     }
     // Contact Sensor
     if (!this.device.lock?.hide_contactsensor && this.ContactSensor?.Service) {
       // ContactSensorState
-      this.ContactSensor.ContactSensorState = LockStatus.state.open ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
-        : LockStatus.state.closed ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
-          : LockStatus.doorState.includes('open') ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
-            : LockStatus.doorState.includes('closed') ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
+      this.ContactSensor.ContactSensorState = this.lockStatus.state.open ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+        : this.lockStatus.state.closed ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
+          : this.lockStatus.doorState.includes('open') ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+            : this.lockStatus.doorState.includes('closed') ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
               : this.ContactSensor.ContactSensorState;
       await this.debugLog(`ContactSensorState: ${this.ContactSensor.ContactSensorState}`);
     }
     // Firmware Version
-    if (this.accessory.context.currentFirmwareVersion !== lockDetails.currentFirmwareVersion) {
-      await this.warnLog(`Firmware Version changed to Current Firmware Version: ${lockDetails.currentFirmwareVersion}`);
+    if (this.accessory.context.currentFirmwareVersion !== this.lockDetails.currentFirmwareVersion) {
+      await this.warnLog(`Firmware Version changed to Current Firmware Version: ${this.lockDetails.currentFirmwareVersion}`);
       this.accessory
         .getService(this.hap.Service.AccessoryInformation)!
-        .setCharacteristic(this.hap.Characteristic.HardwareRevision, lockDetails.currentFirmwareVersion)
-        .setCharacteristic(this.hap.Characteristic.FirmwareRevision, lockDetails.currentFirmwareVersion)
+        .setCharacteristic(this.hap.Characteristic.HardwareRevision, this.lockDetails.currentFirmwareVersion)
+        .setCharacteristic(this.hap.Characteristic.FirmwareRevision, this.lockDetails.currentFirmwareVersion)
         .getCharacteristic(this.hap.Characteristic.FirmwareRevision)
-        .updateValue(lockDetails.currentFirmwareVersion);
-      this.accessory.context.currentFirmwareVersion = lockDetails.currentFirmwareVersion;
+        .updateValue(this.lockDetails.currentFirmwareVersion);
+      this.accessory.context.currentFirmwareVersion = this.lockDetails.currentFirmwareVersion;
     }
   }
 
@@ -230,15 +220,22 @@ export class LockMechanism extends deviceBase {
    * Asks the August Home API for the latest device information
    */
   async refreshStatus(): Promise<void> {
-    try {
+    if (this.deviceRefreshRate !== 0) {
+      try {
       // Update Lock Details
-      const lockDetails: any = await this.platform.augustConfig.details(this.device.lockId);
-      await this.debugSuccessLog(`(refreshStatus) lockDetails: ${JSON.stringify(lockDetails)}`);
-      // Update HomeKit
-      await this.parseStatus(lockDetails);
-      await this.updateHomeKitCharacteristics();
-    } catch (e: any) {
-      await this.statusCode(this.device, e);
+        const lockDetails: any = await this.platform.augustConfig.details(this.device.lockId);
+        await this.debugSuccessLog(`(refreshStatus) lockDetails: ${JSON.stringify(lockDetails)}`);
+        // Update HomeKit
+        this.lockDetails = lockDetails;
+        this.lockStatus = lockDetails.LockStatus;
+        await this.parseStatus();
+        await this.updateHomeKitCharacteristics();
+      } catch (e: any) {
+        await this.statusCode(this.device, '(refreshStatus) lockDetails', e);
+        await this.errorLog(`pushChanges: ${e.message}`);
+      }
+    } else {
+      await this.debugLog();
     }
   }
 
@@ -256,14 +253,11 @@ export class LockMechanism extends deviceBase {
         }
         await this.successLog(`Sending request to August API: ${(this.LockMechanism.LockTargetState === 1)
           ? 'Locked' : 'Unlocked'}`);
-        if (this.deviceRefreshRate !== 0) {
-          await this.refreshStatus();
-        }
       } else {
         await this.errorLog(`lockTargetState: ${JSON.stringify(this.LockMechanism)}`);
       }
     } catch (e: any) {
-      await this.statusCode(this.device, e);
+      await this.statusCode(this.device, 'pushChanges', e);
       await this.debugLog(`pushChanges: ${e}`);
     }
   }
@@ -326,9 +320,6 @@ export class LockMechanism extends deviceBase {
           const status = AugustEvent.state.unlocked ? 'was Unlocked' : AugustEvent.state.locked ? 'was Locked' : 'is Unknown';
           await this.infoLog(status);
         }
-        if (this.deviceRefreshRate !== 0) {
-          await this.refreshStatus();
-        }
         await this.debugLog(`LockCurrentState: ${this.LockMechanism?.LockCurrentState}, LockTargetState: ${this.LockMechanism?.LockTargetState}`);
       } else {
         await this.warnLog(`state: ${JSON.stringify(AugustEvent.state)}`);
@@ -342,13 +333,12 @@ export class LockMechanism extends deviceBase {
           const status = AugustEvent.state.open ? 'was Opened' : AugustEvent.state.closed ? 'was Closed' : 'is Unknown';
           await this.infoLog(status);
         }
-        if (this.deviceRefreshRate !== 0) {
-          await this.refreshStatus();
-        }
       } else {
         await this.warnLog(`state: ${JSON.stringify(AugustEvent.state)}`);
       }
       // Update HomeKit
+      this.lockStatus = AugustEvent;
+      await this.parseStatus();
       await this.updateHomeKitCharacteristics();
     });
   }
