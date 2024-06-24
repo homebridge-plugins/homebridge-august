@@ -228,7 +228,7 @@ export class LockMechanism extends deviceBase {
     await this.debugLog('parseEventStatus');
     const retryCount = 1;
     if (this.lockEvent) {
-      this.warnLog(`lockEvent: ${JSON.stringify(this.lockEvent)}`);
+      this.debugLog(`lockEvent: ${JSON.stringify(this.lockEvent)}`);
       // Lock Mechanism
       this.platform.augustConfig.addSimpleProps(this.lockEvent);
       if (!this.device.lock?.hide_lock && this.LockMechanism?.Service) {
@@ -345,34 +345,6 @@ export class LockMechanism extends deviceBase {
     if (this.config.credentials) {
       await August.subscribe(this.config.credentials, this.device.lockId, async (AugustEvent: lockEvent, timestamp: Date) => {
         await this.debugLog(`AugustEvent: ${JSON.stringify(AugustEvent)}, ${JSON.stringify(timestamp)}`);
-        //LockCurrentState
-        if (!this.device.lock?.hide_lock && this.LockMechanism?.Service) {
-          this.LockMechanism.LockCurrentState = AugustEvent.state.unlocked ? this.hap.Characteristic.LockCurrentState.UNSECURED
-            : AugustEvent.state.locked ? this.hap.Characteristic.LockCurrentState.SECURED
-              : this.LockMechanism.LockCurrentState;
-          this.LockMechanism.LockTargetState = AugustEvent.state.unlocked ? this.hap.Characteristic.LockTargetState.UNSECURED
-            : AugustEvent.state.locked ? this.hap.Characteristic.LockTargetState.SECURED
-              : this.LockMechanism.LockTargetState;
-          if (this.LockMechanism.LockCurrentState !== this.accessory.context.LockCurrentState) {
-            const status = AugustEvent.state.unlocked ? 'was Unlocked' : AugustEvent.state.locked ? 'was Locked' : 'is Unknown';
-            await this.infoLog(status);
-          }
-          await this.debugLog(`LockCurrentState: ${this.LockMechanism?.LockCurrentState}, LockTargetState: ${this.LockMechanism?.LockTargetState}`);
-        } else {
-          await this.warnLog(`state: ${JSON.stringify(AugustEvent.state)}`);
-        }
-        // Contact Sensor
-        if (!this.device.lock?.hide_contactsensor && this.ContactSensor?.Service) {
-          this.ContactSensor.ContactSensorState = AugustEvent.state.open ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
-            : AugustEvent.state.closed ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
-              : this.ContactSensor.ContactSensorState;
-          if (this.ContactSensor.ContactSensorState !== this.accessory.context.ContactSensorState) {
-            const status = AugustEvent.state.open ? 'was Opened' : AugustEvent.state.closed ? 'was Closed' : 'is Unknown';
-            await this.infoLog(status);
-          }
-        } else {
-          await this.warnLog(`state: ${JSON.stringify(AugustEvent.state)}`);
-        }
         // Update HomeKit
         this.lockEvent = AugustEvent;
         await this.parseEventStatus();
