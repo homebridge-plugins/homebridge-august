@@ -8,7 +8,7 @@ import { readFileSync, writeFileSync } from 'fs';
 import { LockMechanism } from './devices/lock.js';
 import { PLUGIN_NAME, PLATFORM_NAME } from './settings.js';
 
-import type { AugustPlatformConfig, credentials, device, devicesConfig } from './settings.js';
+import type { AugustPlatformConfig, credentials, device, devicesConfig, options } from './settings.js';
 import type { API, DynamicPlatformPlugin, Logging, PlatformAccessory } from 'homebridge';
 
 /**
@@ -23,7 +23,10 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   public config!: AugustPlatformConfig;
 
   platformConfig!: AugustPlatformConfig['options'];
-  platformLogging!: AugustPlatformConfig['logging'];
+  platformLogging!: options['logging'];
+  platformRefreshRate!: options['refreshRate'];
+  platformPushRate!: options['pushRate'];
+  platformUpdateRate!: options['updateRate'];
   registeringDevice!: boolean;
   debugMode!: boolean;
   version!: string;
@@ -55,8 +58,9 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     };
 
     // Plugin Configuration
-    this.getPlatformConfigSettings();
     this.getPlatformLogSettings();
+    this.getPlatformRateSettings();
+    this.getPlatformConfigSettings();
     this.getVersion();
 
     // Finish initializing the plugin
@@ -115,27 +119,6 @@ export class AugustPlatform implements DynamicPlatformPlugin {
    * Verify the config passed to the plugin is valid
    */
   async verifyConfig() {
-    this.config.options = this.config.options || {};
-    const platformConfig = {};
-    if (this.config.options.logging) {
-      platformConfig['logging'] = this.config.options.logging;
-    }
-    if (this.config.options.logging && this.config.options.refreshRate) {
-      platformConfig['refreshRate'] = this.config.options.refreshRate;
-    }
-    if (this.config.options.logging && this.config.options.pushRate) {
-      platformConfig['pushRate'] = this.config.options.pushRate;
-    }
-    if (Object.entries(platformConfig).length !== 0) {
-      this.infoLog(`Platform Config: ${JSON.stringify(platformConfig)}`);
-    }
-
-    if (!this.config.options.refreshRate) {
-      // default 1800 seconds (30 minutes)
-      this.config.options.refreshRate = 86400;
-      await this.debugWarnLog('Using Default Refresh Rate, 1 Day.');
-    }
-
     if (!this.config.credentials) {
       throw 'Missing Credentials';
     } else {
@@ -393,20 +376,12 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   }
 
   async getPlatformConfigSettings() {
-    const platformConfig: AugustPlatformConfig['options'] = {};
     if (this.config.options) {
-      if (this.config.options.logging) {
-        platformConfig.logging = this.config.options.logging;
-      }
-      if (this.config.options.refreshRate) {
-        platformConfig.refreshRate = this.config.options.refreshRate;
-      }
-      if (this.config.options.updateRate) {
-        platformConfig.updateRate = this.config.options.updateRate;
-      }
-      if (this.config.options.pushRate) {
-        platformConfig.pushRate = this.config.options.pushRate;
-      }
+      const platformConfig: AugustPlatformConfig['options'] = {};
+      platformConfig.logging = this.config.options.logging ? this.config.options.logging : undefined;
+      platformConfig.refreshRate = this.config.options.refreshRate ? this.config.options.refreshRate : undefined;
+      platformConfig.updateRate = this.config.options.updateRate ? this.config.options.updateRate : undefined;
+      platformConfig.pushRate = this.config.options.pushRate ? this.config.options.pushRate : undefined;
       if (Object.entries(platformConfig).length !== 0) {
         await this.debugLog(`Platform Config: ${JSON.stringify(platformConfig)}`);
       }
@@ -414,18 +389,24 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     }
   }
 
+  async getPlatformRateSettings() {
+    this.platformRefreshRate = this.config.options?.refreshRate ? this.config.options.refreshRate : 0;
+    const refreshRate = this.config.options?.refreshRate ? 'Using Platform Config refreshRate' : 'refreshRate Disabled by Default';
+    await this.debugLog(`${refreshRate}: ${this.platformRefreshRate}`);
+    this.platformUpdateRate = this.config.options?.updateRate ? this.config.options.updateRate : 1;
+    const updateRate = this.config.options?.updateRate ? 'Using Platform Config updateRate' : 'Using Default updateRate';
+    await this.debugLog(`${updateRate}: ${this.platformUpdateRate}`);
+    this.platformPushRate = this.config.options?.pushRate ? this.config.options.pushRate : 1;
+    const pushRate = this.config.options?.pushRate ? 'Using Platform Config pushRate' : 'Using Default pushRate';
+    await this.debugLog(`${pushRate}: ${this.platformPushRate}`);
+  }
+
   async getPlatformLogSettings() {
-    this.debugMode = process.argv.includes('-D') || process.argv.includes('--debug');
-    if (this.config.options?.logging === 'debug' || this.config.options?.logging === 'standard' || this.config.options?.logging === 'none') {
-      this.platformLogging = this.config.options.logging;
-      await this.debugWarnLog(`Using Platform Config Logging: ${this.platformLogging}`);
-    } else if (this.debugMode) {
-      this.platformLogging = 'debugMode';
-      await this.debugWarnLog(`Using ${this.platformLogging} Logging`);
-    } else {
-      this.platformLogging = 'standard';
-      await this.debugWarnLog(`Using ${this.platformLogging} Logging`);
-    }
+    this.debugMode = process.argv.includes('-D') ?? process.argv.includes('--debug');
+    this.platformLogging = this.config.options?.logging === 'debug' || this.config.options?.logging === 'standard'
+    || this.config.options?.logging === 'none' ? this.config.options.logging : this.debugMode ? 'debugMode' : 'standard';
+    const logging = this.config.options?.logging ? 'Platform Config' : this.debugMode ? 'debugMode' : 'Default';
+    await this.debugLog(`Using ${logging} Logging: ${this.platformLogging}`);
   }
 
   /**
