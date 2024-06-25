@@ -162,7 +162,7 @@ export abstract class deviceBase {
         await this.errorLog(`Too Many Requests, exceeded the number of requests allowed for a given time window, statusCode: ${statusCodeString}`);
       } else {
         await this.debugLog(`Unknown statusCode: ${statusCodeString}, Submit Bugs Here: https://tinyurl.com/AugustYaleBug`);
-        await this.debugErrorLog(`failed ${action}, Error: ${JSON.stringify(error)}`);
+        await this.debugErrorLog(`failed ${action}, Error: ${error}`);
       }
     }
   }
