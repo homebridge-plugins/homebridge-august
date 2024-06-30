@@ -138,9 +138,6 @@ export class LockMechanism extends deviceBase {
     // Initial Device Refresh
     this.refreshStatus();
 
-    // Retrieve initial values and updateHomekit
-    this.updateHomeKitCharacteristics();
-
     // Subscribe to august changes
     this.subscribeAugust();
 

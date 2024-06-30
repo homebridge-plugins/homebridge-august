@@ -296,11 +296,6 @@ export class AugustPlatform implements DynamicPlatformPlugin {
         await this.unregisterPlatformAccessories(existingAccessory, device);
       }
     } else if (await this.registerDevice(device)) {
-      // the accessory does not yet exist, so we need to create it
-      if (!device.external) {
-        await this.infoLog(`Adding new accessory: ${device.LockName}, Lock ID: ${device.lockId}`);
-      }
-
       // create a new accessory
       const accessory = new this.api.platformAccessory(device.LockName, uuid);
 
@@ -312,6 +307,10 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       accessory.context.model = device.skuNumber;
       accessory.context.serialnumber = device.SerialNumber;
       accessory.context.lockId = device.lockId;
+      // the accessory does not yet exist, so we need to create it
+      if (!device.external) {
+        await this.infoLog(`Adding new accessory: ${device.LockName}, Lock ID: ${device.lockId}`);
+      }
       // create the accessory handler for the newly create accessory
       // this is imported from `platformAccessory.ts`
       new LockMechanism(this, accessory, device);
@@ -335,7 +334,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
         + `Override HomeKit Enabled: ${device.overrideHomeKitEnabled}`);
     } else if (device.homeKitEnabled && !device.overrideHomeKitEnabled) {
       this.registeringDevice = false;
-      this.debugErrorLog(`Device: ${device.LockName} HomeKit Enabled: `
+      await this.debugErrorLog(`Device: ${device.LockName} HomeKit Enabled: `
         + `${device.homeKitEnabled}, device will not be registered. To enable, set overrideHomeKitEnabled to true.`);
     } else {
       this.registeringDevice = false;
@@ -403,8 +402,8 @@ export class AugustPlatform implements DynamicPlatformPlugin {
 
   async getPlatformLogSettings() {
     this.debugMode = process.argv.includes('-D') ?? process.argv.includes('--debug');
-    this.platformLogging = this.config.options?.logging === 'debug' || this.config.options?.logging === 'standard'
-    || this.config.options?.logging === 'none' ? this.config.options.logging : this.debugMode ? 'debugMode' : 'standard';
+    this.platformLogging = (this.config.options?.logging === 'debug' || this.config.options?.logging === 'standard'
+    || this.config.options?.logging === 'none') ? this.config.options.logging : this.debugMode ? 'debugMode' : 'standard';
     const logging = this.config.options?.logging ? 'Platform Config' : this.debugMode ? 'debugMode' : 'Default';
     await this.debugLog(`Using ${logging} Logging: ${this.platformLogging}`);
   }
