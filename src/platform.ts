@@ -403,15 +403,15 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   async getPlatformLogSettings() {
     this.debugMode = process.argv.includes('-D') ?? process.argv.includes('--debug');
     this.platformLogging = (this.config.options?.logging === 'debug' || this.config.options?.logging === 'standard'
-    || this.config.options?.logging === 'none') ? this.config.options.logging : this.debugMode ? 'debugMode' : 'standard';
+      || this.config.options?.logging === 'none') ? this.config.options.logging : this.debugMode ? 'debugMode' : 'standard';
     const logging = this.config.options?.logging ? 'Platform Config' : this.debugMode ? 'debugMode' : 'Default';
     await this.debugLog(`Using ${logging} Logging: ${this.platformLogging}`);
   }
 
   /**
-    * If device level logging is turned on, log to log.warn
-    * Otherwise send debug logs to log.debug
-    */
+   * If device level logging is turned on, log to log.warn
+   * Otherwise send debug logs to log.debug
+   */
   async infoLog(...log: any[]): Promise<void> {
     if (await this.enablingPlatformLogging()) {
       this.log.info(String(...log));
