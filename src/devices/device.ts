@@ -71,33 +71,18 @@ export abstract class deviceBase {
   }
 
   async getDeviceConfigSettings(accessory: PlatformAccessory, device: device & devicesConfig): Promise<void> {
-    const deviceConfig = {};
-    if ((device.logging !== 'standard') && (device.logging !== undefined)) {
-      deviceConfig['logging'] = device.logging;
-    }
-    if (device.refreshRate !== undefined) {
-      deviceConfig['refreshRate'] = device.refreshRate;
-    }
-    if (device.overrideHomeKitEnabled === true) {
-      deviceConfig['overrideHomeKitEnabled'] = device.overrideHomeKitEnabled;
-    }
-    if (device.updateRate !== undefined) {
-      deviceConfig['updateRate'] = device.updateRate;
-    }
-    if (device.pushRate !== undefined) {
-      deviceConfig['pushRate'] = device.pushRate;
-    }
-    if (device.lock) {
-      if (device.lock.hide_contactsensor === true) {
-        deviceConfig['hide_contactsensor'] = device.lock.hide_contactsensor;
-      }
-      if (device.lock.hide_lock === true) {
-        deviceConfig['hide_lock'] = device.lock.hide_lock;
-      }
-    }
-    const config = Object.assign({}, deviceConfig);
-    if (Object.entries(config).length !== 0) {
-      await this.infoLog(`Config: ${JSON.stringify(config)}`);
+    const deviceConfig = {
+      ...(device.logging && device.logging !== 'standard' && { logging: device.logging }),
+      ...(device.refreshRate !== undefined && { refreshRate: device.refreshRate }),
+      ...(device.overrideHomeKitEnabled === true && { overrideHomeKitEnabled: device.overrideHomeKitEnabled }),
+      ...(device.updateRate !== undefined && { updateRate: device.updateRate }),
+      ...(device.pushRate !== undefined && { pushRate: device.pushRate }),
+      ...(device.lock?.hide_contactsensor === true && { hide_contactsensor: device.lock.hide_contactsensor }),
+      ...(device.lock?.hide_lock === true && { hide_lock: device.lock.hide_lock }),
+    };
+
+    if (Object.keys(deviceConfig).length) {
+      await this.infoLog(`Config: ${JSON.stringify(deviceConfig)}`);
     }
   }
 
@@ -150,20 +135,18 @@ export abstract class deviceBase {
   }
 
   async statusCode(device: device & devicesConfig, action: string, error: { message: string; }): Promise<void> {
-    if (!device.hide_device) {
-      const statusCodeString = error.message; // Convert statusCode to a string
-      if (statusCodeString.includes('100')) {
-        await this.debugLog(`Command successfully sent, statusCode: ${statusCodeString}`);
-      } else if (statusCodeString.includes('200')) {
-        await this.debugLog(`Request successful, statusCode: ${statusCodeString}`);
-      } else if (statusCodeString.includes('400')) {
-        await this.errorLog(`Bad Request, statusCode: ${statusCodeString}`);
-      } else if (statusCodeString.includes('429')) {
-        await this.errorLog(`Too Many Requests, exceeded the number of requests allowed for a given time window, statusCode: ${statusCodeString}`);
-      } else {
-        await this.debugLog(`Unknown statusCode: ${statusCodeString}, Submit Bugs Here: https://tinyurl.com/AugustYaleBug`);
-        await this.debugErrorLog(`failed ${action}, Error: ${error}`);
-      }
+    const statusCodeString = error.message; // Convert statusCode to a string
+    const logMap = {
+      '100': `Command successfully sent, statusCode: ${statusCodeString}`,
+      '200': `Request successful, statusCode: ${statusCodeString}`,
+      '400': `Bad Request, statusCode: ${statusCodeString}`,
+      '429': `Too Many Requests, exceeded the number of requests allowed for a given time window, statusCode: ${statusCodeString}`,
+    };
+    const logMessage = logMap[statusCodeString.slice(0, 3)]
+      ?? `Unknown statusCode: ${statusCodeString}, Submit Bugs Here: https://tinyurl.com/AugustYaleBug`;
+    await this.debugLog(logMessage);
+    if (!logMap[statusCodeString.slice(0, 3)]) {
+      await this.debugErrorLog(`failed ${action}, Error: ${error}`);
     }
   }
 

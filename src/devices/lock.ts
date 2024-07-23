@@ -183,6 +183,9 @@ export class LockMechanism extends deviceBase {
         this.LockMechanism.LockCurrentState = this.lockStatus.state.locked ? this.hap.Characteristic.LockCurrentState.SECURED
           : this.lockStatus.state.unlocked ? this.hap.Characteristic.LockCurrentState.UNSECURED
             : retryCount > 1 ? this.hap.Characteristic.LockCurrentState.JAMMED : this.hap.Characteristic.LockCurrentState.UNKNOWN;
+        if (this.LockMechanism.LockCurrentState === this.hap.Characteristic.LockCurrentState.UNKNOWN) {
+          await this.warnLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}, lockEvent: ${JSON.stringify(this.lockEvent)}`);
+        }
         await this.debugLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}`);
       }
       // Contact Sensor
@@ -232,6 +235,9 @@ export class LockMechanism extends deviceBase {
         this.LockMechanism.LockCurrentState = this.lockEvent.state.locked ? this.hap.Characteristic.LockCurrentState.SECURED
           : this.lockEvent.state.unlocked ? this.hap.Characteristic.LockCurrentState.UNSECURED
             : retryCount > 1 ? this.hap.Characteristic.LockCurrentState.JAMMED : this.hap.Characteristic.LockCurrentState.UNKNOWN;
+        if (this.LockMechanism.LockCurrentState === this.hap.Characteristic.LockCurrentState.UNKNOWN) {
+          await this.warnLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}, lockEvent: ${JSON.stringify(this.lockEvent)}`);
+        }
         await this.debugLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}`);
       }
       // Contact Sensor
