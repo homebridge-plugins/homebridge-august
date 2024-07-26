@@ -25,6 +25,20 @@ export class LockMechanism extends deviceBase {
     LockCurrentState: CharacteristicValue;
   };
 
+  private LockManagement?: {
+    Name: CharacteristicValue;
+    Service: Service;
+    LockControlPoint: CharacteristicValue;
+    Version: CharacteristicValue;
+    AdministratorOnlyAccess: CharacteristicValue;
+    AudioFeedback: CharacteristicValue; //false
+    CurrentDoorState: CharacteristicValue;
+    LockManagementAutoSecurityTimeout: CharacteristicValue;
+    LockLastKnownAction: CharacteristicValue;
+    Logs: CharacteristicValue;
+    MotionDetected: CharacteristicValue;
+  };
+
   private Battery: {
     Name: CharacteristicValue;
     Service: Service;
@@ -84,6 +98,80 @@ export class LockMechanism extends deviceBase {
           return this.LockMechanism!.LockTargetState;
         })
         .onSet(this.setLockTargetState.bind(this));
+    }
+
+    // Initialize Lock Management Service
+    if (device.lock?.hide_lock) {
+      if (this.LockManagement?.Service) {
+        this.debugLog('Removing Lock Management Service');
+        this.LockManagement.Service = accessory.getService(this.hap.Service.LockManagement) as Service;
+        accessory.removeService(this.LockManagement.Service);
+        accessory.context.LockManagement = {};
+      }
+    } else {
+      accessory.context.LockManagement = accessory.context.LockManagement ?? {};
+      this.LockManagement = {
+        Name: accessory.context.LockManagement.Name ?? `${accessory.displayName} Lock Management`,
+        Service: accessory.getService(this.hap.Service.LockManagement) ?? accessory.addService(this.hap.Service.LockManagement) as Service,
+        LockControlPoint: accessory.context.LockControlPoint ?? false,
+        Version: accessory.context.Version ?? '1.0',
+        AdministratorOnlyAccess: accessory.context.AdministratorOnlyAccess ?? false,
+        AudioFeedback: accessory.context.AudioFeedback ?? false,
+        CurrentDoorState: accessory.context.CurrentDoorState ?? this.hap.Characteristic.CurrentDoorState.CLOSED,
+        LockManagementAutoSecurityTimeout: accessory.context.LockManagementAutoSecurityTimeout ?? 0,
+        LockLastKnownAction: accessory.context.LockLastKnownAction ?? this.hap.Characteristic.LockLastKnownAction.SECURED_PHYSICALLY,
+        Logs: accessory.context.Logs ?? '',
+        MotionDetected: accessory.context.MotionDetected ?? false,
+      };
+      accessory.context.LockManagement = this.LockManagement as object;
+      // Initialize Lock Management Characteristics
+      this.LockManagement.Service
+        .setCharacteristic(this.hap.Characteristic.Name, this.LockManagement.Name)
+        .getCharacteristic(this.hap.Characteristic.LockControlPoint)
+        .onGet(() => {
+          return this.LockManagement!.LockControlPoint;
+        })
+        .onSet(this.setLockTargetState.bind(this));
+      this.LockManagement.Service
+        .getCharacteristic(this.hap.Characteristic.Version)
+        .onGet(() => {
+          return this.LockManagement!.Version;
+        });
+      this.LockManagement.Service
+        .getCharacteristic(this.hap.Characteristic.AdministratorOnlyAccess)
+        .onGet(() => {
+          return this.LockManagement!.AdministratorOnlyAccess;
+        });
+      this.LockManagement.Service
+        .getCharacteristic(this.hap.Characteristic.AudioFeedback)
+        .onGet(() => {
+          return this.LockManagement!.AudioFeedback;
+        });
+      this.LockManagement.Service
+        .getCharacteristic(this.hap.Characteristic.CurrentDoorState)
+        .onGet(() => {
+          return this.LockManagement!.CurrentDoorState;
+        });
+      this.LockManagement.Service
+        .getCharacteristic(this.hap.Characteristic.LockManagementAutoSecurityTimeout)
+        .onGet(() => {
+          return this.LockManagement!.LockManagementAutoSecurityTimeout;
+        });
+      this.LockManagement.Service
+        .getCharacteristic(this.hap.Characteristic.LockLastKnownAction)
+        .onGet(() => {
+          return this.LockManagement!.LockLastKnownAction;
+        });
+      this.LockManagement.Service
+        .getCharacteristic(this.hap.Characteristic.Logs)
+        .onGet(() => {
+          return this.LockManagement!.Logs;
+        });
+      this.LockManagement.Service
+        .getCharacteristic(this.hap.Characteristic.MotionDetected)
+        .onGet(() => {
+          return this.LockManagement!.MotionDetected;
+        });
     }
     // Initialize Contact Sensor Service
     if (device.lock?.hide_contactsensor) {
