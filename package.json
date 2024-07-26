@@ -32,7 +32,9 @@
     "build": "rimraf ./dist && tsc",
     "prepublishOnly": "npm run lint && npm run build && npm run plugin-ui",
     "postpublish": "npm run clean",
-    "clean": "rimraf ./dist"
+    "clean": "rimraf ./dist",
+    "docs": "typedoc",
+    "lint-docs": "typedoc --emit none --treatWarningsAsErrors"
   },
   "funding": [
     {
@@ -52,7 +54,7 @@
   ],
   "dependencies": {
     "@homebridge/plugin-ui-utils": "^1.0.3",
-    "august-yale": "^1.0.1",
+    "august-yale": "^1.1.0",
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
@@ -68,6 +70,7 @@
     "npm-check-updates": "^16.14.20",
     "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
+    "typedoc": "^0.26.5",
     "typescript": "^5.5.4",
     "typescript-eslint": "^8.0.0-alpha.54"
   }

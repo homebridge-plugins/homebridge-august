@@ -154,6 +154,8 @@ export type lockStatus = {
 export type state = {
   unlocked: boolean;
   locked: boolean;
+  locking: boolean;
+  unlocking: boolean;
   open: boolean;
   closed: boolean;
 };
