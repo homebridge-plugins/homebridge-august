@@ -179,12 +179,13 @@ export class LockMechanism extends deviceBase {
     if (this.lockStatus) {
       // Lock Mechanism
       this.platform.augustConfig.addSimpleProps(this.lockStatus);
-      if (!this.device.lock?.hide_lock && this.LockMechanism?.Service) {
+      if (!this.device.lock?.hide_lock && this.LockMechanism?.Service && (this.lockEvent.state.locked !== this.lockEvent.state.unlocked)) {
         this.LockMechanism.LockCurrentState = this.lockStatus.state.locked ? this.hap.Characteristic.LockCurrentState.SECURED
           : this.lockStatus.state.unlocked ? this.hap.Characteristic.LockCurrentState.UNSECURED
             : retryCount > 1 ? this.hap.Characteristic.LockCurrentState.JAMMED : this.hap.Characteristic.LockCurrentState.UNKNOWN;
         if (this.LockMechanism.LockCurrentState === this.hap.Characteristic.LockCurrentState.UNKNOWN) {
-          await this.warnLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}, lockEvent: ${JSON.stringify(this.lockEvent)}`);
+          await this.warnLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}, (UNKNOWN) parseStatus`
+            + ` lockEvent: ${JSON.stringify(this.lockEvent)}`);
         }
         await this.debugLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}`);
       }
@@ -231,12 +232,13 @@ export class LockMechanism extends deviceBase {
       this.debugLog(`lockEvent: ${JSON.stringify(this.lockEvent)}`);
       // Lock Mechanism
       this.platform.augustConfig.addSimpleProps(this.lockEvent);
-      if (!this.device.lock?.hide_lock && this.LockMechanism?.Service) {
+      if (!this.device.lock?.hide_lock && this.LockMechanism?.Service && (this.lockEvent.state.locked !== this.lockEvent.state.unlocked)) {
         this.LockMechanism.LockCurrentState = this.lockEvent.state.locked ? this.hap.Characteristic.LockCurrentState.SECURED
           : this.lockEvent.state.unlocked ? this.hap.Characteristic.LockCurrentState.UNSECURED
             : retryCount > 1 ? this.hap.Characteristic.LockCurrentState.JAMMED : this.hap.Characteristic.LockCurrentState.UNKNOWN;
         if (this.LockMechanism.LockCurrentState === this.hap.Characteristic.LockCurrentState.UNKNOWN) {
-          await this.warnLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}, lockEvent: ${JSON.stringify(this.lockEvent)}`);
+          await this.warnLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}, (UNKNOWN) parseEventStatus`
+            + ` lockEvent: ${JSON.stringify(this.lockEvent)}`);
         }
         await this.debugLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}`);
       }
