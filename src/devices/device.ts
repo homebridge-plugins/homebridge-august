@@ -82,7 +82,7 @@ export abstract class deviceBase {
     };
 
     if (Object.keys(deviceConfig).length) {
-      await this.infoLog(`Config: ${JSON.stringify(deviceConfig)}`);
+      await this.debugSuccessLog(`Config: ${JSON.stringify(deviceConfig)}`);
     }
   }
 
