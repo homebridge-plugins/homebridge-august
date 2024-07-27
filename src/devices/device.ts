@@ -166,7 +166,7 @@ export abstract class deviceBase {
     Status2: string,
   ): Promise<void> {
     if (CharacteristicValue === CharacteristicValueContext) {
-      await this.debugLog(`No Changes, ${CharacteristicName}: ${CharacteristicValue} ${CharacteristicName}Context: ${CharacteristicValueContext}`);
+      await this.warnLog(`No Changes, ${CharacteristicName}: ${CharacteristicValue} ${CharacteristicName}Context: ${CharacteristicValueContext}`);
     } else {
       await this.infoLog(`was ${CharacteristicValue === Value ? Status1 : Status2}`);
     }
