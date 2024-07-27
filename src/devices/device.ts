@@ -38,9 +38,11 @@ export abstract class deviceBase {
       .getService(this.hap.Service.AccessoryInformation)!
       .setCharacteristic(this.hap.Characteristic.Manufacturer, 'August Home Inc.')
       .setCharacteristic(this.hap.Characteristic.AppMatchingIdentifier, 'id648730592')
-      .setCharacteristic(this.hap.Characteristic.Model, device.skuNumber ?? accessory.context.model)
-      .setCharacteristic(this.hap.Characteristic.ProductData, accessory.context.serialnumber)
-      .setCharacteristic(this.hap.Characteristic.SerialNumber, device.LockId ?? accessory.context.serialnumber);
+      .setCharacteristic(this.hap.Characteristic.Name, accessory.displayName)
+      .setCharacteristic(this.hap.Characteristic.ConfiguredName, accessory.displayName)
+      .setCharacteristic(this.hap.Characteristic.Model, device.skuNumber)
+      .setCharacteristic(this.hap.Characteristic.ProductData, device.lockId)
+      .setCharacteristic(this.hap.Characteristic.SerialNumber, device.SerialNumber);
   }
 
   async getDeviceLogSettings(accessory: PlatformAccessory, device: device & devicesConfig): Promise<void> {

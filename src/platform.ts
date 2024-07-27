@@ -282,7 +282,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
 
         // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
         existingAccessory.context.device = device;
-        existingAccessory.displayName = device.LockName;
+        existingAccessory.displayName = device.configLockName ?? device.LockName;
         existingAccessory.context.currentFirmwareVersion = device.currentFirmwareVersion;
         existingAccessory.context.model = device.skuNumber;
         existingAccessory.context.serialnumber = device.SerialNumber;
@@ -297,12 +297,12 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       }
     } else if (await this.registerDevice(device)) {
       // create a new accessory
-      const accessory = new this.api.platformAccessory(device.LockName, uuid);
+      const accessory = new this.api.platformAccessory(device.configLockName ?? device.LockName, uuid);
 
       // store a copy of the device object in the `accessory.context`
       // the `context` property can be used to store any data about the accessory you may need
       accessory.context.device = device;
-      accessory.displayName = device.LockName;
+      accessory.displayName = device.configLockName ?? device.LockName;
       accessory.context.currentFirmwareVersion = device.currentFirmwareVersion;
       accessory.context.model = device.skuNumber;
       accessory.context.serialnumber = device.SerialNumber;
