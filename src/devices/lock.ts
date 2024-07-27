@@ -237,7 +237,7 @@ export class LockMechanism extends deviceBase {
       // Lock Mechanism
       this.platform.augustConfig.addSimpleProps(this.lockEvent);
       if (this.LockMechanism && (this.lockEvent.state.unlocking || this.lockEvent.state.locking)) {
-        await this.debugLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}, locking/unlocking parseEventStatus`
+        await this.debugLog(`is  ${this.lockEvent.state.unlocking ? 'Unlocking' : this.lockEvent.state.locking ? 'Locking' : ''}, parseEventStatus`
           + ` lockEventState: ${JSON.stringify(this.lockEvent.state)}`);
         return;
       }
