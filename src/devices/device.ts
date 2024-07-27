@@ -168,7 +168,7 @@ export abstract class deviceBase {
     if (CharacteristicValue === CharacteristicValueContext) {
       await this.debugLog(`No Changes, ${CharacteristicName}: ${CharacteristicValue} ${CharacteristicName}Context: ${CharacteristicValueContext}`);
     } else {
-      await this.debugLog(`was ${CharacteristicValue === Value ? Status1 : Status2}`);
+      await this.infoLog(`was ${CharacteristicValue === Value ? Status1 : Status2}`);
     }
   }
 
