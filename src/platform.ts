@@ -282,7 +282,9 @@ export class AugustPlatform implements DynamicPlatformPlugin {
 
         // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
         existingAccessory.context.device = device;
-        existingAccessory.displayName = device.configLockName ?? device.LockName;
+        existingAccessory.displayName = device.configLockName
+          ? await this.validateAndCleanDisplayName(device.configLockName, 'configLockName', device.configLockName)
+          : await this.validateAndCleanDisplayName(device.LockName, 'LockName', device.LockName);
         existingAccessory.context.currentFirmwareVersion = device.currentFirmwareVersion;
         existingAccessory.context.model = device.skuNumber;
         existingAccessory.context.serialnumber = device.SerialNumber;
@@ -302,7 +304,9 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       // store a copy of the device object in the `accessory.context`
       // the `context` property can be used to store any data about the accessory you may need
       accessory.context.device = device;
-      accessory.displayName = device.configLockName ?? device.LockName;
+      accessory.displayName = device.configLockName
+        ? await this.validateAndCleanDisplayName(device.configLockName, 'configLockName', device.configLockName)
+        : await this.validateAndCleanDisplayName(device.LockName, 'LockName', device.LockName);
       accessory.context.currentFirmwareVersion = device.currentFirmwareVersion;
       accessory.context.model = device.skuNumber;
       accessory.context.serialnumber = device.SerialNumber;
@@ -406,6 +410,39 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       || this.config.options?.logging === 'none') ? this.config.options.logging : this.debugMode ? 'debugMode' : 'standard';
     const logging = this.config.options?.logging ? 'Platform Config' : this.debugMode ? 'debugMode' : 'Default';
     await this.debugLog(`Using ${logging} Logging: ${this.platformLogging}`);
+  }
+
+  /**
+   * Validate and clean a string value for a Name Characteristic.
+ * @param displayName
+ * @param name
+ * @param value
+ * @returns string value
+ */
+  async validateAndCleanDisplayName(displayName: string, name: string, value: string): Promise<string> {
+    const validPattern = /^[a-zA-Z0-9][a-zA-Z0-9 ']*[a-zA-Z0-9]$/;
+    const invalidCharsPattern = /[^a-zA-Z0-9 ']/g;
+    const invalidStartEndPattern = /^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g;
+
+    if (!validPattern.test(value)) {
+      this.warnLog(`WARNING: The accessory '${displayName}' has an invalid '${name}' characteristic ('${value}'). Please use only alphanumeric,`
+        + ' space, and apostrophe characters. Ensure it starts and ends with an alphabetic or numeric character, and avoid emojis. This may'
+        + ' prevent the accessory from being added in the Home App or cause unresponsiveness.');
+
+      // Remove invalid characters
+      if (invalidCharsPattern.test(value)) {
+        this.warnLog(`Removing invalid characters from '${name}' characteristic`);
+        value = value.replace(invalidCharsPattern, '');
+      }
+
+      // Ensure it starts and ends with an alphanumeric character
+      if (invalidStartEndPattern.test(value)) {
+        this.warnLog(`Removing invalid starting or ending characters from '${name}' characteristic`);
+        value = value.replace(invalidStartEndPattern, '');
+      }
+    }
+
+    return value;
   }
 
   /**
