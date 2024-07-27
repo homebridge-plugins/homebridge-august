@@ -167,7 +167,7 @@ export abstract class deviceBase {
   ): Promise<void> {
     await this.warnLog(`Context: ${JSON.stringify(CharacteristicValueContext)}`);
     if (CharacteristicValue === CharacteristicValueContext.LockTargetState) {
-      await this.warnLog(`No Changes, ${CharacteristicName}: ${CharacteristicValue} ${CharacteristicName}Context: ${CharacteristicValueContext}`);
+      await this.debugLog(`No Changes, ${CharacteristicName}: ${CharacteristicValue} ${CharacteristicName}Context: ${CharacteristicValueContext}`);
     } else {
       await this.infoLog(`was ${CharacteristicValue === Value ? Status1 : Status2}`);
     }
