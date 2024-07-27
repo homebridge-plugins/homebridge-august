@@ -299,8 +299,7 @@ export class LockMechanism extends deviceBase {
           } else {
             await this.platform.augustConfig.lock(this.device.lockId);
           }
-          await this.successLog(`Sending request to August API: ${(this.LockMechanism.LockTargetState === 1)
-            ? 'Locked' : 'Unlocked'}`);
+          await this.successLog(`Sending request to August API: ${this.LockMechanism.LockTargetState === 1 ? 'Locked' : 'Unlocked'}`);
         } else {
           await this.debugLog(`No changes, LockTargetState: ${this.LockMechanism.LockTargetState},`
             + ` LockCurrentState: ${this.LockMechanism.LockCurrentState}`);
@@ -324,6 +323,9 @@ export class LockMechanism extends deviceBase {
     await this.debugLog('updateHomeKitCharacteristics');
     // Lock Mechanism
     if (!this.device.lock?.hide_lock && this.LockMechanism?.Service) {
+      if (this.LockMechanism.LockTargetState !== this.accessory.context.LockTargetState) {
+        await this.infoLog(`was ${this.LockMechanism.LockTargetState === 1 ? 'Locked' : 'Unlocked'}`);
+      }
       // LockTargetState
       await this.updateCharacteristic(this.LockMechanism.Service, this.hap.Characteristic.LockTargetState,
         this.LockMechanism.LockTargetState, 'LockTargetState');
