@@ -127,6 +127,7 @@ export abstract class deviceBase {
    */
   async updateCharacteristic(
     Service: Service,
+    ServiceName: string,
     Characteristic: any,
     CharacteristicValue: CharacteristicValue,
     CharacteristicName: string,
@@ -136,9 +137,9 @@ export abstract class deviceBase {
     } else {
       Service.updateCharacteristic(Characteristic, CharacteristicValue);
       this.debugLog(`updateCharacteristic ${CharacteristicName}: ${CharacteristicValue}`);
-      this.debugWarnLog(`context before: ${this.accessory.context[CharacteristicName]}`);
-      this.accessory.context[CharacteristicName] = CharacteristicValue;
-      this.debugWarnLog(`context after: ${this.accessory.context[CharacteristicName]}`);
+      this.debugWarnLog(`context before: ${this.accessory.context[ServiceName[CharacteristicName]]}`);
+      this.accessory.context[ServiceName[CharacteristicName]] = CharacteristicValue;
+      this.debugWarnLog(`context after: ${this.accessory.context[ServiceName[CharacteristicName]]}`);
     }
   }
 
@@ -166,7 +167,7 @@ export abstract class deviceBase {
     Status2: string,
   ): Promise<void> {
     await this.warnLog(`Context: ${JSON.stringify(CharacteristicValueContext)}`);
-    if (CharacteristicValue === CharacteristicValueContext.LockTargetState) {
+    if (CharacteristicValue === CharacteristicValueContext[CharacteristicName]) {
       await this.debugLog(`No Changes, ${CharacteristicName}: ${CharacteristicValue} ${CharacteristicName}Context: ${CharacteristicValueContext}`);
     } else {
       await this.infoLog(`was ${CharacteristicValue === Value ? Status1 : Status2}`);

@@ -325,28 +325,28 @@ export class LockMechanism extends deviceBase {
     // Lock Mechanism
     if (!this.device.lock?.hide_lock && this.LockMechanism?.Service) {
 
-      await this.logStatusUpdate(this.LockMechanism.LockTargetState, this.accessory.context, 1,
+      await this.logStatusUpdate(this.LockMechanism.LockTargetState, this.accessory.context.LockMechanism, 1,
         'LockTargetState', 'Locked', 'Unlocked');
       // LockTargetState
-      await this.updateCharacteristic(this.LockMechanism.Service, this.hap.Characteristic.LockTargetState,
+      await this.updateCharacteristic(this.LockMechanism.Service, 'LockMechanism', this.hap.Characteristic.LockTargetState,
         this.LockMechanism.LockTargetState, 'LockTargetState');
       // LockCurrentState
-      await this.updateCharacteristic(this.LockMechanism.Service, this.hap.Characteristic.LockCurrentState,
+      await this.updateCharacteristic(this.LockMechanism.Service, 'LockMechanism', this.hap.Characteristic.LockCurrentState,
         this.LockMechanism.LockCurrentState, 'LockCurrentState');
     }
     // Battery
     // BatteryLevel
-    await this.updateCharacteristic(this.Battery.Service, this.hap.Characteristic.BatteryLevel,
+    await this.updateCharacteristic(this.Battery.Service, 'Battery', this.hap.Characteristic.BatteryLevel,
       this.Battery.BatteryLevel, 'BatteryLevel');
     // StatusLowBattery
-    await this.updateCharacteristic(this.Battery.Service, this.hap.Characteristic.StatusLowBattery,
+    await this.updateCharacteristic(this.Battery.Service, 'Battery', this.hap.Characteristic.StatusLowBattery,
       this.Battery.StatusLowBattery, 'StatusLowBattery');
     // Contact Sensor
     if (!this.device.lock?.hide_contactsensor && this.ContactSensor?.Service) {
-      await this.logStatusUpdate(this.ContactSensor.ContactSensorState, this.accessory.context.ContactSensorState, 1,
+      await this.logStatusUpdate(this.ContactSensor.ContactSensorState, this.accessory.context.LockMechanism, 1,
         'ContactSensorState', 'Opened', 'Closed');
       // ContactSensorState
-      await this.updateCharacteristic(this.ContactSensor.Service, this.hap.Characteristic.ContactSensorState,
+      await this.updateCharacteristic(this.ContactSensor.Service, 'ContactSensor', this.hap.Characteristic.ContactSensorState,
         this.ContactSensor.ContactSensorState, 'ContactSensorState');
     }
   }
