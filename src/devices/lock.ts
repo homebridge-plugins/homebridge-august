@@ -323,9 +323,8 @@ export class LockMechanism extends deviceBase {
     await this.debugLog('updateHomeKitCharacteristics');
     // Lock Mechanism
     if (!this.device.lock?.hide_lock && this.LockMechanism?.Service) {
-      if (this.LockMechanism.LockTargetState !== this.accessory.context.LockTargetState) {
-        await this.infoLog(`was ${this.LockMechanism.LockTargetState === 1 ? 'Locked' : 'Unlocked'}`);
-      }
+      await this.logStatusUpdate(this.LockMechanism.LockTargetState, this.accessory.context.LockTargetState, 1,
+        'LockTargetState', 'Locked', 'Unlocked');
       // LockTargetState
       await this.updateCharacteristic(this.LockMechanism.Service, this.hap.Characteristic.LockTargetState,
         this.LockMechanism.LockTargetState, 'LockTargetState');
@@ -342,9 +341,8 @@ export class LockMechanism extends deviceBase {
       this.Battery.StatusLowBattery, 'StatusLowBattery');
     // Contact Sensor
     if (!this.device.lock?.hide_contactsensor && this.ContactSensor?.Service) {
-      if (this.ContactSensor.ContactSensorState !== this.accessory.context.ContactSensorState) {
-        await this.infoLog(`was ${this.ContactSensor.ContactSensorState === 1 ? 'Opened' : 'Closed'}`);
-      }
+      await this.logStatusUpdate(this.ContactSensor.ContactSensorState, this.accessory.context.ContactSensorState, 1,
+        'ContactSensorState', 'Opened', 'Closed');
       // ContactSensorState
       await this.updateCharacteristic(this.ContactSensor.Service, this.hap.Characteristic.ContactSensorState,
         this.ContactSensor.ContactSensorState, 'ContactSensorState');
