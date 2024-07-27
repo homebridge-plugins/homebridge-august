@@ -324,7 +324,8 @@ export class LockMechanism extends deviceBase {
     await this.debugLog('updateHomeKitCharacteristics');
     // Lock Mechanism
     if (!this.device.lock?.hide_lock && this.LockMechanism?.Service) {
-      await this.logStatusUpdate(this.LockMechanism.LockTargetState, this.LockMechanism.LockCurrentState, 1,
+
+      await this.logStatusUpdate(this.LockMechanism.LockTargetState, this.accessory.context, 1,
         'LockTargetState', 'Locked', 'Unlocked');
       // LockTargetState
       await this.updateCharacteristic(this.LockMechanism.Service, this.hap.Characteristic.LockTargetState,
