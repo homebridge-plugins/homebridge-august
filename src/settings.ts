@@ -174,6 +174,8 @@ export type lockEvent = {
 export type stateEvent = {
   locked: boolean;
   unlocked: boolean;
+  locking: boolean;
+  unlocking: boolean;
   open?: boolean;
   closed?: boolean;
 };
