@@ -32,6 +32,7 @@ export type credentials = {
 
 export type options = {
   devices?: devicesConfig[];
+  allowInvalidCharacters?: boolean;
   refreshRate?: number;
   updateRate?: number;
   pushRate?: number;

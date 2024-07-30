@@ -414,35 +414,45 @@ export class AugustPlatform implements DynamicPlatformPlugin {
 
   /**
    * Validate and clean a string value for a Name Characteristic.
- * @param displayName
- * @param name
- * @param value
- * @returns string value
- */
+   * @param displayName - The display name of the accessory.
+   * @param name - The name of the characteristic.
+   * @param value - The value to be validated and cleaned.
+   * @returns The cleaned string value.
+  */
   async validateAndCleanDisplayName(displayName: string, name: string, value: string): Promise<string> {
-    const validPattern = /^[a-zA-Z0-9][a-zA-Z0-9 ']*[a-zA-Z0-9]$/;
-    const invalidCharsPattern = /[^a-zA-Z0-9 ']/g;
-    const invalidStartEndPattern = /^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g;
+    if (this.config.options?.allowInvalidCharacters) {
+      return value;
+    } else {
+      const validPattern = new RegExp(/^[\p{L}\p{N}][\p{L}\p{N} ']*[\p{L}\p{N}]$/u);
+      const invalidCharsPattern = /[^\p{L}\p{N} ']/gu;
+      const invalidStartEndPattern = /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu;
 
-    if (!validPattern.test(value)) {
-      this.warnLog(`WARNING: The accessory '${displayName}' has an invalid '${name}' characteristic ('${value}'). Please use only alphanumeric,`
-        + ' space, and apostrophe characters. Ensure it starts and ends with an alphabetic or numeric character, and avoid emojis. This may'
-        + ' prevent the accessory from being added in the Home App or cause unresponsiveness.');
+      if (typeof value === 'string' && !validPattern.test(value)) {
+        this.warnLog(`WARNING: The accessory '${displayName}' has an invalid '${name}' characteristic ('${value}'). Please use only alphanumeric,`
+          + ' space, and apostrophe characters. Ensure it starts and ends with an alphabetic or numeric character, and avoid emojis. This may'
+          + ' prevent the accessory from being added in the Home App or cause unresponsiveness.');
 
-      // Remove invalid characters
-      if (invalidCharsPattern.test(value)) {
-        this.warnLog(`Removing invalid characters from '${name}' characteristic`);
-        value = value.replace(invalidCharsPattern, '');
+        // Remove invalid characters
+        if (invalidCharsPattern.test(value)) {
+          const before = value;
+          this.warnLog(`Removing invalid characters from '${name}' characteristic, if you feel this is incorrect,`
+            + ' please enable \'allowInvalidCharacter\' in the config to allow all characters');
+          value = value.replace(invalidCharsPattern, '');
+          this.warnLog(`${name} Before: '${before}' After: '${value}'`);
+        }
+
+        // Ensure it starts and ends with an alphanumeric character
+        if (invalidStartEndPattern.test(value)) {
+          const before = value;
+          this.warnLog(`Removing invalid starting or ending characters from '${name}' characteristic, if you feel this is incorrect,`
+            + ' please enable \'allowInvalidCharacter\' in the config to allow all characters');
+          value = value.replace(invalidStartEndPattern, '');
+          this.warnLog(`${name} Before: '${before}' After: '${value}'`);
+        }
       }
 
-      // Ensure it starts and ends with an alphanumeric character
-      if (invalidStartEndPattern.test(value)) {
-        this.warnLog(`Removing invalid starting or ending characters from '${name}' characteristic`);
-        value = value.replace(invalidStartEndPattern, '');
-      }
+      return value;
     }
-
-    return value;
   }
 
   /**
