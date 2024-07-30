@@ -343,7 +343,7 @@ export class LockMechanism extends deviceBase {
       this.Battery.StatusLowBattery, 'StatusLowBattery');
     // Contact Sensor
     if (!this.device.lock?.hide_contactsensor && this.ContactSensor?.Service) {
-      await this.logStatusUpdate(this.ContactSensor.ContactSensorState, this.accessory.context.LockMechanism, 1,
+      await this.logStatusUpdate(this.ContactSensor.ContactSensorState, this.accessory.context.ContactSensor, 1,
         'ContactSensorState', 'Opened', 'Closed');
       // ContactSensorState
       await this.updateCharacteristic(this.ContactSensor.Service, 'ContactSensor', this.hap.Characteristic.ContactSensorState,
