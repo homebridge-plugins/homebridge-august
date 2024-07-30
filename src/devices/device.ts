@@ -170,8 +170,9 @@ export abstract class deviceBase {
       await this.debugLog(`No Changes, ${CharacteristicName}: ${CharacteristicValue}`
         + ` ${CharacteristicName}Context: ${CharacteristicValueContext}`);
     } else {
-      await this.infoLog(`was ${CharacteristicValue === Value ? Status1 : Status2}`);
+      await this.successLog(`was ${CharacteristicValue === Value ? Status1 : Status2}`);
     }
+    await this.infoLog(`was ${CharacteristicValue === Value ? Status1 : Status2}`);
   }
 
   async statusCode(device: device & devicesConfig, action: string, error: { message: string; }): Promise<void> {
