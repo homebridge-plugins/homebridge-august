@@ -144,11 +144,9 @@ export abstract class deviceBase {
       Service.updateCharacteristic(Characteristic, CharacteristicValue);
       this.debugLog(`updateCharacteristic ${CharacteristicName}: ${CharacteristicValue}`);
       this.debugWarnLog(`context before: ${this.accessory.context[ServiceName[CharacteristicName]]}`);
-      if ((this.accessory.context[ServiceName[CharacteristicName]] !== CharacteristicValue) && (CharacteristicValue !== undefined)
-        && (this.accessory.context[ServiceName[CharacteristicName]] !== undefined)) {
-        await this.successLog(`was ${CharacteristicValue === Value ? Status1 : Status2}`);
+      if ((this.accessory.context[ServiceName[CharacteristicName]] !== CharacteristicValue) && (Status1 !== undefined) && (Status2 !== undefined)) {
+        await this.infoLog(`was ${CharacteristicValue === Value ? Status1 : Status2}`);
       }
-      await this.infoLog(`was ${CharacteristicValue === Value ? Status1 : Status2}`);
       this.accessory.context[ServiceName[CharacteristicName]] = CharacteristicValue;
       this.debugWarnLog(`context after: ${this.accessory.context[ServiceName[CharacteristicName]]}`);
     }
