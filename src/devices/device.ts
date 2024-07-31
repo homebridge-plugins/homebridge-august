@@ -123,6 +123,9 @@ export abstract class deviceBase {
    * @param Characteristic - The specific characteristic to be updated.
    * @param CharacteristicValue - The new value to set for the characteristic. If undefined, the function logs the value and returns without updating.
    * @param CharacteristicName - The name of the characteristic being updated, used for logging purposes.
+   * @param Value - The value to compare against to determine the status.
+   * @param Status1 - The status message to log if the characteristic value matches the provided value.
+   * @param Status2 - The status message to log if the characteristic value does not match the provided value.
    * @return void
    */
   async updateCharacteristic(
@@ -131,51 +134,27 @@ export abstract class deviceBase {
     Characteristic: any,
     CharacteristicValue: CharacteristicValue,
     CharacteristicName: string,
+    Value?: CharacteristicValue,
+    Status1?: string,
+    Status2?: string,
   ): Promise<void> {
     if (CharacteristicValue === undefined) {
       this.debugLog(`${CharacteristicName}: ${CharacteristicValue}`);
     } else {
+      const before = this.accessory.context[ServiceName[CharacteristicName]];
       Service.updateCharacteristic(Characteristic, CharacteristicValue);
       this.debugLog(`updateCharacteristic ${CharacteristicName}: ${CharacteristicValue}`);
       this.debugWarnLog(`context before: ${this.accessory.context[ServiceName[CharacteristicName]]}`);
       this.accessory.context[ServiceName[CharacteristicName]] = CharacteristicValue;
+      if (before !== CharacteristicValue) {
+        await this.successLog(`was ${CharacteristicValue === Value ? Status1 : Status2}`);
+      }
+      await this.infoLog(`was ${CharacteristicValue === Value ? Status1 : Status2}`);
       this.debugWarnLog(`context after: ${this.accessory.context[ServiceName[CharacteristicName]]}`);
     }
   }
 
-  /**
-   * Logs the status update of a characteristic.
-   *
-   * This function compares the current characteristic value with its context value.
-   * If they are the same, it logs that there are no changes. If they are different,
-   * it logs the previous status based on the provided value and status strings.
-   *
-   * @param CharacteristicValue - The current value of the characteristic.
-   * @param CharacteristicValueContext - The stored context value of the characteristic.
-   * @param Value - The value to compare against to determine the status.
-   * @param CharacteristicName - The name of the characteristic being logged.
-   * @param Status1 - The status message to log if the characteristic value matches the provided value.
-   * @param Status2 - The status message to log if the characteristic value does not match the provided value.
-   * @return void
-   */
-  async logStatusUpdate(
-    CharacteristicValue: CharacteristicValue,
-    CharacteristicValueContext: any,
-    Value: CharacteristicValue,
-    CharacteristicName: string,
-    Status1: string,
-    Status2: string,
-  ): Promise<void> {
-    if (CharacteristicValue === CharacteristicValueContext) {
-      await this.debugLog(`No Changes, ${CharacteristicName}: ${CharacteristicValue}`
-        + ` ${CharacteristicName}Context: ${CharacteristicValueContext}`);
-    } else {
-      await this.successLog(`was ${CharacteristicValue === Value ? Status1 : Status2}`);
-    }
-    await this.infoLog(`was ${CharacteristicValue === Value ? Status1 : Status2}`);
-  }
-
-  async statusCode(device: device & devicesConfig, action: string, error: { message: string; }): Promise<void> {
+  async statusCode(action: string, error: { message: string; }): Promise<void> {
     const statusCodeString = error.message; // Convert statusCode to a string
     const logMap = {
       '100': `Command successfully sent, statusCode: ${statusCodeString}`,

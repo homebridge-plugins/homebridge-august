@@ -162,7 +162,7 @@ export class LockMechanism extends deviceBase {
           try {
             await this.pushChanges();
           } catch (e: any) {
-            await this.statusCode(this.device, 'pushChanges', e);
+            await this.statusCode('pushChanges', e);
             await this.errorLog(`doLockUpdate pushChanges: ${e}`);
           }
           this.lockUpdateInProgress = false;
@@ -279,7 +279,7 @@ export class LockMechanism extends deviceBase {
         await this.parseStatus();
         await this.updateHomeKitCharacteristics();
       } catch (e: any) {
-        await this.statusCode(this.device, '(refreshStatus) lockDetails', e);
+        await this.statusCode('(refreshStatus) lockDetails', e);
         await this.errorLog(`pushChanges: ${e.message}`);
       }
     } else {
@@ -312,7 +312,7 @@ export class LockMechanism extends deviceBase {
         await this.errorLog(`lockTargetState: ${JSON.stringify(this.LockMechanism)}`);
       }
     } catch (e: any) {
-      await this.statusCode(this.device, 'pushChanges', e);
+      await this.statusCode('pushChanges', e);
       await this.debugLog(`pushChanges: ${e}`);
     }
   }
@@ -324,12 +324,9 @@ export class LockMechanism extends deviceBase {
     await this.debugLog('updateHomeKitCharacteristics');
     // Lock Mechanism
     if (!this.device.lock?.hide_lock && this.LockMechanism?.Service) {
-
-      await this.logStatusUpdate(this.LockMechanism.LockTargetState, this.accessory.context.LockMechanism.LockTargetState, 1,
-        'LockTargetState', 'Locked', 'Unlocked');
       // LockTargetState
       await this.updateCharacteristic(this.LockMechanism.Service, 'LockMechanism', this.hap.Characteristic.LockTargetState,
-        this.LockMechanism.LockTargetState, 'LockTargetState');
+        this.LockMechanism.LockTargetState, 'LockTargetState', 1, 'Locked', 'Unlocked');
       // LockCurrentState
       await this.updateCharacteristic(this.LockMechanism.Service, 'LockMechanism', this.hap.Characteristic.LockCurrentState,
         this.LockMechanism.LockCurrentState, 'LockCurrentState');
@@ -343,11 +340,9 @@ export class LockMechanism extends deviceBase {
       this.Battery.StatusLowBattery, 'StatusLowBattery');
     // Contact Sensor
     if (!this.device.lock?.hide_contactsensor && this.ContactSensor?.Service) {
-      await this.logStatusUpdate(this.ContactSensor.ContactSensorState, this.accessory.context.ContactSensor.ContactSensorState, 1,
-        'ContactSensorState', 'Opened', 'Closed');
       // ContactSensorState
       await this.updateCharacteristic(this.ContactSensor.Service, 'ContactSensor', this.hap.Characteristic.ContactSensorState,
-        this.ContactSensor.ContactSensorState, 'ContactSensorState');
+        this.ContactSensor.ContactSensorState, 'ContactSensorState', 1, 'Opened', 'Closed');
     }
   }
 
