@@ -329,7 +329,7 @@ export class LockMechanism extends deviceBase {
         this.LockMechanism.LockTargetState, 'LockTargetState', 1, 'Locked', 'Unlocked');
       // LockCurrentState
       await this.updateCharacteristic(this.LockMechanism.Service, 'LockMechanism', this.hap.Characteristic.LockCurrentState,
-        this.LockMechanism.LockCurrentState, 'LockCurrentState');
+        this.LockMechanism.LockCurrentState, 'LockCurrentState', 1, 'Locked', 'Unlocked');
     }
     // Battery
     // BatteryLevel

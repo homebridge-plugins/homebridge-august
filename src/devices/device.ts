@@ -124,8 +124,8 @@ export abstract class deviceBase {
    * @param CharacteristicValue - The new value to set for the characteristic. If undefined, the function logs the value and returns without updating.
    * @param CharacteristicName - The name of the characteristic being updated, used for logging purposes.
    * @param Value - The value to compare against to determine the status.
-   * @param Status1 - The status message to log if the characteristic value matches the provided value.
-   * @param Status2 - The status message to log if the characteristic value does not match the provided value.
+   * @param StatusMatch - The status message to log if the characteristic value matches the provided value.
+   * @param StatusDoesNotMatch - The status message to log if the characteristic value does not match the provided value.
    * @return void
    */
   async updateCharacteristic(
@@ -135,20 +135,20 @@ export abstract class deviceBase {
     CharacteristicValue: CharacteristicValue,
     CharacteristicName: string,
     Value?: CharacteristicValue,
-    Status1?: string,
-    Status2?: string,
+    StatusMatch?: string,
+    StatusDoesNotMatch?: string,
   ): Promise<void> {
     if (CharacteristicValue === undefined) {
-      this.debugLog(`${CharacteristicName}: ${CharacteristicValue}`);
+      await this.debugLog(`${CharacteristicName}: ${CharacteristicValue}`);
     } else {
       Service.updateCharacteristic(Characteristic, CharacteristicValue);
-      this.debugLog(`updateCharacteristic ${CharacteristicName}: ${CharacteristicValue}`);
-      this.debugWarnLog(`context before: ${this.accessory.context[ServiceName[CharacteristicName]]}`);
-      if ((this.accessory.context[ServiceName[CharacteristicName]] !== CharacteristicValue) && (Status1 !== undefined) && (Status2 !== undefined)) {
-        await this.infoLog(`was ${CharacteristicValue === Value ? Status1 : Status2}`);
+      await this.debugLog(`updateCharacteristic ${CharacteristicName}: ${CharacteristicValue}`);
+      await this.debugWarnLog(`context before: ${this.accessory.context[ServiceName[CharacteristicName]]}`);
+      if (StatusMatch && StatusDoesNotMatch) {
+        await this.infoLog(`was ${CharacteristicName}: ${CharacteristicValue === Value ? StatusMatch : StatusDoesNotMatch}`);
       }
       this.accessory.context[ServiceName[CharacteristicName]] = CharacteristicValue;
-      this.debugWarnLog(`context after: ${this.accessory.context[ServiceName[CharacteristicName]]}`);
+      await this.debugWarnLog(`context after: ${this.accessory.context[ServiceName[CharacteristicName]]}`);
     }
   }
 
