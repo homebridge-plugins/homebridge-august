@@ -144,8 +144,8 @@ export abstract class deviceBase {
       Service.updateCharacteristic(Characteristic, CharacteristicValue);
       await this.debugLog(`updateCharacteristic ${CharacteristicName}: ${CharacteristicValue}`);
       await this.debugWarnLog(`context before: ${this.accessory.context[ServiceName[CharacteristicName]]}`);
-      if (StatusMatch && StatusDoesNotMatch) {
-        await this.infoLog(`was ${CharacteristicName}: ${CharacteristicValue === Value ? StatusMatch : StatusDoesNotMatch}`);
+      if ((this.accessory.context[ServiceName[CharacteristicName]] !== CharacteristicValue) && StatusMatch && StatusDoesNotMatch) {
+        await this.infoLog(`was ${CharacteristicValue === Value ? StatusMatch : StatusDoesNotMatch}`);
       }
       this.accessory.context[ServiceName[CharacteristicName]] = CharacteristicValue;
       await this.debugWarnLog(`context after: ${this.accessory.context[ServiceName[CharacteristicName]]}`);

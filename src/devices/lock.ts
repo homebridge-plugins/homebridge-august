@@ -326,7 +326,7 @@ export class LockMechanism extends deviceBase {
     if (!this.device.lock?.hide_lock && this.LockMechanism?.Service) {
       // LockTargetState
       await this.updateCharacteristic(this.LockMechanism.Service, 'LockMechanism', this.hap.Characteristic.LockTargetState,
-        this.LockMechanism.LockTargetState, 'LockTargetState', 1, 'Locked', 'Unlocked');
+        this.LockMechanism.LockTargetState, 'LockTargetState');
       // LockCurrentState
       await this.updateCharacteristic(this.LockMechanism.Service, 'LockMechanism', this.hap.Characteristic.LockCurrentState,
         this.LockMechanism.LockCurrentState, 'LockCurrentState', 1, 'Locked', 'Unlocked');
