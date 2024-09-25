@@ -8,7 +8,7 @@ import { readFileSync, writeFileSync } from 'fs';
 import { LockMechanism } from './devices/lock.js';
 import { PLUGIN_NAME, PLATFORM_NAME } from './settings.js';
 
-import type { AugustPlatformConfig, credentials, device, devicesConfig } from './settings.js';
+import type { AugustPlatformConfig, credentials, device, devicesConfig, options } from './settings.js';
 import type { API, DynamicPlatformPlugin, Logging, PlatformAccessory } from 'homebridge';
 
 /**
@@ -23,7 +23,10 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   public config!: AugustPlatformConfig;
 
   platformConfig!: AugustPlatformConfig['options'];
-  platformLogging!: AugustPlatformConfig['logging'];
+  platformLogging!: options['logging'];
+  platformRefreshRate!: options['refreshRate'];
+  platformPushRate!: options['pushRate'];
+  platformUpdateRate!: options['updateRate'];
   registeringDevice!: boolean;
   debugMode!: boolean;
   version!: string;
@@ -55,8 +58,9 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     };
 
     // Plugin Configuration
-    this.getPlatformConfigSettings();
     this.getPlatformLogSettings();
+    this.getPlatformRateSettings();
+    this.getPlatformConfigSettings();
     this.getVersion();
 
     // Finish initializing the plugin
@@ -115,27 +119,6 @@ export class AugustPlatform implements DynamicPlatformPlugin {
    * Verify the config passed to the plugin is valid
    */
   async verifyConfig() {
-    this.config.options = this.config.options || {};
-    const platformConfig = {};
-    if (this.config.options.logging) {
-      platformConfig['logging'] = this.config.options.logging;
-    }
-    if (this.config.options.logging && this.config.options.refreshRate) {
-      platformConfig['refreshRate'] = this.config.options.refreshRate;
-    }
-    if (this.config.options.logging && this.config.options.pushRate) {
-      platformConfig['pushRate'] = this.config.options.pushRate;
-    }
-    if (Object.entries(platformConfig).length !== 0) {
-      this.infoLog(`Platform Config: ${JSON.stringify(platformConfig)}`);
-    }
-
-    if (!this.config.options.refreshRate) {
-      // default 1800 seconds (30 minutes)
-      this.config.options.refreshRate = 86400;
-      await this.debugWarnLog('Using Default Refresh Rate, 1 Day.');
-    }
-
     if (!this.config.credentials) {
       throw 'Missing Credentials';
     } else {
@@ -299,7 +282,9 @@ export class AugustPlatform implements DynamicPlatformPlugin {
 
         // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
         existingAccessory.context.device = device;
-        existingAccessory.displayName = device.LockName;
+        existingAccessory.displayName = device.configLockName
+          ? await this.validateAndCleanDisplayName(device.configLockName, 'configLockName', device.configLockName)
+          : await this.validateAndCleanDisplayName(device.LockName, 'LockName', device.LockName);
         existingAccessory.context.currentFirmwareVersion = device.currentFirmwareVersion;
         existingAccessory.context.model = device.skuNumber;
         existingAccessory.context.serialnumber = device.SerialNumber;
@@ -313,22 +298,23 @@ export class AugustPlatform implements DynamicPlatformPlugin {
         await this.unregisterPlatformAccessories(existingAccessory, device);
       }
     } else if (await this.registerDevice(device)) {
-      // the accessory does not yet exist, so we need to create it
-      if (!device.external) {
-        await this.infoLog(`Adding new accessory: ${device.LockName}, Lock ID: ${device.lockId}`);
-      }
-
       // create a new accessory
-      const accessory = new this.api.platformAccessory(device.LockName, uuid);
+      const accessory = new this.api.platformAccessory(device.configLockName ?? device.LockName, uuid);
 
       // store a copy of the device object in the `accessory.context`
       // the `context` property can be used to store any data about the accessory you may need
       accessory.context.device = device;
-      accessory.displayName = device.LockName;
+      accessory.displayName = device.configLockName
+        ? await this.validateAndCleanDisplayName(device.configLockName, 'configLockName', device.configLockName)
+        : await this.validateAndCleanDisplayName(device.LockName, 'LockName', device.LockName);
       accessory.context.currentFirmwareVersion = device.currentFirmwareVersion;
       accessory.context.model = device.skuNumber;
       accessory.context.serialnumber = device.SerialNumber;
       accessory.context.lockId = device.lockId;
+      // the accessory does not yet exist, so we need to create it
+      if (!device.external) {
+        await this.infoLog(`Adding new accessory: ${device.LockName}, Lock ID: ${device.lockId}`);
+      }
       // create the accessory handler for the newly create accessory
       // this is imported from `platformAccessory.ts`
       new LockMechanism(this, accessory, device);
@@ -352,7 +338,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
         + `Override HomeKit Enabled: ${device.overrideHomeKitEnabled}`);
     } else if (device.homeKitEnabled && !device.overrideHomeKitEnabled) {
       this.registeringDevice = false;
-      this.debugErrorLog(`Device: ${device.LockName} HomeKit Enabled: `
+      await this.debugErrorLog(`Device: ${device.LockName} HomeKit Enabled: `
         + `${device.homeKitEnabled}, device will not be registered. To enable, set overrideHomeKitEnabled to true.`);
     } else {
       this.registeringDevice = false;
@@ -393,20 +379,12 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   }
 
   async getPlatformConfigSettings() {
-    const platformConfig: AugustPlatformConfig['options'] = {};
     if (this.config.options) {
-      if (this.config.options.logging) {
-        platformConfig.logging = this.config.options.logging;
-      }
-      if (this.config.options.refreshRate) {
-        platformConfig.refreshRate = this.config.options.refreshRate;
-      }
-      if (this.config.options.updateRate) {
-        platformConfig.updateRate = this.config.options.updateRate;
-      }
-      if (this.config.options.pushRate) {
-        platformConfig.pushRate = this.config.options.pushRate;
-      }
+      const platformConfig: AugustPlatformConfig['options'] = {};
+      platformConfig.logging = this.config.options.logging ? this.config.options.logging : undefined;
+      platformConfig.refreshRate = this.config.options.refreshRate ? this.config.options.refreshRate : undefined;
+      platformConfig.updateRate = this.config.options.updateRate ? this.config.options.updateRate : undefined;
+      platformConfig.pushRate = this.config.options.pushRate ? this.config.options.pushRate : undefined;
       if (Object.entries(platformConfig).length !== 0) {
         await this.debugLog(`Platform Config: ${JSON.stringify(platformConfig)}`);
       }
@@ -414,24 +392,73 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     }
   }
 
+  async getPlatformRateSettings() {
+    this.platformRefreshRate = this.config.options?.refreshRate ? this.config.options.refreshRate : 0;
+    const refreshRate = this.config.options?.refreshRate ? 'Using Platform Config refreshRate' : 'refreshRate Disabled by Default';
+    await this.debugLog(`${refreshRate}: ${this.platformRefreshRate}`);
+    this.platformUpdateRate = this.config.options?.updateRate ? this.config.options.updateRate : 1;
+    const updateRate = this.config.options?.updateRate ? 'Using Platform Config updateRate' : 'Using Default updateRate';
+    await this.debugLog(`${updateRate}: ${this.platformUpdateRate}`);
+    this.platformPushRate = this.config.options?.pushRate ? this.config.options.pushRate : 1;
+    const pushRate = this.config.options?.pushRate ? 'Using Platform Config pushRate' : 'Using Default pushRate';
+    await this.debugLog(`${pushRate}: ${this.platformPushRate}`);
+  }
+
   async getPlatformLogSettings() {
-    this.debugMode = process.argv.includes('-D') || process.argv.includes('--debug');
-    if (this.config.options?.logging === 'debug' || this.config.options?.logging === 'standard' || this.config.options?.logging === 'none') {
-      this.platformLogging = this.config.options.logging;
-      await this.debugWarnLog(`Using Platform Config Logging: ${this.platformLogging}`);
-    } else if (this.debugMode) {
-      this.platformLogging = 'debugMode';
-      await this.debugWarnLog(`Using ${this.platformLogging} Logging`);
+    this.debugMode = process.argv.includes('-D') ?? process.argv.includes('--debug');
+    this.platformLogging = (this.config.options?.logging === 'debug' || this.config.options?.logging === 'standard'
+      || this.config.options?.logging === 'none') ? this.config.options.logging : this.debugMode ? 'debugMode' : 'standard';
+    const logging = this.config.options?.logging ? 'Platform Config' : this.debugMode ? 'debugMode' : 'Default';
+    await this.debugLog(`Using ${logging} Logging: ${this.platformLogging}`);
+  }
+
+  /**
+   * Validate and clean a string value for a Name Characteristic.
+   * @param displayName - The display name of the accessory.
+   * @param name - The name of the characteristic.
+   * @param value - The value to be validated and cleaned.
+   * @returns The cleaned string value.
+  */
+  async validateAndCleanDisplayName(displayName: string, name: string, value: string): Promise<string> {
+    if (this.config.options?.allowInvalidCharacters) {
+      return value;
     } else {
-      this.platformLogging = 'standard';
-      await this.debugWarnLog(`Using ${this.platformLogging} Logging`);
+      const validPattern = new RegExp(/^[\p{L}\p{N}][\p{L}\p{N} ']*[\p{L}\p{N}]$/u);
+      const invalidCharsPattern = /[^\p{L}\p{N} ']/gu;
+      const invalidStartEndPattern = /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu;
+
+      if (typeof value === 'string' && !validPattern.test(value)) {
+        this.warnLog(`WARNING: The accessory '${displayName}' has an invalid '${name}' characteristic ('${value}'). Please use only alphanumeric,`
+          + ' space, and apostrophe characters. Ensure it starts and ends with an alphabetic or numeric character, and avoid emojis. This may'
+          + ' prevent the accessory from being added in the Home App or cause unresponsiveness.');
+
+        // Remove invalid characters
+        if (invalidCharsPattern.test(value)) {
+          const before = value;
+          this.warnLog(`Removing invalid characters from '${name}' characteristic, if you feel this is incorrect,`
+            + ' please enable \'allowInvalidCharacter\' in the config to allow all characters');
+          value = value.replace(invalidCharsPattern, '');
+          this.warnLog(`${name} Before: '${before}' After: '${value}'`);
+        }
+
+        // Ensure it starts and ends with an alphanumeric character
+        if (invalidStartEndPattern.test(value)) {
+          const before = value;
+          this.warnLog(`Removing invalid starting or ending characters from '${name}' characteristic, if you feel this is incorrect,`
+            + ' please enable \'allowInvalidCharacter\' in the config to allow all characters');
+          value = value.replace(invalidStartEndPattern, '');
+          this.warnLog(`${name} Before: '${before}' After: '${value}'`);
+        }
+      }
+
+      return value;
     }
   }
 
   /**
-    * If device level logging is turned on, log to log.warn
-    * Otherwise send debug logs to log.debug
-    */
+   * If device level logging is turned on, log to log.warn
+   * Otherwise send debug logs to log.debug
+   */
   async infoLog(...log: any[]): Promise<void> {
     if (await this.enablingPlatformLogging()) {
       this.log.info(String(...log));
@@ -446,7 +473,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
 
   async debugSuccessLog(...log: any[]): Promise<void> {
     if (await this.enablingPlatformLogging()) {
-      if (this.platformLogging?.includes('debug')) {
+      if (await this.loggingIsDebug()) {
         this.log.success('[DEBUG]', String(...log));
       }
     }
@@ -460,7 +487,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
 
   async debugWarnLog(...log: any[]): Promise<void> {
     if (await this.enablingPlatformLogging()) {
-      if (this.platformLogging?.includes('debug')) {
+      if (await this.loggingIsDebug()) {
         this.log.warn('[DEBUG]', String(...log));
       }
     }
@@ -474,7 +501,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
 
   async debugErrorLog(...log: any[]): Promise<void> {
     if (await this.enablingPlatformLogging()) {
-      if (this.platformLogging?.includes('debug')) {
+      if (await this.loggingIsDebug()) {
         this.log.error('[DEBUG]', String(...log));
       }
     }
@@ -482,15 +509,19 @@ export class AugustPlatform implements DynamicPlatformPlugin {
 
   async debugLog(...log: any[]): Promise<void> {
     if (await this.enablingPlatformLogging()) {
-      if (this.platformLogging === 'debugMode') {
-        this.log.debug(String(...log));
-      } else if (this.platformLogging === 'debug') {
+      if (this.platformLogging === 'debug') {
         this.log.info('[DEBUG]', String(...log));
+      } else if (this.platformLogging === 'debugMode') {
+        this.log.debug(String(...log));
       }
     }
   }
 
+  async loggingIsDebug(): Promise<boolean> {
+    return this.platformLogging === 'debugMode' || this.platformLogging === 'debug';
+  }
+
   async enablingPlatformLogging(): Promise<boolean> {
-    return this.platformLogging?.includes('debug') || this.platformLogging === 'standard';
+    return this.platformLogging === 'debugMode' || this.platformLogging === 'debug' || this.platformLogging === 'standard';
   }
 }

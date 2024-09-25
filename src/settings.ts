@@ -16,7 +16,7 @@ export const PLUGIN_NAME = 'homebridge-august';
 //Config
 export interface AugustPlatformConfig extends PlatformConfig {
   credentials?: credentials;
-  options?: options | Record<string, never>;
+  options?: options;
 }
 
 export type credentials = {
@@ -32,6 +32,7 @@ export type credentials = {
 
 export type options = {
   devices?: devicesConfig[];
+  allowInvalidCharacters?: boolean;
   refreshRate?: number;
   updateRate?: number;
   pushRate?: number;
@@ -154,6 +155,8 @@ export type lockStatus = {
 export type state = {
   unlocked: boolean;
   locked: boolean;
+  locking: boolean;
+  unlocking: boolean;
   open: boolean;
   closed: boolean;
 };
@@ -172,6 +175,8 @@ export type lockEvent = {
 export type stateEvent = {
   locked: boolean;
   unlocked: boolean;
+  locking: boolean;
+  unlocking: boolean;
   open?: boolean;
   closed?: boolean;
 };
