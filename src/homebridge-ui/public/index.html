@@ -16,8 +16,8 @@
   </div>
 </div>
 <div id="menuWrapper" class="btn-group w-100 mb-0" role="group" aria-label="UI Menu" style="display: none">
-  <button type="button" class="btn btn-primary" id="menuSettings">Settings</button>
   <button type="button" class="btn btn-primary" id="menuDevices">Devices</button>
+  <button type="button" class="btn btn-primary" id="menuSettings">Settings</button>
   <button type="button" class="btn btn-primary mr-0" id="menuHome">Support</button>
 </div>
 <div id="pageDevices" class="mt-4" style="display: none">
@@ -102,7 +102,7 @@
           homebridge.showSpinner();
           document.getElementById('pageIntro').style.display = 'none';
           document.getElementById('menuWrapper').style.display = 'inline-flex';
-          showSettings();
+          showDevices();
           homebridge.hideSpinner();
         });
         document.getElementById('pageIntro').style.display = 'block';
@@ -139,6 +139,7 @@
           homebridge.showSpinner();
           const thisAcc = cachedAccessories.find((x) => x.UUID === UUID);
           const context = thisAcc.context;
+          const deviceConfig = currentConfig.find((x) => x.UUID === UUID);
           document.getElementById('displayName').innerHTML = thisAcc.displayName;
           document.getElementById('lockId').innerHTML = context.lockId;
           document.getElementById('model').innerHTML = context.model;
@@ -153,7 +154,6 @@
           const option = document.createElement('option');
           option.text = 'No Devices';
           deviceSelect.add(option);
-          deviceSelect.disabled = true;
         }
         homebridge.hideSpinner();
       };
@@ -188,7 +188,7 @@
       menuSettings.addEventListener('click', () => showSettings());
       if (currentConfig.length) {
         document.getElementById('menuWrapper').style.display = 'inline-flex';
-        showSettings();
+        showDevices();
       } else {
         currentConfig.push({ name: 'August' });
         await homebridge.updatePluginConfig(currentConfig);
