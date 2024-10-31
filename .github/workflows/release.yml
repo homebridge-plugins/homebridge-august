@@ -15,7 +15,7 @@ jobs:
   publish:
     needs: build_and_test
 
-    if: ${{ github.repository == 'donavanbecker/homebridge-august' }}
+    if: ${{ github.repository == 'homebridge-plugins/homebridge-august' }}
 
     uses: donavanbecker/.github/.github/workflows/npm-publish.yml@latest
     secrets:
@@ -24,11 +24,12 @@ jobs:
   github-releases-to-discord:
     needs: publish
 
-    if: ${{ github.repository == 'donavanbecker/homebridge-august' }}
+    if: ${{ github.repository == 'homebridge-plugins/homebridge-august' }}
 
     uses: donavanbecker/.github/.github/workflows/discord-webhooks.yml@latest
     with:
-      footer_title: "August"
+      message_title: "August"
+      message_url: "https://github.com/homebridge-plugins/homebridge-august/releases/tag/v${{ github.event.release.tag_name }}"
     secrets:
       DISCORD_WEBHOOK_URL_LATEST: ${{ secrets.DISCORD_WEBHOOK_URL_LATEST }}
       DISCORD_WEBHOOK_URL_BETA: ${{ secrets.DISCORD_WEBHOOK_URL_BETA }}

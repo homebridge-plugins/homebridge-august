@@ -5,7 +5,7 @@
   "customUi": true,
   "customUiPath": "./dist/homebridge-ui",
   "headerDisplay": "<p align='center'><img width='100px' src='https://user-images.githubusercontent.com/9875439/102681754-ac2eb800-4189-11eb-8e17-7c47c804484b.png'></p>\n\nThe **August** plugin allows you to control August Devices. \n\nTo get started link your August Account.\n\n1. Input your August E-mail/Phone Number into the August Account Info.\n\n2.Restart Homebridge to receive an August Validate Code.\n\n3. Input your Validate Code into the August Account Info.\n\n4. Finally Restart Homebridge.",
-  "footerDisplay": "Please raise any issues on our [project page](https://github.com/donavanbecker/homebridge-august/issues).\n\nIf you would like to have other August Devices added to this plugin fill out [Feature Request Form](https://github.com/donavanbecker/homebridge-august/issues/new?assignees=&labels=&template=feature_request.md).",
+  "footerDisplay": "Please raise any issues on our [project page](https://github.com/homebridge-plugins/homebridge-august/issues).\n\nIf you would like to have other August Devices added to this plugin fill out [Feature Request Form](https://github.com/homebridge-plugins/homebridge-august/issues/new?assignees=&labels=&template=feature_request.md).",
   "schema": {
     "type": "object",
     "properties": {
