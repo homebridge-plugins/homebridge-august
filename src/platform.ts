@@ -61,9 +61,9 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     }
 
     // Plugin Configuration
-    this.getPlatformConfigSettings()
-    this.getPlatformRateSettings()
     this.getPlatformLogSettings()
+    this.getPlatformRateSettings()
+    this.getPlatformConfigSettings()
     this.getVersion()
 
     // Finish initializing the platform
