@@ -1,6 +1,6 @@
 <span align="center">
 
-<a href="https://github.com/homebridge/verified/blob/master/verified-plugins.json"><img alt="homebridge-verified" src="https://raw.githubusercontent.com/donavanbecker/homebridge-august/latest/branding/Homebridge_x_August.svg?sanitize=true" width="350px"></a>
+<a href="https://github.com/homebridge/verified/blob/master/verified-plugins.json"><img alt="homebridge-verified" src="https://raw.githubusercontent.com/homebridge-plugins/homebridge-august/latest/branding/Homebridge_x_August.svg?sanitize=true" width="350px"></a>
 
 # Homebridge August
 
@@ -9,9 +9,9 @@
 <a href="https://discord.gg/8fpZA4S"><img title="discord-august" src="https://badgen.net/discord/online-members/8fpZA4S?icon=discord&label=discord" ></a>
 <a href="https://paypal.me/donavanbecker"><img title="donate" src="https://badgen.net/badge/donate/paypal/yellow" ></a>
 
-<p>The Homebridge <a href="https://august.com">August</a> 
+<p>The Homebridge <a href="https://august.com">August</a>
 plugin allows you to access your <a href="https://august.com">August</a> & <a href="https://shopyalehome.com">Yale</a>  Lock(s) from HomeKit with
-  <a href="https://homebridge.io">Homebridge</a>. 
+  <a href="https://homebridge.io">Homebridge</a>.
 </p>
 
 </span>
@@ -43,4 +43,3 @@ plugin allows you to access your <a href="https://august.com">August</a> & <a hr
 ## Thanks
 
 Thank you to [hufftheweevil](https://github.com/hufftheweevil) for the [august-api](https://github.com/hufftheweevil/august-api) module.
-
