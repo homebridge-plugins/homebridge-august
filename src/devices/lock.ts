@@ -165,7 +165,7 @@ export class LockMechanism extends deviceBase {
             await this.pushChanges()
           } catch (e: any) {
             await this.statusCode('pushChanges', e)
-            await this.errorLog(`doLockUpdate pushChanges: ${e}`)
+            await this.errorLog(`doLockUpdate pushChanges: ${e.message ?? e}`)
           }
           this.lockUpdateInProgress = false
         })
@@ -179,37 +179,41 @@ export class LockMechanism extends deviceBase {
     await this.debugLog('parseStatus')
     const retryCount = 1
     if (this.lockStatus) {
+      if (this.lockStatus.state) {
       // Lock Mechanism
-      this.platform.augustConfig.addSimpleProps(this.lockStatus)
-      if (this.LockMechanism && (this.lockStatus.state.unlocking || this.lockStatus.state.locking)) {
-        await this.warnLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}, locking/unlocking parseStatus`
-          + ` lockEvent: ${JSON.stringify(this.lockEvent)}`)
-      }
-      if (!this.device.lock?.hide_lock && this.LockMechanism?.Service && (this.lockEvent.state.locked !== this.lockEvent.state.unlocked)) {
-        this.LockMechanism.LockCurrentState = this.lockStatus.state.locked
-          ? this.hap.Characteristic.LockCurrentState.SECURED
-          : this.lockStatus.state.unlocked
-            ? this.hap.Characteristic.LockCurrentState.UNSECURED
-            : retryCount > 1 ? this.hap.Characteristic.LockCurrentState.JAMMED : this.hap.Characteristic.LockCurrentState.UNKNOWN
-        if (this.LockMechanism.LockCurrentState === this.hap.Characteristic.LockCurrentState.UNKNOWN) {
-          await this.warnLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}, (UNKNOWN) parseStatus`
+        this.platform.augustConfig.addSimpleProps(this.lockStatus)
+        if (this.LockMechanism && (this.lockStatus.state.unlocking || this.lockStatus.state.locking)) {
+          await this.warnLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}, locking/unlocking parseStatus`
             + ` lockEvent: ${JSON.stringify(this.lockEvent)}`)
         }
-        await this.debugLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}`)
-      }
-      // Contact Sensor
-      if (!this.device.lock?.hide_contactsensor && this.ContactSensor?.Service) {
+        if (!this.device.lock?.hide_lock && this.LockMechanism?.Service && (this.lockEvent.state.locked !== this.lockEvent.state.unlocked)) {
+          this.LockMechanism.LockCurrentState = this.lockStatus.state.locked
+            ? this.hap.Characteristic.LockCurrentState.SECURED
+            : this.lockStatus.state.unlocked
+              ? this.hap.Characteristic.LockCurrentState.UNSECURED
+              : retryCount > 1 ? this.hap.Characteristic.LockCurrentState.JAMMED : this.hap.Characteristic.LockCurrentState.UNKNOWN
+          if (this.LockMechanism.LockCurrentState === this.hap.Characteristic.LockCurrentState.UNKNOWN) {
+            await this.warnLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}, (UNKNOWN) parseStatus`
+              + ` lockEvent: ${JSON.stringify(this.lockEvent)}`)
+          }
+          await this.debugLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}`)
+        }
+        // Contact Sensor
+        if (!this.device.lock?.hide_contactsensor && this.ContactSensor?.Service) {
         // ContactSensorState
-        this.ContactSensor.ContactSensorState = this.lockStatus.state.open
-          ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
-          : this.lockStatus.state.closed
-            ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
-            : this.lockStatus.doorState.includes('open')
-              ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
-              : this.lockStatus.doorState.includes('closed')
-                ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
-                : this.ContactSensor.ContactSensorState
-        await this.debugLog(`ContactSensorState: ${this.ContactSensor.ContactSensorState}`)
+          this.ContactSensor.ContactSensorState = this.lockStatus.state.open
+            ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+            : this.lockStatus.state.closed
+              ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
+              : this.lockStatus.doorState.includes('open')
+                ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+                : this.lockStatus.doorState.includes('closed')
+                  ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
+                  : this.ContactSensor.ContactSensorState
+          await this.debugLog(`ContactSensorState: ${this.ContactSensor.ContactSensorState}`)
+        }
+      } else {
+        await this.warnLog(`lockStatus state: ${JSON.stringify(this.lockStatus)}`)
       }
     }
     if (this.lockDetails) {
@@ -242,39 +246,43 @@ export class LockMechanism extends deviceBase {
     await this.debugLog('parseEventStatus')
     const retryCount = 1
     if (this.lockEvent) {
-      this.debugLog(`lockEvent: ${JSON.stringify(this.lockEvent)}`)
-      // Lock Mechanism
-      this.platform.augustConfig.addSimpleProps(this.lockEvent)
-      if (this.LockMechanism && (this.lockEvent.state.unlocking || this.lockEvent.state.locking)) {
-        await this.debugLog(`is  ${this.lockEvent.state.unlocking ? 'Unlocking' : this.lockEvent.state.locking ? 'Locking' : ''}, parseEventStatus`
-          + ` lockEventState: ${JSON.stringify(this.lockEvent.state)}`)
-        return
-      }
-      if (!this.device.lock?.hide_lock && this.LockMechanism?.Service && (this.lockEvent.state.locked !== this.lockEvent.state.unlocked)) {
-        this.LockMechanism.LockCurrentState = this.lockEvent.state.locked
-          ? this.hap.Characteristic.LockCurrentState.SECURED
-          : this.lockEvent.state.unlocked
-            ? this.hap.Characteristic.LockCurrentState.UNSECURED
-            : retryCount > 1 ? this.hap.Characteristic.LockCurrentState.JAMMED : this.hap.Characteristic.LockCurrentState.UNKNOWN
-        if (this.LockMechanism.LockCurrentState === this.hap.Characteristic.LockCurrentState.UNKNOWN) {
-          await this.warnLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}, (UNKNOWN) parseEventStatus`
-            + ` lockEvent: ${JSON.stringify(this.lockEvent)}`)
+      if (this.lockEvent.state) {
+        this.debugLog(`lockEvent: ${JSON.stringify(this.lockEvent)}`)
+        // Lock Mechanism
+        this.platform.augustConfig.addSimpleProps(this.lockEvent)
+        if (this.LockMechanism && (this.lockEvent.state.unlocking || this.lockEvent.state.locking)) {
+          await this.debugLog(`is  ${this.lockEvent.state.unlocking ? 'Unlocking' : this.lockEvent.state.locking ? 'Locking' : ''}, parseEventStatus`
+            + ` lockEventState: ${JSON.stringify(this.lockEvent.state)}`)
+          return
         }
-        await this.debugLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}`)
-      }
-      // Contact Sensor
-      if (!this.device.lock?.hide_contactsensor && this.ContactSensor?.Service) {
+        if (!this.device.lock?.hide_lock && this.LockMechanism?.Service && (this.lockEvent.state.locked !== this.lockEvent.state.unlocked)) {
+          this.LockMechanism.LockCurrentState = this.lockEvent.state.locked
+            ? this.hap.Characteristic.LockCurrentState.SECURED
+            : this.lockEvent.state.unlocked
+              ? this.hap.Characteristic.LockCurrentState.UNSECURED
+              : retryCount > 1 ? this.hap.Characteristic.LockCurrentState.JAMMED : this.hap.Characteristic.LockCurrentState.UNKNOWN
+          if (this.LockMechanism.LockCurrentState === this.hap.Characteristic.LockCurrentState.UNKNOWN) {
+            await this.warnLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}, (UNKNOWN) parseEventStatus`
+              + ` lockEvent: ${JSON.stringify(this.lockEvent)}`)
+          }
+          await this.debugLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}`)
+        }
+        // Contact Sensor
+        if (!this.device.lock?.hide_contactsensor && this.ContactSensor?.Service) {
         // ContactSensorState
-        this.ContactSensor.ContactSensorState = this.lockEvent.state.open
-          ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
-          : this.lockEvent.state.closed
-            ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
-            : this.lockEvent.doorState === 'open'
-              ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
-              : this.lockEvent.doorState === 'closed'
-                ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
-                : this.ContactSensor.ContactSensorState
-        await this.debugLog(`ContactSensorState: ${this.ContactSensor.ContactSensorState}`)
+          this.ContactSensor.ContactSensorState = this.lockEvent.state.open
+            ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+            : this.lockEvent.state.closed
+              ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
+              : this.lockEvent.doorState === 'open'
+                ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+                : this.lockEvent.doorState === 'closed'
+                  ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
+                  : this.ContactSensor.ContactSensorState
+          await this.debugLog(`ContactSensorState: ${this.ContactSensor.ContactSensorState}`)
+        }
+      } else {
+        await this.warnLog(`lovckEvent state: ${JSON.stringify(this.lockStatus)}`)
       }
     }
   }
@@ -286,16 +294,20 @@ export class LockMechanism extends deviceBase {
     if (this.deviceRefreshRate !== 0) {
       try {
         // Update Lock Details
-        const lockDetails: any = await this.platform.augustConfig.details(this.device.lockId)
-        await this.debugSuccessLog(`(refreshStatus) lockDetails: ${JSON.stringify(lockDetails)}`)
-        // Update HomeKit
-        this.lockDetails = lockDetails
-        this.lockStatus = lockDetails.LockStatus
-        await this.parseStatus()
-        await this.updateHomeKitCharacteristics()
+        if (this.platform.augustConfig.details) {
+          const lockDetails: any = await this.platform.augustConfig.details(this.device.lockId)
+          await this.debugSuccessLog(`(refreshStatus) lockDetails: ${JSON.stringify(lockDetails)}`)
+          // Update HomeKit
+          this.lockDetails = lockDetails
+          this.lockStatus = lockDetails.LockStatus
+          await this.parseStatus()
+          await this.updateHomeKitCharacteristics()
+        } else {
+          await this.errorLog('(refreshStatus) lockDetails: No details')
+        }
       } catch (e: any) {
         await this.statusCode('(refreshStatus) lockDetails', e)
-        await this.errorLog(`pushChanges: ${e.message}`)
+        await this.errorLog(`(refreshStatus) pushChanges: ${e.message ?? e}`)
       }
     } else {
       await this.debugLog()
@@ -329,7 +341,7 @@ export class LockMechanism extends deviceBase {
       }
     } catch (e: any) {
       await this.statusCode('pushChanges', e)
-      await this.debugLog(`pushChanges: ${e}`)
+      await this.debugLog(`pushChanges: ${e.message ?? e}`)
     }
   }
 
