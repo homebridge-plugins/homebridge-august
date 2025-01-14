@@ -294,7 +294,7 @@ export class LockMechanism extends deviceBase {
     if (this.deviceRefreshRate !== 0) {
       try {
         // Update Lock Details
-        if (this.platform.augustConfig.details) {
+        if (this.platform.augustConfig && this.platform.augustConfig.details) {
           const lockDetails: any = await this.platform.augustConfig.details(this.device.lockId)
           await this.debugSuccessLog(`(refreshStatus) lockDetails: ${JSON.stringify(lockDetails)}`)
           // Update HomeKit
@@ -307,10 +307,10 @@ export class LockMechanism extends deviceBase {
         }
       } catch (e: any) {
         await this.statusCode('(refreshStatus) lockDetails', e)
-        await this.errorLog(`(refreshStatus) pushChanges: ${e.message ?? e}`)
+        await this.errorLog(`(refreshStatus) lockDetails: ${e.message ?? e}`)
       }
     } else {
-      await this.debugLog()
+      await this.debugLog(`(refreshStatus) deviceRefreshRate: ${this.deviceRefreshRate}`)
     }
   }
 
