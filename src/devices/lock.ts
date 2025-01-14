@@ -213,7 +213,7 @@ export class LockMechanism extends deviceBase {
           await this.debugLog(`ContactSensorState: ${this.ContactSensor.ContactSensorState}`)
         }
       } else {
-        await this.warnLog(`lockStatus state: ${JSON.stringify(this.lockStatus)}`)
+        await this.debugWarnLog(`lockStatus state: ${JSON.stringify(this.lockStatus)}`)
       }
     }
     if (this.lockDetails) {
@@ -282,7 +282,7 @@ export class LockMechanism extends deviceBase {
           await this.debugLog(`ContactSensorState: ${this.ContactSensor.ContactSensorState}`)
         }
       } else {
-        await this.warnLog(`lovckEvent state: ${JSON.stringify(this.lockStatus)}`)
+        await this.debugWarnLog(`lovckEvent state: ${JSON.stringify(this.lockStatus)}`)
       }
     }
   }
