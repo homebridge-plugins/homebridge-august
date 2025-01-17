@@ -1,8 +1,8 @@
 {
-  "name": "homebridge-august",
+  "name": "@homebridge-plugins/homebridge-august",
   "displayName": "August",
   "type": "module",
-  "version": "2.2.9",
+  "version": "3.0.0",
   "description": "The August plugin allows you to access your August & Yale device(s) from HomeKit.",
   "author": {
     "name": "donavanbecker",
@@ -48,43 +48,44 @@
     "watch": "npm run build && npm run plugin-ui && npm link && nodemon",
     "plugin-ui": "rsync ./src/homebridge-ui/public/index.html ./dist/homebridge-ui/public/",
     "build": "npm run clean && tsc && npm run plugin-ui",
-    "prepublishOnly": "npm run lint && npm run build && npm run plugin-ui ",
-    "postpublish": "npm run clean",
+    "prepublishOnly": "npm run lint && npm run build && npm run plugin-ui && npm run docs && npm run docs:lint && npm run docs:theme",
+    "postpublish": "npm run clean && npm ci",
     "clean": "shx rm -rf ./dist",
-    "test": "npm run lint",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "test-coverage": "npm run test -- --coverage",
     "docs": "typedoc",
-    "lint-docs": "typedoc --emit none --treatWarningsAsErrors"
+    "docs:lint": "typedoc --emit none --treatWarningsAsErrors",
+    "docs:theme": "typedoc --theme default-modern"
   },
   "publishConfig": {
     "access": "public"
   },
   "dependencies": {
-    "@homebridge/plugin-ui-utils": "^1.0.3",
+    "@homebridge/plugin-ui-utils": "^2.0.0",
     "august-yale": "^1.1.1",
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^3.8.0",
+    "@antfu/eslint-config": "^3.14.0",
     "@types/aes-js": "^3.1.4",
     "@types/debug": "^4.1.12",
     "@types/fs-extra": "^11.0.4",
-    "@types/jest": "^29.5.14",
     "@types/mdast": "^4.0.4",
-    "@types/node": "^22.9.0",
+    "@types/node": "^22.10.7",
     "@types/semver": "^7.5.8",
     "@types/source-map-support": "^0.5.10",
-    "@vitest/coverage-v8": "^2.1.4",
-    "eslint": "^9.14.0",
-    "eslint-plugin-format": "^0.1.2",
+    "@typhonjs-typedoc/typedoc-theme-dmt": "^0.3.1",
+    "@vitest/coverage-v8": "^3.0.0",
+    "eslint": "^9.18.0",
+    "eslint-plugin-format": "^1.0.1",
     "homebridge": "^1.8.5",
-    "homebridge-config-ui-x": "4.62.0",
-    "jest": "^29.7.0",
-    "nodemon": "^3.1.7",
-    "npm-check-updates": "^17.1.10",
+    "homebridge-config-ui-x": "4.68.0",
+    "nodemon": "^3.1.9",
     "shx": "^0.3.4",
     "ts-node": "^10.9.2",
-    "typedoc": "^0.26.11",
-    "typescript": "^5.6.3",
-    "vitest": "^2.1.4"
+    "typedoc": "^0.27.6",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.0"
   }
 }

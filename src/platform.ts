@@ -75,8 +75,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
         this.verifyConfig()
         this.debugLog('Config OK')
       } catch (e: any) {
-        await this.errorLog(`Verify Config, Error Message: ${e.message}, Submit Bugs Here: https://bit.ly/august-bug-report`)
-        await this.debugErrorLog(`Verify Config, Error: ${e}`)
+        await this.errorLog(`Verify Config, Error Message: ${e.message ?? e}, Submit Bugs Here: https://bit.ly/august-bug-report`)
       }
     })()
 
@@ -93,14 +92,14 @@ export class AugustPlatform implements DynamicPlatformPlugin {
         try {
           await this.validated()
         } catch (e: any) {
-          this.errorLog(`Validate: ${e}`)
+          this.errorLog(`Validate: ${e.message ?? e}`)
         }
       } else {
         await this.debugWarnLog(`Config Credentials: ${JSON.stringify(this.config.credentials)}`)
         try {
           await this.discoverDevices()
         } catch (e: any) {
-          await this.errorLog(`Validated, Discover Devices: ${e}`)
+          await this.errorLog(`Validated, Discover Devices: ${e.message ?? e}`)
         }
       }
     })
@@ -170,7 +169,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
           await this.discoverDevices()
           await this.debugWarnLog(`isValidated: ${this.config.credentials?.isValidated}`)
         } catch (e: any) {
-          await this.errorLog(`Validate, Discover Devices: ${e}`)
+          await this.errorLog(`Validate, Discover Devices: ${e.message ?? e}`)
         }
       }
     } else {
