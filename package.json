@@ -1,8 +1,8 @@
 {
-  "name": "homebridge-august",
+  "name": "@homebridge-plugins/homebridge-august",
   "displayName": "August",
   "type": "module",
-  "version": "2.2.10",
+  "version": "3.0.0",
   "description": "The August plugin allows you to access your August & Yale device(s) from HomeKit.",
   "author": {
     "name": "donavanbecker",
