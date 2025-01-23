@@ -192,11 +192,14 @@ export class LockMechanism extends deviceBase {
             : this.lockStatus.state.unlocked
               ? this.hap.Characteristic.LockCurrentState.UNSECURED
               : retryCount > 1 ? this.hap.Characteristic.LockCurrentState.JAMMED : this.hap.Characteristic.LockCurrentState.UNKNOWN
+          this.LockMechanism.LockTargetState = this.LockMechanism.LockCurrentState
+
           if (this.LockMechanism.LockCurrentState === this.hap.Characteristic.LockCurrentState.UNKNOWN) {
             await this.warnLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}, (UNKNOWN) parseStatus`
               + ` lockEvent: ${JSON.stringify(this.lockEvent)}`)
           }
           await this.debugLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}`)
+          await this.debugLog(`LockTargetState: ${this.LockMechanism.LockTargetState}`)
         }
         // Contact Sensor
         if (!this.device.lock?.hide_contactsensor && this.ContactSensor?.Service) {
@@ -261,11 +264,14 @@ export class LockMechanism extends deviceBase {
             : this.lockEvent.state.unlocked
               ? this.hap.Characteristic.LockCurrentState.UNSECURED
               : retryCount > 1 ? this.hap.Characteristic.LockCurrentState.JAMMED : this.hap.Characteristic.LockCurrentState.UNKNOWN
+          this.LockMechanism.LockTargetState = this.LockMechanism.LockCurrentState
+
           if (this.LockMechanism.LockCurrentState === this.hap.Characteristic.LockCurrentState.UNKNOWN) {
             await this.warnLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}, (UNKNOWN) parseEventStatus`
               + ` lockEvent: ${JSON.stringify(this.lockEvent)}`)
           }
           await this.debugLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}`)
+          await this.debugLog(`LockTargetState: ${this.LockMechanism.LockTargetState}`)
         }
         // Contact Sensor
         if (!this.device.lock?.hide_contactsensor && this.ContactSensor?.Service) {
