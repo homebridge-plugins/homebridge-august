@@ -218,7 +218,7 @@ export class LockMechanism extends deviceBase {
     }
     if (this.lockDetails) {
       // BatteryLevel
-      this.Battery.BatteryLevel = Number((this.lockDetails.battery * 100).toFixed())
+      this.Battery.BatteryLevel = Math.min(Math.max(Number((this.lockDetails.battery * 100).toFixed()), 0), 100)
       await this.debugLog(`BatteryLevel: ${this.Battery.BatteryLevel}`)
       // StatusLowBattery
       this.Battery.StatusLowBattery = this.Battery.BatteryLevel < 15
