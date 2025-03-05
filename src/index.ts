@@ -1,9 +1,9 @@
-import type { API } from 'homebridge'
-
 /* Copyright(C) 2017-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
  *
  * index.ts: homebridge-august.
  */
+import type { API } from 'homebridge'
+
 import { AugustPlatform } from './platform.js'
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 
