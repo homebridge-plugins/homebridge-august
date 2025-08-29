@@ -4,6 +4,8 @@
 
 This is a Homebridge plugin that provides HomeKit integration for August and Yale smart locks. The plugin is written in TypeScript with ES modules and follows Homebridge platform patterns.
 
+**Branch Strategy**: This repository uses a beta-first development workflow where all changes must target beta branches before being merged to main. Version bumps are determined by issue labels (patch/minor/major) that must be set before assigning work to Copilot.
+
 ## Architecture
 
 - **Plugin Type**: Homebridge dynamic platform plugin
@@ -33,6 +35,30 @@ This is a Homebridge plugin that provides HomeKit integration for August and Yal
 - `eslint.config.js` - ESLint configuration with Antfu base and custom rules
 
 ## Development Workflow
+
+### Branch Strategy and PR Workflow
+
+**IMPORTANT**: All pull requests must target a beta branch first, never directly to the main branch.
+
+#### Beta Branch Requirements
+- All PRs must be directed to a branch that starts with "beta-" 
+- Beta branches should be named `beta-X.Y.Z` based on the expected version bump
+- If no appropriate beta branch exists, create one based on the next possible version:
+  - **patch** releases (bug fixes): `beta-X.Y.Z+1` (e.g., current 3.0.2 → beta-3.0.3)
+  - **minor** releases (new features): `beta-X.Y+1.0` (e.g., current 3.0.2 → beta-3.1.0) 
+  - **major** releases (breaking changes): `beta-X+1.0.0` (e.g., current 3.0.2 → beta-4.0.0)
+
+#### Required Labels
+Before assigning any issue to Copilot, the following labels **must** be set to determine the version bump:
+- `patch` - for bug fixes and minor improvements
+- `minor` - for new features and enhancements  
+- `major` - for breaking changes
+
+#### Workflow Steps
+1. Ensure proper label (patch/minor/major) is set on the issue
+2. Identify or create appropriate beta branch based on the label
+3. Target all development work and PRs to the beta branch
+4. Once beta testing is complete, merge beta branch to main for release
 
 ### Building
 ```bash
@@ -129,6 +155,17 @@ npm run plugin-ui     # Copy UI files to dist
 
 ## When Making Changes
 
+**CRITICAL**: Before starting any work, ensure the issue has the appropriate label (patch/minor/major) and target the correct beta branch.
+
+0. **Branch Targeting**:
+   - Never target PRs directly to main branch
+   - Always target a beta branch (beta-X.Y.Z format)
+   - Create beta branch if none exists for the expected version
+   - Use issue labels to determine version bump:
+     - `patch`: Bug fixes → beta-X.Y.Z+1
+     - `minor`: New features → beta-X.Y+1.0  
+     - `major`: Breaking changes → beta-X+1.0.0
+
 1. **Dependencies**: 
    - Only add well-maintained dependencies
    - Keep runtime dependencies minimal
@@ -140,6 +177,7 @@ npm run plugin-ui     # Copy UI files to dist
    - Update CHANGELOG.md appropriately
    - Consider migration paths for users
    - Test with multiple Homebridge versions
+   - **Must** use `major` label and target appropriate beta-X+1.0.0 branch
 
 3. **Configuration**: 
    - Update config.schema.json for new options
