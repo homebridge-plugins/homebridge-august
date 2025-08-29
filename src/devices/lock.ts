@@ -328,12 +328,22 @@ export class LockMechanism extends deviceBase {
       // await this.platform.augustCredentials();
       if (this.LockMechanism) {
         if (this.LockMechanism.LockTargetState !== this.LockMechanism.LockCurrentState) {
-          if (this.LockMechanism.LockTargetState === this.hap.Characteristic.LockTargetState.UNSECURED) {
-            await this.platform.augustConfig.unlock(this.device.lockId)
+          // Double-check that we still need to make the API call
+          const targetState = this.LockMechanism.LockTargetState
+          const currentState = this.LockMechanism.LockCurrentState
+
+          if (targetState !== currentState) {
+            await this.debugLog(`Making API call - Target: ${targetState}, Current: ${currentState}`)
+
+            if (targetState === this.hap.Characteristic.LockTargetState.UNSECURED) {
+              await this.platform.augustConfig.unlock(this.device.lockId)
+            } else {
+              await this.platform.augustConfig.lock(this.device.lockId)
+            }
+            await this.successLog(`Sending request to August API: ${targetState === 1 ? 'Locked' : 'Unlocked'}`)
           } else {
-            await this.platform.augustConfig.lock(this.device.lockId)
+            await this.debugLog(`States synchronized before API call - Target: ${targetState}, Current: ${currentState}`)
           }
-          await this.successLog(`Sending request to August API: ${this.LockMechanism.LockTargetState === 1 ? 'Locked' : 'Unlocked'}`)
         } else {
           await this.debugLog(`No changes, LockTargetState: ${this.LockMechanism.LockTargetState},`
             + ` LockCurrentState: ${this.LockMechanism.LockCurrentState}`)
