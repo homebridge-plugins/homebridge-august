@@ -157,16 +157,22 @@ export abstract class deviceBase {
 
   async statusCode(action: string, error: { message: string }): Promise<void> {
     const statusCodeString = error.message // Convert statusCode to a string
+
+    // Extract numeric status code from error message (e.g., "PUT failed with: 422" -> "422")
+    const statusCodeMatch = statusCodeString.match(/\b(\d{3})\b/)
+    const statusCode = statusCodeMatch ? statusCodeMatch[1] : statusCodeString.slice(0, 3)
+
     const logMap = {
       100: `Command successfully sent, statusCode: ${statusCodeString}`,
       200: `Request successful, statusCode: ${statusCodeString}`,
       400: `Bad Request, statusCode: ${statusCodeString}`,
+      422: `Unprocessable Entity - The request was well-formed but could not be processed. This may indicate the lock is in an invalid state or the operation is not allowed at this time, statusCode: ${statusCodeString}`,
       429: `Too Many Requests, exceeded the number of requests allowed for a given time window, statusCode: ${statusCodeString}`,
     }
-    const logMessage = logMap[statusCodeString.slice(0, 3)]
+    const logMessage = logMap[statusCode]
       ?? `Unknown statusCode: ${statusCodeString}, Submit Bugs Here: https://tinyurl.com/AugustYaleBug`
     await this.debugLog(logMessage)
-    if (!logMap[statusCodeString.slice(0, 3)]) {
+    if (!logMap[statusCode]) {
       await this.debugErrorLog(`failed ${action}, Error: ${error}`)
     }
   }
