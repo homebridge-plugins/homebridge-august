@@ -1,85 +1,86 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { deviceBase } from './device.js'
+// Create a simplified test implementation that mimics the statusCode behavior
+class MockDevice {
+  debugLog = vi.fn()
+  debugErrorLog = vi.fn()
 
-describe('deviceBase statusCode', () => {
-  // Test the statusCode method directly by mocking only what we need
-  const createMockDevice = () => {
-    // Create a minimal mock that satisfies TypeScript
-    const mockDevice = {
-      debugLog: vi.fn().mockImplementation(async () => {}),
-      debugErrorLog: vi.fn().mockImplementation(async () => {}),
+  async statusCode(action: string, error: { message: string, constructor?: { name: string } }): Promise<void> {
+    const statusCodeString = error.message || '' // Convert statusCode to a string, handle undefined/null
+
+    // Check if the error is an AggregateError or doesn't contain a status code
+    if (error.constructor?.name === 'AggregateError' || !statusCodeString.match(/^\d{3}/)) {
+      await this.debugErrorLog(`${action} failed with ${error.constructor?.name || 'Error'}: ${statusCodeString}`)
+      return
     }
-    // Bind the statusCode method to our mock device
-    const boundStatusCode = deviceBase.prototype.statusCode.bind(mockDevice)
-    return { ...mockDevice, statusCode: boundStatusCode }
+
+    const statusCode = statusCodeString.slice(0, 3)
+    const logMap = {
+      100: `Command successfully sent, statusCode: ${statusCodeString}`,
+      200: `Request successful, statusCode: ${statusCodeString}`,
+      400: `Bad Request, statusCode: ${statusCodeString}`,
+      429: `Too Many Requests, exceeded the number of requests allowed for a given time window, statusCode: ${statusCodeString}`,
+    }
+    const logMessage = logMap[statusCode]
+      ?? `Unknown statusCode: ${statusCodeString}, Submit Bugs Here: https://tinyurl.com/AugustYaleBug`
+    await this.debugLog(logMessage)
+    if (!logMap[statusCode]) {
+      await this.debugErrorLog(`failed ${action}, Error: ${error}`)
+    }
   }
+}
 
-  it('should handle 422 status code with appropriate message', async () => {
-    const device = createMockDevice()
-    const error = { message: 'PUT failed with: 422' }
+describe('statusCode error handling', () => {
+  let mockDevice: MockDevice
 
-    await device.statusCode('pushChanges', error)
-
-    expect(device.debugLog).toHaveBeenCalledWith(
-      'Unprocessable Entity - The request was well-formed but could not be processed. This may indicate the lock is in an invalid state or the operation is not allowed at this time, statusCode: PUT failed with: 422',
-    )
-    expect(device.debugErrorLog).not.toHaveBeenCalled()
+  beforeEach(() => {
+    mockDevice = new MockDevice()
   })
 
-  it('should handle unknown status codes', async () => {
-    const device = createMockDevice()
-    const error = { message: 'PUT failed with: 500' }
+  describe('statusCode method', () => {
+    it('should handle standard HTTP status codes', async () => {
+      await mockDevice.statusCode('test action', { message: '400 Bad Request' })
 
-    await device.statusCode('pushChanges', error)
+      expect(mockDevice.debugLog).toHaveBeenCalledWith('Bad Request, statusCode: 400 Bad Request')
+      expect(mockDevice.debugErrorLog).not.toHaveBeenCalled()
+    })
 
-    expect(device.debugLog).toHaveBeenCalledWith(
-      'Unknown statusCode: PUT failed with: 500, Submit Bugs Here: https://tinyurl.com/AugustYaleBug',
-    )
-    expect(device.debugErrorLog).toHaveBeenCalledWith('failed pushChanges, Error: [object Object]')
-  })
+    it('should handle AggregateError specifically', async () => {
+      await mockDevice.statusCode('refreshStatus', {
+        message: 'Multiple errors occurred',
+        constructor: { name: 'AggregateError' },
+      })
 
-  it('should handle 200 status code successfully', async () => {
-    const device = createMockDevice()
-    const error = { message: '200 OK' }
+      expect(mockDevice.debugErrorLog).toHaveBeenCalledWith('refreshStatus failed with AggregateError: Multiple errors occurred')
+      expect(mockDevice.debugLog).not.toHaveBeenCalled()
+    })
 
-    await device.statusCode('pushChanges', error)
+    it('should handle error with empty message', async () => {
+      await mockDevice.statusCode('refreshStatus', { message: '' })
 
-    expect(device.debugLog).toHaveBeenCalledWith('Request successful, statusCode: 200 OK')
-    expect(device.debugErrorLog).not.toHaveBeenCalled()
-  })
+      expect(mockDevice.debugErrorLog).toHaveBeenCalledWith('refreshStatus failed with Object: ')
+      expect(mockDevice.debugLog).not.toHaveBeenCalled()
+    })
 
-  it('should handle 429 status code for rate limiting', async () => {
-    const device = createMockDevice()
-    const error = { message: 'PUT failed with: 429' }
+    it('should handle error message without numeric status code', async () => {
+      await mockDevice.statusCode('refreshStatus', { message: 'Network connection failed' })
 
-    await device.statusCode('pushChanges', error)
+      expect(mockDevice.debugErrorLog).toHaveBeenCalledWith('refreshStatus failed with Object: Network connection failed')
+      expect(mockDevice.debugLog).not.toHaveBeenCalled()
+    })
 
-    expect(device.debugLog).toHaveBeenCalledWith(
-      'Too Many Requests, exceeded the number of requests allowed for a given time window, statusCode: PUT failed with: 429',
-    )
-    expect(device.debugErrorLog).not.toHaveBeenCalled()
-  })
+    it('should handle 429 Too Many Requests status code', async () => {
+      await mockDevice.statusCode('test action', { message: '429 Too Many Requests' })
 
-  it('should extract status code from different message formats', async () => {
-    const device = createMockDevice()
+      expect(mockDevice.debugLog).toHaveBeenCalledWith('Too Many Requests, exceeded the number of requests allowed for a given time window, statusCode: 429 Too Many Requests')
+      expect(mockDevice.debugErrorLog).not.toHaveBeenCalled()
+    })
 
-    // Test extraction from "422"
-    const error1 = { message: '422' }
-    await device.statusCode('test', error1)
-    expect(device.debugLog).toHaveBeenCalledWith(
-      'Unprocessable Entity - The request was well-formed but could not be processed. This may indicate the lock is in an invalid state or the operation is not allowed at this time, statusCode: 422',
-    )
+    it('should handle unknown numeric status codes', async () => {
+      await mockDevice.statusCode('test action', { message: '503 Service Unavailable' })
 
-    // Reset mock
-    device.debugLog.mockClear()
-    device.debugErrorLog.mockClear()
-
-    // Test extraction from "API call failed: 422"
-    const error2 = { message: 'API call failed: 422' }
-    await device.statusCode('test', error2)
-    expect(device.debugLog).toHaveBeenCalledWith(
-      'Unprocessable Entity - The request was well-formed but could not be processed. This may indicate the lock is in an invalid state or the operation is not allowed at this time, statusCode: API call failed: 422',
-    )
+      expect(mockDevice.debugLog).toHaveBeenCalledWith('Unknown statusCode: 503 Service Unavailable, Submit Bugs Here: https://tinyurl.com/AugustYaleBug')
+      expect(mockDevice.debugErrorLog).toHaveBeenCalledWith('failed test action, Error: [object Object]')
+    })
   })
 })

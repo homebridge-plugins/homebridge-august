@@ -156,12 +156,15 @@ export abstract class deviceBase {
   }
 
   async statusCode(action: string, error: { message: string }): Promise<void> {
-    const statusCodeString = error.message // Convert statusCode to a string
+    const statusCodeString = error.message || '' // Convert statusCode to a string, handle undefined/null
 
-    // Extract numeric status code from error message (e.g., "PUT failed with: 422" -> "422")
-    const statusCodeMatch = statusCodeString.match(/\b(\d{3})\b/)
-    const statusCode = statusCodeMatch ? statusCodeMatch[1] : statusCodeString.slice(0, 3)
+    // Check if the error is an AggregateError or doesn't contain a status code
+    if (error.constructor?.name === 'AggregateError' || !statusCodeString.match(/^\d{3}/)) {
+      await this.debugErrorLog(`${action} failed with ${error.constructor?.name || 'Error'}: ${statusCodeString}`)
+      return
+    }
 
+    const statusCode = statusCodeString.slice(0, 3)
     const logMap = {
       100: `Command successfully sent, statusCode: ${statusCodeString}`,
       200: `Request successful, statusCode: ${statusCodeString}`,
