@@ -208,9 +208,9 @@ export class LockMechanism extends deviceBase {
             ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
             : this.lockStatus.state.closed
               ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
-              : this.lockStatus.doorState.includes('open')
+              : this.lockStatus.doorState?.includes('open')
                 ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
-                : this.lockStatus.doorState.includes('closed')
+                : this.lockStatus.doorState?.includes('closed')
                   ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
                   : this.ContactSensor.ContactSensorState
           await this.debugLog(`ContactSensorState: ${this.ContactSensor.ContactSensorState}`)
@@ -314,6 +314,27 @@ export class LockMechanism extends deviceBase {
       } catch (e: any) {
         await this.statusCode('(refreshStatus) lockDetails', e)
         await this.errorLog(`(refreshStatus) lockDetails: ${e.message ?? e}`)
+
+        // Check if this is a timeout error and retry once after session refresh
+        if (this.isTimeoutError(e)) {
+          try {
+            await this.debugLog('Timeout detected, refreshing August session and retrying...')
+            await this.platform.refreshAugustSession()
+
+            // Retry the operation once
+            if (this.platform.augustConfig && this.platform.augustConfig.details) {
+              const lockDetails: any = await this.platform.augustConfig.details(this.device.lockId)
+              await this.debugSuccessLog(`(refreshStatus retry) lockDetails: ${JSON.stringify(lockDetails)}`)
+              // Update HomeKit
+              this.lockDetails = lockDetails
+              this.lockStatus = lockDetails.LockStatus
+              await this.parseStatus()
+              await this.updateHomeKitCharacteristics()
+            }
+          } catch (retryError: any) {
+            await this.errorLog(`(refreshStatus retry) failed: ${retryError.message ?? retryError}`)
+          }
+        }
       }
     } else {
       await this.debugLog(`(refreshStatus) deviceRefreshRate: ${this.deviceRefreshRate}`)
@@ -328,12 +349,22 @@ export class LockMechanism extends deviceBase {
       // await this.platform.augustCredentials();
       if (this.LockMechanism) {
         if (this.LockMechanism.LockTargetState !== this.LockMechanism.LockCurrentState) {
-          if (this.LockMechanism.LockTargetState === this.hap.Characteristic.LockTargetState.UNSECURED) {
-            await this.platform.augustConfig.unlock(this.device.lockId)
+          // Double-check that we still need to make the API call
+          const targetState = this.LockMechanism.LockTargetState
+          const currentState = this.LockMechanism.LockCurrentState
+
+          if (targetState !== currentState) {
+            await this.debugLog(`Making API call - Target: ${targetState}, Current: ${currentState}`)
+
+            if (targetState === this.hap.Characteristic.LockTargetState.UNSECURED) {
+              await this.platform.augustConfig.unlock(this.device.lockId)
+            } else {
+              await this.platform.augustConfig.lock(this.device.lockId)
+            }
+            await this.successLog(`Sending request to August API: ${targetState === 1 ? 'Locked' : 'Unlocked'}`)
           } else {
-            await this.platform.augustConfig.lock(this.device.lockId)
+            await this.debugLog(`States synchronized before API call - Target: ${targetState}, Current: ${currentState}`)
           }
-          await this.successLog(`Sending request to August API: ${this.LockMechanism.LockTargetState === 1 ? 'Locked' : 'Unlocked'}`)
         } else {
           await this.debugLog(`No changes, LockTargetState: ${this.LockMechanism.LockTargetState},`
             + ` LockCurrentState: ${this.LockMechanism.LockCurrentState}`)
@@ -348,6 +379,27 @@ export class LockMechanism extends deviceBase {
     } catch (e: any) {
       await this.statusCode('pushChanges', e)
       await this.debugLog(`pushChanges: ${e.message ?? e}`)
+
+      // Check if this is a timeout error and retry once after session refresh
+      if (this.isTimeoutError(e)) {
+        try {
+          await this.debugLog('Timeout detected in pushChanges, refreshing August session and retrying...')
+          await this.platform.refreshAugustSession()
+
+          // Retry the operation once
+          if (this.LockMechanism && this.LockMechanism.LockTargetState !== this.LockMechanism.LockCurrentState) {
+            if (this.LockMechanism.LockTargetState === this.hap.Characteristic.LockTargetState.UNSECURED) {
+              await this.platform.augustConfig.unlock(this.device.lockId)
+            } else {
+              await this.platform.augustConfig.lock(this.device.lockId)
+            }
+            await this.successLog(`Retry: Sending request to August API: ${this.LockMechanism.LockTargetState === 1 ? 'Locked' : 'Unlocked'}`)
+            await this.updateHomeKitCharacteristics()
+          }
+        } catch (retryError: any) {
+          await this.errorLog(`(pushChanges retry) failed: ${retryError.message ?? retryError}`)
+        }
+      }
     }
   }
 
@@ -393,7 +445,8 @@ export class LockMechanism extends deviceBase {
     await this.debugLog('subscribeAugust')
     await this.platform.augustCredentials()
     if (this.config.credentials) {
-      await August.subscribe(this.config.credentials, this.device.lockId, async (AugustEvent: lockEvent, timestamp: Date) => {
+      const normalizedCredentials = await this.platform.getNormalizedCredentials()
+      await August.subscribe(normalizedCredentials, this.device.lockId, async (AugustEvent: lockEvent, timestamp: Date) => {
         await this.debugLog(`AugustEvent: ${JSON.stringify(AugustEvent)}, ${JSON.stringify(timestamp)}`)
         // Update HomeKit
         this.lockEvent = AugustEvent

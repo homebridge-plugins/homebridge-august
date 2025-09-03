@@ -37,6 +37,7 @@ export interface options {
   updateRate?: number
   pushRate?: number
   logging?: string
+  disableCountryCodeNormalization?: boolean
 }
 
 export interface device {
