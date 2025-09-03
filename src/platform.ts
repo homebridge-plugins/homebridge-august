@@ -37,6 +37,9 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   // August API
   augustConfig!: August
 
+  // Cached normalized credentials for performance
+  private normalizedCredentialsCache?: credentials
+
   constructor(
     log: Logging,
     config: AugustPlatformConfig,
@@ -146,9 +149,12 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     await this.augustCredentials()
     if (!this.config.credentials?.isValidated && this.config.credentials?.validateCode) {
       const validateCode = this.config.credentials?.validateCode
-      const isValidated = await August.validate(this.config.credentials!, validateCode)
+      const normalizedCredentials = await this.normalizeCredentialsForApi(this.config.credentials!)
+      const isValidated = await August.validate(normalizedCredentials, validateCode)
       // If validated successfully, set flag for future use, and you can now use the API
       this.config.credentials.isValidated = isValidated
+      // Clear the cache since credentials have been updated
+      this.clearNormalizedCredentialsCache()
       // load in the current config
       const { pluginConfig, currentConfig } = await this.pluginConfig()
 
@@ -177,6 +183,8 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       const { pluginConfig, currentConfig } = await this.pluginConfig()
       // set the refresh token
       pluginConfig.credentials.installId = this.config.credentials?.installId
+      // Clear the cache since credentials have been updated
+      this.clearNormalizedCredentialsCache()
 
       await this.debugWarnLog(`installId: ${pluginConfig.credentials.installId}`)
       // save the config, ensuring we maintain pretty json
@@ -184,7 +192,8 @@ export class AugustPlatform implements DynamicPlatformPlugin {
 
       // A 6-digit code will be sent to your email or phone (depending on what you used for your augustId).
       // Need some way to get this code from the user.
-      August.authorize(this.config.credentials!)
+      const normalizedCredentials = await this.normalizeCredentialsForApi(this.config.credentials!)
+      August.authorize(normalizedCredentials)
       await this.warnLog('Input Your August email verification code into the validateCode config and restart Homebridge.')
     }
   }
@@ -193,9 +202,89 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     if (!this.config.credentials) {
       throw new Error('Missing Credentials')
     } else {
-      this.augustConfig = new August(this.config.credentials)
+      // Create normalized credentials for August API compatibility
+      const normalizedCredentials = await this.normalizeCredentialsForApi(this.config.credentials)
+      this.augustConfig = new August(normalizedCredentials)
       await this.debugLog(`August Credentials: ${JSON.stringify(this.augustConfig)}`)
     }
+  }
+
+  /**
+
+   * Normalize credentials for August API compatibility
+   * Handle country code variations that may cause 403 errors
+   * Maps regional country codes to supported API endpoints
+   */
+  private async normalizeCredentialsForApi(credentials: credentials): Promise<credentials> {
+    if (!credentials) {
+      throw new Error('Credentials cannot be null or undefined')
+    }
+
+    const normalizedCredentials = { ...credentials }
+    
+    // Country code normalization mapping for API compatibility
+    // Some regions don't have dedicated August API endpoints and need to use US servers
+    const countryCodeMapping: Record<string, string> = {
+      'CA': 'US', // Canada -> United States (North American region)
+      'MX': 'US', // Mexico -> United States (North American region)
+    }
+
+    const originalCountryCode = credentials.countryCode?.toUpperCase()
+    const normalizedCountryCode = originalCountryCode ? countryCodeMapping[originalCountryCode] : undefined
+
+    // Check if user has disabled normalization via config
+    const normalizationDisabled = this.config.options?.disableCountryCodeNormalization === true
+
+    if (originalCountryCode && normalizedCountryCode && !normalizationDisabled) {
+      await this.debugWarnLog(`Country code normalization: ${originalCountryCode} -> ${normalizedCountryCode} for API compatibility. ` +
+        `To disable this behavior, set 'disableCountryCodeNormalization: true' in options.`)
+      normalizedCredentials.countryCode = normalizedCountryCode
+    } else if (originalCountryCode && normalizedCountryCode && normalizationDisabled) {
+      await this.debugLog(`Country code normalization disabled by config. Using original country code: ${originalCountryCode}`)
+    } else if (originalCountryCode && !normalizedCountryCode) {
+      await this.debugLog(`Country code ${originalCountryCode} does not require normalization.`)
+    }
+    
+    return normalizedCredentials
+  }
+
+  /**
+   * Clear the normalized credentials cache
+   * Should be called when credentials are updated
+   */
+  clearNormalizedCredentialsCache(): void {
+    this.normalizedCredentialsCache = undefined
+    this.debugLog('Cleared normalized credentials cache')
+  }
+
+  /**
+   * Public method to get normalized credentials for use by device classes
+   * Uses caching to avoid repeated normalization of the same credentials
+   */
+  async getNormalizedCredentials(): Promise<credentials> {
+    if (!this.config.credentials) {
+      throw new Error('Missing Credentials')
+    }
+    
+    // Return cached credentials if available and credentials haven't changed
+    if (this.normalizedCredentialsCache) {
+      // Simple check to see if the original credentials have changed
+      const currentCredsHash = JSON.stringify(this.config.credentials)
+      const cachedCredsHash = JSON.stringify({ ...this.normalizedCredentialsCache, countryCode: this.config.credentials.countryCode })
+      
+      if (currentCredsHash === cachedCredsHash || 
+          (this.normalizedCredentialsCache.augustId === this.config.credentials.augustId &&
+           this.normalizedCredentialsCache.password === this.config.credentials.password &&
+           this.normalizedCredentialsCache.installId === this.config.credentials.installId)) {
+        await this.debugLog('Using cached normalized credentials')
+        return this.normalizedCredentialsCache
+      }
+    }
+    
+    // Generate new normalized credentials and cache them
+    this.normalizedCredentialsCache = await this.normalizeCredentialsForApi(this.config.credentials)
+    await this.debugLog('Generated and cached new normalized credentials')
+    return this.normalizedCredentialsCache
   }
 
   /**
@@ -211,6 +300,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     } catch (e: any) {
       await this.errorLog(`Failed to refresh August session: ${e.message ?? e}`)
     }
+
   }
 
   async pluginConfig() {
@@ -238,9 +328,52 @@ export class AugustPlatform implements DynamicPlatformPlugin {
    */
   async discoverDevices() {
     // August Locks
-    let devices: any
     try {
-      devices = await August.details(this.config.credentials!, '')
+      const normalizedCredentials = await this.normalizeCredentialsForApi(this.config.credentials!)
+      const devices = await August.details(normalizedCredentials, '')
+      
+      let deviceLists: any[]
+      if (devices.length > 1) {
+        deviceLists = devices
+        await this.infoLog(`Total August Locks Found: ${deviceLists.length}`)
+      } else {
+        deviceLists = [devices]
+        await this.infoLog(`Total August Locks Found: ${deviceLists.length}`)
+      }
+      if (!this.config.options?.devices) {
+        await this.debugWarnLog(`August Platform Config Not Set: ${JSON.stringify(this.config.options?.devices)}`)
+        const devices = deviceLists.map((v: any) => v)
+        for (const device of devices) {
+          if (device.configDeviceName) {
+            device.deviceName = device.configDeviceName
+          }
+          await this.debugLog(`August Devices: ${JSON.stringify(device)}`)
+          await this.Lock(device)
+        }
+      } else if (this.config.options.devices) {
+        await this.debugWarnLog(`August Platform Config Set: ${JSON.stringify(this.config.options?.devices)}`)
+        const deviceConfigs = this.config.options?.devices
+
+        const mergeBylockId = (a1: { lockId: string }[], a2: any[]) =>
+          a1.map((itm: { lockId: string }) => ({
+            ...a2.find(
+              (item: { lockId: string }) =>
+                item.lockId.toUpperCase().replace(/[^A-Z0-9]+/g, '') === itm.lockId.toUpperCase().replace(/[^A-Z0-9]+/g, '') && item,
+            ),
+            ...itm,
+          }))
+        const devices = mergeBylockId(deviceLists, deviceConfigs)
+        await this.debugLog(`August Lock(s): ${JSON.stringify(devices)}`)
+        for (const device of devices) {
+          if (device.configDeviceName) {
+            device.deviceName = device.configDeviceName
+          }
+          await this.debugLog(`device: ${JSON.stringify(device)}`)
+          await this.Lock(device)
+        }
+      } else {
+        await this.errorLog('August ID & Password Supplied, Issue with Auth.')
+      }
     } catch (error: any) {
       // Handle 401 authentication errors specifically
       const errorMessage = error.message || String(error)
@@ -272,49 +405,6 @@ export class AugustPlatform implements DynamicPlatformPlugin {
         // Re-throw other errors with more context
         throw new Error(`Failed to discover devices: ${errorMessage}`)
       }
-    }
-    
-    let deviceLists: any[]
-    if (devices.length > 1) {
-      deviceLists = devices
-      await this.infoLog(`Total August Locks Found: ${deviceLists.length}`)
-    } else {
-      deviceLists = [devices]
-      await this.infoLog(`Total August Locks Found: ${deviceLists.length}`)
-    }
-    if (!this.config.options?.devices) {
-      await this.debugWarnLog(`August Platform Config Not Set: ${JSON.stringify(this.config.options?.devices)}`)
-      const devices = deviceLists.map((v: any) => v)
-      for (const device of devices) {
-        if (device.configDeviceName) {
-          device.deviceName = device.configDeviceName
-        }
-        await this.debugLog(`August Devices: ${JSON.stringify(device)}`)
-        await this.Lock(device)
-      }
-    } else if (this.config.options.devices) {
-      await this.debugWarnLog(`August Platform Config Set: ${JSON.stringify(this.config.options?.devices)}`)
-      const deviceConfigs = this.config.options?.devices
-
-      const mergeBylockId = (a1: { lockId: string }[], a2: any[]) =>
-        a1.map((itm: { lockId: string }) => ({
-          ...a2.find(
-            (item: { lockId: string }) =>
-              item.lockId.toUpperCase().replace(/[^A-Z0-9]+/g, '') === itm.lockId.toUpperCase().replace(/[^A-Z0-9]+/g, '') && item,
-          ),
-          ...itm,
-        }))
-      const devices = mergeBylockId(deviceLists, deviceConfigs)
-      await this.debugLog(`August Lock(s): ${JSON.stringify(devices)}`)
-      for (const device of devices) {
-        if (device.configDeviceName) {
-          device.deviceName = device.configDeviceName
-        }
-        await this.debugLog(`device: ${JSON.stringify(device)}`)
-        await this.Lock(device)
-      }
-    } else {
-      await this.errorLog('August ID & Password Supplied, Issue with Auth.')
     }
   }
 
