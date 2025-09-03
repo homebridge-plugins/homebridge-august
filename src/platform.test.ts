@@ -23,15 +23,6 @@ vi.mock('august-yale', () => {
   MockConstructor.validate = vi.fn()
   
   return {
-    default: class August {
-      public credentials: any
-      constructor(credentials: any) {
-        this.credentials = credentials
-      }
-      static async authorize() {}
-      static async validate() { return true }
-      static async details() { return [] }
-    },
     default: MockConstructor,
   }
 })
