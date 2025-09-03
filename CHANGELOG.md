@@ -1,4 +1,8 @@
-## v3.0.3 - 2025-09-03
+All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/)
+
+## [3.0.3](https://github.com/homebridge-plugins/homebridge-august/releases/tag/v3.0.3) - (2025-09-03)
+
+### What's Changes
 - Merge branch 'latest' into beta-3.0.3 (070e3c5)
 - Fix TypeScript compilation error: remove duplicate 'default' property in august-yale mock (#172) (a5aaefc)
 - Enhanced country code normalization with comprehensive configuration and multi-region support (#167) (4322bf7)
@@ -13,9 +17,7 @@
 - Fix Node.js version compatibility in CI workflows (0b15656)
 - Fix false "lock was opened" logging by correcting context key construction (0befde5)
 
-# Changelog
-
-All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/)
+**Full Changelog**: https://github.com/homebridge-plugins/homebridge-august/compare/v3.0.2...v3.0.3
 
 ## [3.0.2](https://github.com/homebridge-plugins/homebridge-august/releases/tag/v3.0.2) (2025-03-04)
 
