@@ -314,6 +314,27 @@ export class LockMechanism extends deviceBase {
       } catch (e: any) {
         await this.statusCode('(refreshStatus) lockDetails', e)
         await this.errorLog(`(refreshStatus) lockDetails: ${e.message ?? e}`)
+
+        // Check if this is a timeout error and retry once after session refresh
+        if (this.isTimeoutError(e)) {
+          try {
+            await this.debugLog('Timeout detected, refreshing August session and retrying...')
+            await this.platform.refreshAugustSession()
+
+            // Retry the operation once
+            if (this.platform.augustConfig && this.platform.augustConfig.details) {
+              const lockDetails: any = await this.platform.augustConfig.details(this.device.lockId)
+              await this.debugSuccessLog(`(refreshStatus retry) lockDetails: ${JSON.stringify(lockDetails)}`)
+              // Update HomeKit
+              this.lockDetails = lockDetails
+              this.lockStatus = lockDetails.LockStatus
+              await this.parseStatus()
+              await this.updateHomeKitCharacteristics()
+            }
+          } catch (retryError: any) {
+            await this.errorLog(`(refreshStatus retry) failed: ${retryError.message ?? retryError}`)
+          }
+        }
       }
     } else {
       await this.debugLog(`(refreshStatus) deviceRefreshRate: ${this.deviceRefreshRate}`)
@@ -348,6 +369,27 @@ export class LockMechanism extends deviceBase {
     } catch (e: any) {
       await this.statusCode('pushChanges', e)
       await this.debugLog(`pushChanges: ${e.message ?? e}`)
+
+      // Check if this is a timeout error and retry once after session refresh
+      if (this.isTimeoutError(e)) {
+        try {
+          await this.debugLog('Timeout detected in pushChanges, refreshing August session and retrying...')
+          await this.platform.refreshAugustSession()
+
+          // Retry the operation once
+          if (this.LockMechanism && this.LockMechanism.LockTargetState !== this.LockMechanism.LockCurrentState) {
+            if (this.LockMechanism.LockTargetState === this.hap.Characteristic.LockTargetState.UNSECURED) {
+              await this.platform.augustConfig.unlock(this.device.lockId)
+            } else {
+              await this.platform.augustConfig.lock(this.device.lockId)
+            }
+            await this.successLog(`Retry: Sending request to August API: ${this.LockMechanism.LockTargetState === 1 ? 'Locked' : 'Unlocked'}`)
+            await this.updateHomeKitCharacteristics()
+          }
+        } catch (retryError: any) {
+          await this.errorLog(`(pushChanges retry) failed: ${retryError.message ?? retryError}`)
+        }
+      }
     }
   }
 
