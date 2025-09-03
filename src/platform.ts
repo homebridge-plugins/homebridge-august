@@ -285,7 +285,9 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     this.normalizedCredentialsCache = await this.normalizeCredentialsForApi(this.config.credentials)
     await this.debugLog('Generated and cached new normalized credentials')
     return this.normalizedCredentialsCache
+  }
 
+  /**
    * Refresh August session by clearing current token
    */
   async refreshAugustSession(): Promise<void> {
@@ -324,13 +326,52 @@ export class AugustPlatform implements DynamicPlatformPlugin {
    */
   async discoverDevices() {
     // August Locks
-
-    const normalizedCredentials = await this.normalizeCredentialsForApi(this.config.credentials!)
-    const devices = await August.details(normalizedCredentials, '')
-
-    let devices: any
     try {
-      devices = await August.details(this.config.credentials!, '')
+      const normalizedCredentials = await this.normalizeCredentialsForApi(this.config.credentials!)
+      const devices = await August.details(normalizedCredentials, '')
+      
+      let deviceLists: any[]
+      if (devices.length > 1) {
+        deviceLists = devices
+        await this.infoLog(`Total August Locks Found: ${deviceLists.length}`)
+      } else {
+        deviceLists = [devices]
+        await this.infoLog(`Total August Locks Found: ${deviceLists.length}`)
+      }
+      if (!this.config.options?.devices) {
+        await this.debugWarnLog(`August Platform Config Not Set: ${JSON.stringify(this.config.options?.devices)}`)
+        const devices = deviceLists.map((v: any) => v)
+        for (const device of devices) {
+          if (device.configDeviceName) {
+            device.deviceName = device.configDeviceName
+          }
+          await this.debugLog(`August Devices: ${JSON.stringify(device)}`)
+          await this.Lock(device)
+        }
+      } else if (this.config.options.devices) {
+        await this.debugWarnLog(`August Platform Config Set: ${JSON.stringify(this.config.options?.devices)}`)
+        const deviceConfigs = this.config.options?.devices
+
+        const mergeBylockId = (a1: { lockId: string }[], a2: any[]) =>
+          a1.map((itm: { lockId: string }) => ({
+            ...a2.find(
+              (item: { lockId: string }) =>
+                item.lockId.toUpperCase().replace(/[^A-Z0-9]+/g, '') === itm.lockId.toUpperCase().replace(/[^A-Z0-9]+/g, '') && item,
+            ),
+            ...itm,
+          }))
+        const devices = mergeBylockId(deviceLists, deviceConfigs)
+        await this.debugLog(`August Lock(s): ${JSON.stringify(devices)}`)
+        for (const device of devices) {
+          if (device.configDeviceName) {
+            device.deviceName = device.configDeviceName
+          }
+          await this.debugLog(`device: ${JSON.stringify(device)}`)
+          await this.Lock(device)
+        }
+      } else {
+        await this.errorLog('August ID & Password Supplied, Issue with Auth.')
+      }
     } catch (error: any) {
       // Handle 401 authentication errors specifically
       const errorMessage = error.message || String(error)
@@ -362,49 +403,6 @@ export class AugustPlatform implements DynamicPlatformPlugin {
         // Re-throw other errors with more context
         throw new Error(`Failed to discover devices: ${errorMessage}`)
       }
-    }
-    
-    let deviceLists: any[]
-    if (devices.length > 1) {
-      deviceLists = devices
-      await this.infoLog(`Total August Locks Found: ${deviceLists.length}`)
-    } else {
-      deviceLists = [devices]
-      await this.infoLog(`Total August Locks Found: ${deviceLists.length}`)
-    }
-    if (!this.config.options?.devices) {
-      await this.debugWarnLog(`August Platform Config Not Set: ${JSON.stringify(this.config.options?.devices)}`)
-      const devices = deviceLists.map((v: any) => v)
-      for (const device of devices) {
-        if (device.configDeviceName) {
-          device.deviceName = device.configDeviceName
-        }
-        await this.debugLog(`August Devices: ${JSON.stringify(device)}`)
-        await this.Lock(device)
-      }
-    } else if (this.config.options.devices) {
-      await this.debugWarnLog(`August Platform Config Set: ${JSON.stringify(this.config.options?.devices)}`)
-      const deviceConfigs = this.config.options?.devices
-
-      const mergeBylockId = (a1: { lockId: string }[], a2: any[]) =>
-        a1.map((itm: { lockId: string }) => ({
-          ...a2.find(
-            (item: { lockId: string }) =>
-              item.lockId.toUpperCase().replace(/[^A-Z0-9]+/g, '') === itm.lockId.toUpperCase().replace(/[^A-Z0-9]+/g, '') && item,
-          ),
-          ...itm,
-        }))
-      const devices = mergeBylockId(deviceLists, deviceConfigs)
-      await this.debugLog(`August Lock(s): ${JSON.stringify(devices)}`)
-      for (const device of devices) {
-        if (device.configDeviceName) {
-          device.deviceName = device.configDeviceName
-        }
-        await this.debugLog(`device: ${JSON.stringify(device)}`)
-        await this.Lock(device)
-      }
-    } else {
-      await this.errorLog('August ID & Password Supplied, Issue with Auth.')
     }
   }
 
