@@ -198,6 +198,21 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     }
   }
 
+  /**
+   * Refresh August session by clearing current token
+   */
+  async refreshAugustSession(): Promise<void> {
+    try {
+      if (this.augustConfig) {
+        await this.debugLog('Refreshing August session due to timeout error')
+        this.augustConfig.end() // Clear the current token to force re-authentication
+        await this.debugLog('August session refreshed successfully')
+      }
+    } catch (e: any) {
+      await this.errorLog(`Failed to refresh August session: ${e.message ?? e}`)
+    }
+  }
+
   async pluginConfig() {
     const currentConfig = JSON.parse(readFileSync(this.api.user.configPath(), 'utf8'))
     // check the platforms section is an array before we do array things on it
