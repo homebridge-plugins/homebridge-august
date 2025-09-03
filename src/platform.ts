@@ -315,8 +315,10 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       throw new Error(`Cannot find config for ${PLATFORM_NAME} in platforms array`)
     }
     // check the .credentials is an object before doing object things with it
-    if (typeof pluginConfig.credentials !== 'object') {
-      throw new TypeError('pluginConfig.credentials is not an object')
+    // Note: typeof null === 'object' is true, so we need to explicitly check for null and undefined
+    if (typeof pluginConfig.credentials !== 'object' || pluginConfig.credentials === null) {
+      // Initialize credentials as an empty object if it doesn't exist or is null
+      pluginConfig.credentials = {}
     }
     return { pluginConfig, currentConfig }
   }

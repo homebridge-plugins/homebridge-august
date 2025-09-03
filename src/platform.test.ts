@@ -12,6 +12,16 @@ import type { AugustPlatformConfig } from './settings.js'
 
 // Mock the august-yale module
 vi.mock('august-yale', () => {
+  const MockAugust = vi.fn().mockImplementation(() => ({
+    end: vi.fn(),
+  }))
+  
+  // Type assertion to add static methods
+  const MockConstructor = MockAugust as any
+  MockConstructor.details = vi.fn()
+  MockConstructor.authorize = vi.fn()
+  MockConstructor.validate = vi.fn()
+  
   return {
     default: class August {
       public credentials: any
@@ -22,6 +32,7 @@ vi.mock('august-yale', () => {
       static async validate() { return true }
       static async details() { return [] }
     },
+    default: MockConstructor,
   }
 })
 
@@ -424,6 +435,76 @@ describe('AugustPlatform', () => {
       // Due to the existing logic, single device arrays get wrapped: [devices] becomes [[device]]
       // So Lock gets called with [device] instead of device
       expect(lockSpy).toHaveBeenCalledWith([mockDevice])
+    })
+  })
+
+  describe('validated method', () => {
+    it('should handle undefined credentials in config file gracefully', async () => {
+      // Mock config file with undefined credentials
+      const mockConfigFile = {
+        platforms: [
+          {
+            platform: 'August',
+            name: 'Test August',
+            // credentials is undefined here
+          },
+        ],
+      }
+
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify(mockConfigFile))
+
+      platform = new AugustPlatform(mockLog, mockConfig, mockApi)
+
+      // This should not throw an error when trying to set installId
+      await expect(platform.validated()).resolves.toBeUndefined()
+    })
+
+    it('should handle null credentials in config file gracefully', async () => {
+      // Mock config file with null credentials
+      const mockConfigFile = {
+        platforms: [
+          {
+            platform: 'August',
+            name: 'Test August',
+            credentials: null,
+          },
+        ],
+      }
+
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify(mockConfigFile))
+
+      platform = new AugustPlatform(mockLog, mockConfig, mockApi)
+
+      // This should not throw an error when trying to set installId
+      await expect(platform.validated()).resolves.toBeUndefined()
+    })
+
+    it('should initialize credentials object and save installId when credentials are missing', async () => {
+      // Mock config file with undefined credentials
+      const mockConfigFile = {
+        platforms: [
+          {
+            platform: 'August',
+            name: 'Test August',
+            // credentials is undefined here
+          },
+        ],
+      }
+
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify(mockConfigFile))
+
+      platform = new AugustPlatform(mockLog, mockConfig, mockApi)
+
+      await platform.validated()
+
+      // Verify that writeFileSync was called (meaning the config was updated)
+      expect(writeFileSync).toHaveBeenCalled()
+
+      // Verify the credentials object was created and populated
+      const writeCall = vi.mocked(writeFileSync).mock.calls[0]
+      const savedConfig = JSON.parse(writeCall[1] as string)
+      expect(savedConfig.platforms[0].credentials).toBeDefined()
+      expect(savedConfig.platforms[0].credentials.installId).toBeDefined()
     })
   })
 })
