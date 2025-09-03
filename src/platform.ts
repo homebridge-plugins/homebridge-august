@@ -236,7 +236,42 @@ export class AugustPlatform implements DynamicPlatformPlugin {
    */
   async discoverDevices() {
     // August Locks
-    const devices = await August.details(this.config.credentials!, '')
+    let devices: any
+    try {
+      devices = await August.details(this.config.credentials!, '')
+    } catch (error: any) {
+      // Handle 401 authentication errors specifically
+      const errorMessage = error.message || String(error)
+      if (errorMessage.includes('401') || errorMessage.toLowerCase().includes('unauthorized')) {
+        await this.warnLog('Authentication session has expired or is invalid. Attempting re-authentication...')
+        
+        // Reset validation status to force re-authentication
+        this.config.credentials!.isValidated = false
+        
+        // Update the config file to reflect the change
+        try {
+          const { pluginConfig, currentConfig } = await this.pluginConfig()
+          pluginConfig.credentials.isValidated = false
+          writeFileSync(this.api.user.configPath(), JSON.stringify(currentConfig, null, 4))
+          await this.debugLog('Updated config file with isValidated: false to trigger re-authentication')
+        } catch (configError: any) {
+          await this.errorLog(`Failed to update config file: ${configError.message ?? configError}`)
+        }
+        
+        // Attempt re-authentication
+        try {
+          await this.warnLog('Initiating re-authentication process. Please check for verification code if prompted.')
+          await this.validated()
+          return // validated() will call discoverDevices() again if successful
+        } catch (authError: any) {
+          throw new Error(`Re-authentication failed: ${authError.message ?? authError}. Please check your credentials and try restarting Homebridge.`)
+        }
+      } else {
+        // Re-throw other errors with more context
+        throw new Error(`Failed to discover devices: ${errorMessage}`)
+      }
+    }
+    
     let deviceLists: any[]
     if (devices.length > 1) {
       deviceLists = devices
