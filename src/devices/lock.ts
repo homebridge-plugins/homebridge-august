@@ -208,9 +208,9 @@ export class LockMechanism extends deviceBase {
             ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
             : this.lockStatus.state.closed
               ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
-              : this.lockStatus.doorState.includes('open')
+              : this.lockStatus.doorState?.includes('open')
                 ? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
-                : this.lockStatus.doorState.includes('closed')
+                : this.lockStatus.doorState?.includes('closed')
                   ? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED
                   : this.ContactSensor.ContactSensorState
           await this.debugLog(`ContactSensorState: ${this.ContactSensor.ContactSensorState}`)
