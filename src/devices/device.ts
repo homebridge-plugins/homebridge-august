@@ -178,6 +178,13 @@ export abstract class deviceBase {
   }
 
   /**
+   * Check if error is a network timeout that requires session refresh
+   */
+  isTimeoutError(error: { message: string }): boolean {
+    return Boolean(error.message && error.message.includes('ETIMEDOUT'))
+  }
+
+  /**
    * Logging for Device
    */
   async infoLog(...log: any[]): Promise<void> {
