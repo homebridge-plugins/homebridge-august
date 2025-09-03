@@ -146,7 +146,8 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     await this.augustCredentials()
     if (!this.config.credentials?.isValidated && this.config.credentials?.validateCode) {
       const validateCode = this.config.credentials?.validateCode
-      const isValidated = await August.validate(this.config.credentials!, validateCode)
+      const normalizedCredentials = await this.normalizeCredentialsForApi(this.config.credentials!)
+      const isValidated = await August.validate(normalizedCredentials, validateCode)
       // If validated successfully, set flag for future use, and you can now use the API
       this.config.credentials.isValidated = isValidated
       // load in the current config
@@ -184,7 +185,8 @@ export class AugustPlatform implements DynamicPlatformPlugin {
 
       // A 6-digit code will be sent to your email or phone (depending on what you used for your augustId).
       // Need some way to get this code from the user.
-      August.authorize(this.config.credentials!)
+      const normalizedCredentials = await this.normalizeCredentialsForApi(this.config.credentials!)
+      August.authorize(normalizedCredentials)
       await this.warnLog('Input Your August email verification code into the validateCode config and restart Homebridge.')
     }
   }
@@ -193,9 +195,28 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     if (!this.config.credentials) {
       throw new Error('Missing Credentials')
     } else {
-      this.augustConfig = new August(this.config.credentials)
+      // Create normalized credentials for August API compatibility
+      const normalizedCredentials = await this.normalizeCredentialsForApi(this.config.credentials)
+      this.augustConfig = new August(normalizedCredentials)
       await this.debugLog(`August Credentials: ${JSON.stringify(this.augustConfig)}`)
     }
+  }
+
+  /**
+   * Normalize credentials for August API compatibility
+   * Handle country code variations that may cause 403 errors
+   */
+  private async normalizeCredentialsForApi(credentials: credentials): Promise<credentials> {
+    const normalizedCredentials = { ...credentials }
+    
+    // Normalize country codes for API compatibility
+    // Canadian users often encounter 403 errors, use US endpoints for North American region
+    if (credentials.countryCode === 'CA') {
+      await this.debugWarnLog(`Canadian country code detected. Using US API endpoints for compatibility.`)
+      normalizedCredentials.countryCode = 'US'
+    }
+    
+    return normalizedCredentials
   }
 
   async pluginConfig() {
@@ -221,7 +242,8 @@ export class AugustPlatform implements DynamicPlatformPlugin {
    */
   async discoverDevices() {
     // August Locks
-    const devices = await August.details(this.config.credentials!, '')
+    const normalizedCredentials = await this.normalizeCredentialsForApi(this.config.credentials!)
+    const devices = await August.details(normalizedCredentials, '')
     let deviceLists: any[]
     if (devices.length > 1) {
       deviceLists = devices
