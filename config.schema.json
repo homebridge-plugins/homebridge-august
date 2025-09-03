@@ -399,6 +399,12 @@
             "title": "Allow Invalid Characters",
             "type": "boolean",
             "description": "If true, invalid characters will be allowed in the device name."
+          },
+          "disableCountryCodeNormalization": {
+            "title": "Disable Country Code Normalization",
+            "type": "boolean",
+            "description": "If true, country code normalization will be disabled. Note: Some country codes (like CA) may cause 403 errors if not normalized to US.",
+            "default": false
           }
         }
       }
@@ -482,7 +488,8 @@
           "description": "<em class='primary-text'>Specifies the interval, in seconds, between pushes to the August API.</em>"
         },
         "options.logging",
-        "options.allowInvalidCharacters"
+        "options.allowInvalidCharacters",
+        "options.disableCountryCodeNormalization"
       ]
     }
   ]

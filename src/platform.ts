@@ -37,6 +37,9 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   // August API
   augustConfig!: August
 
+  // Cached normalized credentials for performance
+  private normalizedCredentialsCache?: credentials
+
   constructor(
     log: Logging,
     config: AugustPlatformConfig,
@@ -150,6 +153,8 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       const isValidated = await August.validate(normalizedCredentials, validateCode)
       // If validated successfully, set flag for future use, and you can now use the API
       this.config.credentials.isValidated = isValidated
+      // Clear the cache since credentials have been updated
+      this.clearNormalizedCredentialsCache()
       // load in the current config
       const { pluginConfig, currentConfig } = await this.pluginConfig()
 
@@ -178,6 +183,8 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       const { pluginConfig, currentConfig } = await this.pluginConfig()
       // set the refresh token
       pluginConfig.credentials.installId = this.config.credentials?.installId
+      // Clear the cache since credentials have been updated
+      this.clearNormalizedCredentialsCache()
 
       await this.debugWarnLog(`installId: ${pluginConfig.credentials.installId}`)
       // save the config, ensuring we maintain pretty json
@@ -205,28 +212,78 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   /**
    * Normalize credentials for August API compatibility
    * Handle country code variations that may cause 403 errors
+   * Maps regional country codes to supported API endpoints
    */
   private async normalizeCredentialsForApi(credentials: credentials): Promise<credentials> {
+    if (!credentials) {
+      throw new Error('Credentials cannot be null or undefined')
+    }
+
     const normalizedCredentials = { ...credentials }
     
-    // Normalize country codes for API compatibility
-    // Canadian users often encounter 403 errors, use US endpoints for North American region
-    if (credentials.countryCode === 'CA') {
-      await this.debugWarnLog(`Canadian country code detected. Using US API endpoints for compatibility.`)
-      normalizedCredentials.countryCode = 'US'
+    // Country code normalization mapping for API compatibility
+    // Some regions don't have dedicated August API endpoints and need to use US servers
+    const countryCodeMapping: Record<string, string> = {
+      'CA': 'US', // Canada -> United States (North American region)
+      'MX': 'US', // Mexico -> United States (North American region)
+    }
+
+    const originalCountryCode = credentials.countryCode?.toUpperCase()
+    const normalizedCountryCode = originalCountryCode ? countryCodeMapping[originalCountryCode] : undefined
+
+    // Check if user has disabled normalization via config
+    const normalizationDisabled = this.config.options?.disableCountryCodeNormalization === true
+
+    if (originalCountryCode && normalizedCountryCode && !normalizationDisabled) {
+      await this.debugWarnLog(`Country code normalization: ${originalCountryCode} -> ${normalizedCountryCode} for API compatibility. ` +
+        `To disable this behavior, set 'disableCountryCodeNormalization: true' in options.`)
+      normalizedCredentials.countryCode = normalizedCountryCode
+    } else if (originalCountryCode && normalizedCountryCode && normalizationDisabled) {
+      await this.debugLog(`Country code normalization disabled by config. Using original country code: ${originalCountryCode}`)
+    } else if (originalCountryCode && !normalizedCountryCode) {
+      await this.debugLog(`Country code ${originalCountryCode} does not require normalization.`)
     }
     
     return normalizedCredentials
   }
 
   /**
+   * Clear the normalized credentials cache
+   * Should be called when credentials are updated
+   */
+  clearNormalizedCredentialsCache(): void {
+    this.normalizedCredentialsCache = undefined
+    this.debugLog('Cleared normalized credentials cache')
+  }
+
+  /**
    * Public method to get normalized credentials for use by device classes
+   * Uses caching to avoid repeated normalization of the same credentials
    */
   async getNormalizedCredentials(): Promise<credentials> {
     if (!this.config.credentials) {
       throw new Error('Missing Credentials')
     }
-    return await this.normalizeCredentialsForApi(this.config.credentials)
+    
+    // Return cached credentials if available and credentials haven't changed
+    if (this.normalizedCredentialsCache) {
+      // Simple check to see if the original credentials have changed
+      const currentCredsHash = JSON.stringify(this.config.credentials)
+      const cachedCredsHash = JSON.stringify({ ...this.normalizedCredentialsCache, countryCode: this.config.credentials.countryCode })
+      
+      if (currentCredsHash === cachedCredsHash || 
+          (this.normalizedCredentialsCache.augustId === this.config.credentials.augustId &&
+           this.normalizedCredentialsCache.password === this.config.credentials.password &&
+           this.normalizedCredentialsCache.installId === this.config.credentials.installId)) {
+        await this.debugLog('Using cached normalized credentials')
+        return this.normalizedCredentialsCache
+      }
+    }
+    
+    // Generate new normalized credentials and cache them
+    this.normalizedCredentialsCache = await this.normalizeCredentialsForApi(this.config.credentials)
+    await this.debugLog('Generated and cached new normalized credentials')
+    return this.normalizedCredentialsCache
   }
 
   async pluginConfig() {

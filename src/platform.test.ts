@@ -88,6 +88,86 @@ describe('AugustPlatform', () => {
     expect(normalizedCredentials.password).toBe('test-password')
   })
 
+  it('should normalize Mexican country code to US for API compatibility', async () => {
+    const config: AugustPlatformConfig = {
+      platform: 'August',
+      name: 'Test August',
+      credentials: {
+        installId: 'test-install-id',
+        augustId: 'test@example.com',
+        password: 'test-password',
+        countryCode: 'MX',
+        isValidated: true,
+      },
+      options: {
+        logging: 'debug',
+      },
+    }
+
+    platform = new AugustPlatform(mockLog, config, mockApi)
+
+    // Access the private method for testing
+    const normalizeMethod = (platform as any).normalizeCredentialsForApi.bind(platform)
+    const normalizedCredentials = await normalizeMethod(config.credentials)
+
+    expect(normalizedCredentials.countryCode).toBe('US')
+    expect(normalizedCredentials.augustId).toBe('test@example.com')
+    expect(normalizedCredentials.password).toBe('test-password')
+  })
+
+  it('should respect disableCountryCodeNormalization option', async () => {
+    const config: AugustPlatformConfig = {
+      platform: 'August',
+      name: 'Test August',
+      credentials: {
+        installId: 'test-install-id',
+        augustId: 'test@example.com',
+        password: 'test-password',
+        countryCode: 'CA',
+        isValidated: true,
+      },
+      options: {
+        logging: 'debug',
+        disableCountryCodeNormalization: true,
+      },
+    }
+
+    platform = new AugustPlatform(mockLog, config, mockApi)
+
+    // Access the private method for testing
+    const normalizeMethod = (platform as any).normalizeCredentialsForApi.bind(platform)
+    const normalizedCredentials = await normalizeMethod(config.credentials)
+
+    expect(normalizedCredentials.countryCode).toBe('CA') // Should remain unchanged
+    expect(normalizedCredentials.augustId).toBe('test@example.com')
+    expect(normalizedCredentials.password).toBe('test-password')
+  })
+
+  it('should handle case-insensitive country codes', async () => {
+    const config: AugustPlatformConfig = {
+      platform: 'August',
+      name: 'Test August',
+      credentials: {
+        installId: 'test-install-id',
+        augustId: 'test@example.com',
+        password: 'test-password',
+        countryCode: 'ca', // lowercase
+        isValidated: true,
+      },
+      options: {
+        logging: 'debug',
+      },
+    }
+
+    platform = new AugustPlatform(mockLog, config, mockApi)
+
+    // Access the private method for testing
+    const normalizeMethod = (platform as any).normalizeCredentialsForApi.bind(platform)
+    const normalizedCredentials = await normalizeMethod(config.credentials)
+
+    expect(normalizedCredentials.countryCode).toBe('US')
+  })
+
   it('should not change US country code', async () => {
     const config: AugustPlatformConfig = {
       platform: 'August',
@@ -171,5 +251,58 @@ describe('AugustPlatform', () => {
 
     expect(normalizedCredentials.countryCode).toBe('US')
     expect(normalizedCredentials.augustId).toBe('test@example.com')
+  })
+
+  it('should handle null credentials gracefully', async () => {
+    const config: AugustPlatformConfig = {
+      platform: 'August',
+      name: 'Test August',
+      credentials: {
+        installId: 'test-install-id',
+        augustId: 'test@example.com',
+        password: 'test-password',
+        countryCode: 'CA',
+        isValidated: true,
+      },
+      options: {
+        logging: 'debug',
+      },
+    }
+
+    platform = new AugustPlatform(mockLog, config, mockApi)
+
+    // Access the private method for testing
+    const normalizeMethod = (platform as any).normalizeCredentialsForApi.bind(platform)
+    
+    await expect(normalizeMethod(null)).rejects.toThrow('Credentials cannot be null or undefined')
+    await expect(normalizeMethod(undefined)).rejects.toThrow('Credentials cannot be null or undefined')
+  })
+
+  it('should use cached credentials for performance', async () => {
+    const config: AugustPlatformConfig = {
+      platform: 'August',
+      name: 'Test August',
+      credentials: {
+        installId: 'test-install-id',
+        augustId: 'test@example.com',
+        password: 'test-password',
+        countryCode: 'CA',
+        isValidated: true,
+      },
+      options: {
+        logging: 'debug',
+      },
+    }
+
+    platform = new AugustPlatform(mockLog, config, mockApi)
+
+    // First call should normalize and cache
+    const firstCall = await platform.getNormalizedCredentials()
+    expect(firstCall.countryCode).toBe('US')
+
+    // Second call should use cache
+    const secondCall = await platform.getNormalizedCredentials()
+    expect(secondCall.countryCode).toBe('US')
+    expect(secondCall).toBe(firstCall) // Should be the same object reference
   })
 })
