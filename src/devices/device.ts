@@ -144,30 +144,47 @@ export abstract class deviceBase {
     } else {
       Service.updateCharacteristic(Characteristic, CharacteristicValue)
       await this.debugLog(`updateCharacteristic ${CharacteristicName}: ${CharacteristicValue} (${CharacteristicValue === Value ? StatusMatch : StatusDoesNotMatch})`)
-      await this.debugWarnLog(`context before: ${this.accessory.context[ServiceName[CharacteristicName]]}`)
-      const contextBefore = this.accessory.context[ServiceName[CharacteristicName]]
-      this.accessory.context[ServiceName[CharacteristicName]] = CharacteristicValue
-      await this.debugWarnLog(`context after: ${this.accessory.context[ServiceName[CharacteristicName]]}`)
-      if ((contextBefore !== this.accessory.context[ServiceName[CharacteristicName]]) && StatusMatch && StatusDoesNotMatch) {
+      const contextKey = `${ServiceName}${CharacteristicName}`
+      await this.debugWarnLog(`context before: ${this.accessory.context[contextKey]}`)
+      const contextBefore = this.accessory.context[contextKey]
+      this.accessory.context[contextKey] = CharacteristicValue
+      await this.debugWarnLog(`context after: ${this.accessory.context[contextKey]}`)
+      if ((contextBefore !== this.accessory.context[contextKey]) && StatusMatch && StatusDoesNotMatch) {
         await this.infoLog(`was ${CharacteristicValue === Value ? StatusMatch : StatusDoesNotMatch}`)
       }
     }
   }
 
   async statusCode(action: string, error: { message: string }): Promise<void> {
-    const statusCodeString = error.message // Convert statusCode to a string
+    const statusCodeString = error.message || '' // Convert statusCode to a string, handle undefined/null
+
+    // Check if the error is an AggregateError or doesn't contain a status code
+    if (error.constructor?.name === 'AggregateError' || !statusCodeString.match(/^\d{3}/)) {
+      await this.debugErrorLog(`${action} failed with ${error.constructor?.name || 'Error'}: ${statusCodeString}`)
+      return
+    }
+
+    const statusCode = statusCodeString.slice(0, 3)
     const logMap = {
       100: `Command successfully sent, statusCode: ${statusCodeString}`,
       200: `Request successful, statusCode: ${statusCodeString}`,
       400: `Bad Request, statusCode: ${statusCodeString}`,
+      422: `Unprocessable Entity - The request was well-formed but could not be processed. This may indicate the lock is in an invalid state or the operation is not allowed at this time, statusCode: ${statusCodeString}`,
       429: `Too Many Requests, exceeded the number of requests allowed for a given time window, statusCode: ${statusCodeString}`,
     }
-    const logMessage = logMap[statusCodeString.slice(0, 3)]
+    const logMessage = logMap[statusCode]
       ?? `Unknown statusCode: ${statusCodeString}, Submit Bugs Here: https://tinyurl.com/AugustYaleBug`
     await this.debugLog(logMessage)
-    if (!logMap[statusCodeString.slice(0, 3)]) {
+    if (!logMap[statusCode]) {
       await this.debugErrorLog(`failed ${action}, Error: ${error}`)
     }
+  }
+
+  /**
+   * Check if error is a network timeout that requires session refresh
+   */
+  isTimeoutError(error: { message: string }): boolean {
+    return Boolean(error.message && error.message.includes('ETIMEDOUT'))
   }
 
   /**

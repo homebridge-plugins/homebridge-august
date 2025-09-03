@@ -1,3 +1,18 @@
+## v3.0.3 - 2025-09-03
+- Merge branch 'latest' into beta-3.0.3 (070e3c5)
+- Fix TypeScript compilation error: remove duplicate 'default' property in august-yale mock (#172) (a5aaefc)
+- Enhanced country code normalization with comprehensive configuration and multi-region support (#167) (4322bf7)
+- Fix "Cannot set properties of undefined" error in validated() method when credentials are missing (#170) (9e47ae6)
+- Merge branch 'latest' into beta-3.0.3 (c5a9a0b)
+- Fix AggregateError handling in device statusCode method (#164) (9362932)
+- Fix August API ETIMEDOUT errors after 24 hours with session refresh and retry logic (#166) (bf10832)
+- Fix: Add null safety for doorState property to prevent crash with Yale Assure Lock 2 (#165) (f55d1c9)
+- Fix HTTP 422 error handling and improve status code messaging (#163) (f0f6ece)
+- Fix 401 authentication error with automatic re-authentication during device discovery (#155) (b526a55)
+- Update homebridge-config-ui-x and enable Node.js 24 support (b4cd0f5)
+- Fix Node.js version compatibility in CI workflows (0b15656)
+- Fix false "lock was opened" logging by correcting context key construction (0befde5)
+
 # Changelog
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/)
