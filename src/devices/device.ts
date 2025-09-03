@@ -155,17 +155,25 @@ export abstract class deviceBase {
   }
 
   async statusCode(action: string, error: { message: string }): Promise<void> {
-    const statusCodeString = error.message // Convert statusCode to a string
+    const statusCodeString = error.message || '' // Convert statusCode to a string, handle undefined/null
+
+    // Check if the error is an AggregateError or doesn't contain a status code
+    if (error.constructor?.name === 'AggregateError' || !statusCodeString.match(/^\d{3}/)) {
+      await this.debugErrorLog(`${action} failed with ${error.constructor?.name || 'Error'}: ${statusCodeString}`)
+      return
+    }
+
+    const statusCode = statusCodeString.slice(0, 3)
     const logMap = {
       100: `Command successfully sent, statusCode: ${statusCodeString}`,
       200: `Request successful, statusCode: ${statusCodeString}`,
       400: `Bad Request, statusCode: ${statusCodeString}`,
       429: `Too Many Requests, exceeded the number of requests allowed for a given time window, statusCode: ${statusCodeString}`,
     }
-    const logMessage = logMap[statusCodeString.slice(0, 3)]
+    const logMessage = logMap[statusCode]
       ?? `Unknown statusCode: ${statusCodeString}, Submit Bugs Here: https://tinyurl.com/AugustYaleBug`
     await this.debugLog(logMessage)
-    if (!logMap[statusCodeString.slice(0, 3)]) {
+    if (!logMap[statusCode]) {
       await this.debugErrorLog(`failed ${action}, Error: ${error}`)
     }
   }
