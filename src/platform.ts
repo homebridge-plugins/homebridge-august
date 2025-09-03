@@ -219,6 +219,16 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     return normalizedCredentials
   }
 
+  /**
+   * Public method to get normalized credentials for use by device classes
+   */
+  async getNormalizedCredentials(): Promise<credentials> {
+    if (!this.config.credentials) {
+      throw new Error('Missing Credentials')
+    }
+    return await this.normalizeCredentialsForApi(this.config.credentials)
+  }
+
   async pluginConfig() {
     const currentConfig = JSON.parse(readFileSync(this.api.user.configPath(), 'utf8'))
     // check the platforms section is an array before we do array things on it

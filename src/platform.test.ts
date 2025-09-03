@@ -13,6 +13,7 @@ import type { AugustPlatformConfig } from './settings.js'
 vi.mock('august-yale', () => {
   return {
     default: class August {
+      public credentials: any
       constructor(credentials: any) {
         this.credentials = credentials
       }
@@ -145,5 +146,30 @@ describe('AugustPlatform', () => {
     expect(normalizedCredentials.countryCode).toBe('US') // Should be normalized
     expect(normalizedCredentials.isValidated).toBe(true)
     expect(normalizedCredentials.validateCode).toBe('test-code')
+  })
+
+  it('should provide public method to get normalized credentials', async () => {
+    const config: AugustPlatformConfig = {
+      platform: 'August',
+      name: 'Test August',
+      credentials: {
+        installId: 'test-install-id',
+        augustId: 'test@example.com',
+        password: 'test-password',
+        countryCode: 'CA',
+        isValidated: true,
+      },
+      options: {
+        logging: 'debug',
+      },
+    }
+
+    platform = new AugustPlatform(mockLog, config, mockApi)
+
+    // Test the public method
+    const normalizedCredentials = await platform.getNormalizedCredentials()
+
+    expect(normalizedCredentials.countryCode).toBe('US')
+    expect(normalizedCredentials.augustId).toBe('test@example.com')
   })
 })

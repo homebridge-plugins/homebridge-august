@@ -393,7 +393,8 @@ export class LockMechanism extends deviceBase {
     await this.debugLog('subscribeAugust')
     await this.platform.augustCredentials()
     if (this.config.credentials) {
-      await August.subscribe(this.config.credentials, this.device.lockId, async (AugustEvent: lockEvent, timestamp: Date) => {
+      const normalizedCredentials = await this.platform.getNormalizedCredentials()
+      await August.subscribe(normalizedCredentials, this.device.lockId, async (AugustEvent: lockEvent, timestamp: Date) => {
         await this.debugLog(`AugustEvent: ${JSON.stringify(AugustEvent)}, ${JSON.stringify(timestamp)}`)
         // Update HomeKit
         this.lockEvent = AugustEvent
