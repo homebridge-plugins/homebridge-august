@@ -40,6 +40,31 @@ plugin allows you to access your <a href="https://august.com">August</a> & <a hr
 - Yale Assure Lock 2 (YDR410)
 - Yale Assure Lock SL (YDR256)
 
+## Troubleshooting
+
+### Lock is detected but doesn't appear in HomeKit
+
+If you see "Total August Locks Found: 1" in the logs but your lock doesn't appear in HomeKit, it's likely because your August lock already has HomeKit enabled. Pro models often have this enabled by default.
+
+**Solution:** Add the following to your device configuration:
+```json
+{
+  "name": "August",
+  "platform": "August",
+  "credentials": { ... },
+  "options": {
+    "devices": [
+      {
+        "lockId": "YOUR_LOCK_ID",
+        "overrideHomeKitEnabled": true
+      }
+    ]
+  }
+}
+```
+
+You can find your lock ID in the Homebridge logs.
+
 ## Thanks
 
 Thank you to [hufftheweevil](https://github.com/hufftheweevil) for the [august-api](https://github.com/hufftheweevil/august-api) module.
