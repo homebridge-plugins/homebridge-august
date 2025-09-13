@@ -227,6 +227,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     const countryCodeMapping: Record<string, string> = {
       'CA': 'US', // Canada -> United States (North American region)
       'MX': 'US', // Mexico -> United States (North American region)
+      'GB': 'US', // United Kingdom -> United States (after August/Yale split, UK uses US endpoints)
     }
 
     const originalCountryCode = credentials.countryCode?.toUpperCase()
