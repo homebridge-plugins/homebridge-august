@@ -47,7 +47,7 @@ jobs:
     if: ${{ github.repository == 'homebridge-plugins/homebridge-august' }}
     uses: homebridge/.github/.github/workflows/discord-webhooks.yml@latest
     with:
-      title: "August Beta Release"
+      title: "Air Beta Release"
       description: |
         Version `v${{ needs.publish.outputs.NPM_VERSION }}`
       url: "https://github.com/homebridge-plugins/homebridge-august/releases/tag/v${{ needs.publish.outputs.NPM_VERSION }}"
