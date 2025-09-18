@@ -16,7 +16,7 @@ export const PLUGIN_NAME = 'homebridge-august'
 // Config
 export interface AugustPlatformConfig extends PlatformConfig {
   credentials?: credentials
-  options?: options
+  options?: enhancedOptions
 }
 
 export interface credentials {
@@ -198,4 +198,154 @@ export interface info {
   duration: number
   lockID: string
   bridgeID: string
+}
+
+// New interfaces for enhanced API support
+
+export interface doorbell {
+  deviceId: string
+  deviceName: string
+  houseId: string
+  houseName: string
+  macAddress: string
+  created: string
+  updated: string
+  firmwareVersion: string
+  batteryLevel?: number
+  isOnline: boolean
+  imageUrl?: string
+  hasCapability?: {
+    motion: boolean
+    image: boolean
+    twoWayTalk: boolean
+    nightVision: boolean
+  }
+}
+
+export interface doorbellDetail extends doorbell {
+  settings?: {
+    motionSensitivity: number
+    nightVision: boolean
+    chimeEnabled: boolean
+  }
+  status?: {
+    lastActivity: string
+    lastMotion: string
+    lastDing: string
+  }
+}
+
+export interface house {
+  houseId: string
+  houseName: string
+  timeZone: string
+  locks: string[]
+  doorbells: string[]
+  users: string[]
+  created: string
+  updated: string
+}
+
+export interface activity {
+  activityId: string
+  deviceId: string
+  deviceType: 'lock' | 'doorbell' | 'alarm'
+  action: string
+  dateTime: string
+  callingUser?: {
+    userId: string
+    firstName: string
+    lastName: string
+  }
+  info?: any
+}
+
+export interface pin {
+  pinId: string
+  lockId: string
+  firstName: string
+  lastName: string
+  accessType: 'permanent' | 'recurring' | 'temporary'
+  state: 'active' | 'inactive'
+  pin: string
+  created: string
+  updated: string
+  accessTimes?: {
+    startDate?: string
+    endDate?: string
+    recurringSchedule?: any
+  }
+}
+
+export interface alarm {
+  alarmId: string
+  deviceName: string
+  houseId: string
+  state: 'armed' | 'disarmed' | 'partial'
+  created: string
+  updated: string
+  areaIds?: string[]
+}
+
+export interface alarmDevice {
+  deviceId: string
+  deviceName: string
+  deviceType: string
+  alarmId: string
+  state: string
+  batteryLevel?: number
+  isOnline: boolean
+}
+
+export interface deviceCapabilities {
+  serialNumber: string
+  capabilities: {
+    lock?: boolean
+    unlock?: boolean
+    unlatch?: boolean
+    doorSense?: boolean
+    keypadControl?: boolean
+    autoLock?: boolean
+    guestAccess?: boolean
+  }
+  supportedFeatures?: string[]
+}
+
+export interface websocketSubscription {
+  subscriberId: string
+  scopes: string[]
+  created: string
+  expires?: string
+}
+
+// Enhanced device configuration interfaces
+
+export interface doorbellConfig extends doorbell {
+  hide_device?: boolean
+  hide_motion_sensor?: boolean
+  hide_image_sensor?: boolean
+  hide_ding_sensor?: boolean
+  external?: boolean
+  logging?: string
+  refreshRate?: number
+  updateRate?: number
+  pushRate?: number
+}
+
+export interface alarmConfig extends alarm {
+  hide_device?: boolean
+  hide_alarm_state?: boolean
+  external?: boolean
+  logging?: string
+  refreshRate?: number
+}
+
+export interface enhancedOptions extends options {
+  enableDoorbells?: boolean
+  enableAlarms?: boolean
+  enableActivityTracking?: boolean
+  enableWebsocketUpdates?: boolean
+  enableAsyncOperations?: boolean
+  doorbellMotionSensitivity?: number
+  activityHistoryLimit?: number
 }

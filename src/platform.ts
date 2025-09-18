@@ -4,13 +4,15 @@
  */
 import type { API, DynamicPlatformPlugin, Logging, PlatformAccessory } from 'homebridge'
 
-import type { AugustPlatformConfig, credentials, device, devicesConfig, options } from './settings.js'
+import type { AugustPlatformConfig, credentials, device, devicesConfig, options, enhancedOptions } from './settings.js'
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { argv } from 'node:process'
 
 import August from 'august-yale'
 
+import { AugustEnhancedApi } from './api/augustApi.js'
+import { DoorbellDevice } from './devices/doorbell.js'
 import { LockMechanism } from './devices/lock.js'
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 
@@ -26,16 +28,17 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   public config!: AugustPlatformConfig
 
   platformConfig!: AugustPlatformConfig
-  platformLogging!: options['logging']
-  platformRefreshRate!: options['refreshRate']
-  platformPushRate!: options['pushRate']
-  platformUpdateRate!: options['updateRate']
+  platformLogging!: enhancedOptions['logging']
+  platformRefreshRate!: enhancedOptions['refreshRate']
+  platformPushRate!: enhancedOptions['pushRate']
+  platformUpdateRate!: enhancedOptions['updateRate']
   registeringDevice!: boolean
   debugMode!: boolean
   version!: string
 
-  // August API
+  // August API instances
   augustConfig!: August
+  augustEnhancedApi?: AugustEnhancedApi
 
   // Cached normalized credentials for performance
   private normalizedCredentialsCache?: credentials
@@ -327,9 +330,67 @@ export class AugustPlatform implements DynamicPlatformPlugin {
    * This method is used to discover the your location and devices.
    */
   async discoverDevices() {
-    // August Locks
     try {
       const normalizedCredentials = await this.normalizeCredentialsForApi(this.config.credentials!)
+      
+      // Initialize enhanced API if not already done
+      if (!this.augustEnhancedApi) {
+        this.augustEnhancedApi = new AugustEnhancedApi(normalizedCredentials)
+        await this.debugLog('Initialized enhanced August API')
+      }
+
+      // Discover August Locks
+      await this.discoverLocks(normalizedCredentials)
+
+      // Discover Doorbells if enabled
+      if (this.config.options?.enableDoorbells !== false) {
+        await this.discoverDoorbells()
+      }
+
+      // Discover Alarms if enabled
+      if (this.config.options?.enableAlarms === true) {
+        await this.discoverAlarms()
+      }
+
+    } catch (error: any) {
+      // Handle 401 authentication errors specifically
+      const errorMessage = error.message || String(error)
+      if (errorMessage.includes('401') || errorMessage.toLowerCase().includes('unauthorized')) {
+        await this.warnLog('Authentication session has expired or is invalid. Attempting re-authentication...')
+        
+        // Reset validation status to force re-authentication
+        this.config.credentials!.isValidated = false
+        
+        // Update the config file to reflect the change
+        try {
+          const { pluginConfig, currentConfig } = await this.pluginConfig()
+          pluginConfig.credentials.isValidated = false
+          writeFileSync(this.api.user.configPath(), JSON.stringify(currentConfig, null, 4))
+          await this.debugLog('Updated config file with isValidated: false to trigger re-authentication')
+        } catch (configError: any) {
+          await this.errorLog(`Failed to update config file: ${configError.message ?? configError}`)
+        }
+        
+        // Attempt re-authentication
+        try {
+          await this.warnLog('Initiating re-authentication process. Please check for verification code if prompted.')
+          await this.validated()
+          return // validated() will call discoverDevices() again if successful
+        } catch (authError: any) {
+          throw new Error(`Re-authentication failed: ${authError.message ?? authError}. Please check your credentials and try restarting Homebridge.`)
+        }
+      } else {
+        // Re-throw other errors with more context
+        throw new Error(`Failed to discover devices: ${errorMessage}`)
+      }
+    }
+  }
+
+  /**
+   * Discover August Locks
+   */
+  async discoverLocks(normalizedCredentials: credentials) {
+    try {
       const devices = await August.details(normalizedCredentials, '')
       
       let deviceLists: any[]
@@ -340,6 +401,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
         deviceLists = [devices]
         await this.infoLog(`Total August Locks Found: ${deviceLists.length}`)
       }
+
       if (!this.config.options?.devices) {
         await this.debugWarnLog(`August Platform Config Not Set: ${JSON.stringify(this.config.options?.devices)}`)
         const devices = deviceLists.map((v: any) => v)
@@ -375,35 +437,73 @@ export class AugustPlatform implements DynamicPlatformPlugin {
         await this.errorLog('August ID & Password Supplied, Issue with Auth.')
       }
     } catch (error: any) {
-      // Handle 401 authentication errors specifically
-      const errorMessage = error.message || String(error)
-      if (errorMessage.includes('401') || errorMessage.toLowerCase().includes('unauthorized')) {
-        await this.warnLog('Authentication session has expired or is invalid. Attempting re-authentication...')
+      await this.errorLog(`Failed to discover locks: ${error.message ?? error}`)
+    }
+  }
+
+  /**
+   * Discover August Doorbells
+   */
+  async discoverDoorbells() {
+    try {
+      if (!this.augustEnhancedApi) {
+        await this.debugLog('Enhanced API not initialized, skipping doorbell discovery')
+        return
+      }
+
+      const doorbells = await this.augustEnhancedApi.getDoorbells()
+      const doorbellList = Object.entries(doorbells)
+
+      if (doorbellList.length > 0) {
+        await this.infoLog(`Total August Doorbells Found: ${doorbellList.length}`)
         
-        // Reset validation status to force re-authentication
-        this.config.credentials!.isValidated = false
-        
-        // Update the config file to reflect the change
-        try {
-          const { pluginConfig, currentConfig } = await this.pluginConfig()
-          pluginConfig.credentials.isValidated = false
-          writeFileSync(this.api.user.configPath(), JSON.stringify(currentConfig, null, 4))
-          await this.debugLog('Updated config file with isValidated: false to trigger re-authentication')
-        } catch (configError: any) {
-          await this.errorLog(`Failed to update config file: ${configError.message ?? configError}`)
-        }
-        
-        // Attempt re-authentication
-        try {
-          await this.warnLog('Initiating re-authentication process. Please check for verification code if prompted.')
-          await this.validated()
-          return // validated() will call discoverDevices() again if successful
-        } catch (authError: any) {
-          throw new Error(`Re-authentication failed: ${authError.message ?? authError}. Please check your credentials and try restarting Homebridge.`)
+        for (const [doorbellId, doorbellData] of doorbellList) {
+          const doorbell = {
+            deviceId: doorbellId,
+            ...doorbellData as any,
+          }
+          await this.debugLog(`Discovered doorbell: ${JSON.stringify(doorbell)}`)
+          await this.Doorbell(doorbell)
         }
       } else {
-        // Re-throw other errors with more context
-        throw new Error(`Failed to discover devices: ${errorMessage}`)
+        await this.debugLog('No doorbells found')
+      }
+    } catch (error: any) {
+      if (error.message?.includes('404')) {
+        await this.debugLog('No doorbells found (404 response)')
+      } else {
+        await this.errorLog(`Failed to discover doorbells: ${error.message ?? error}`)
+      }
+    }
+  }
+
+  /**
+   * Discover August Alarms (Yale-specific)
+   */
+  async discoverAlarms() {
+    try {
+      if (!this.augustEnhancedApi) {
+        await this.debugLog('Enhanced API not initialized, skipping alarm discovery')
+        return
+      }
+
+      const alarms = await this.augustEnhancedApi.getAlarms()
+      
+      if (alarms.length > 0) {
+        await this.infoLog(`Total August Alarms Found: ${alarms.length}`)
+        
+        for (const alarm of alarms) {
+          await this.debugLog(`Discovered alarm: ${JSON.stringify(alarm)}`)
+          // TODO: Implement alarm device support
+        }
+      } else {
+        await this.debugLog('No alarms found')
+      }
+    } catch (error: any) {
+      if (error.message?.includes('404') || error.message?.includes('403')) {
+        await this.debugLog('No alarms found or alarms not supported')
+      } else {
+        await this.errorLog(`Failed to discover alarms: ${error.message ?? error}`)
       }
     }
   }
@@ -464,6 +564,54 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       this.accessories.push(accessory)
     } else {
       await this.debugErrorLog(`Unable to Register: ${device.LockName}, Lock ID: ${device.lockId} Check Config to see if is being Hidden.`)
+    }
+  }
+
+  private async Doorbell(device: any) {
+    const uuid = this.api.hap.uuid.generate(device.deviceId)
+    const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
+
+    if (existingAccessory) {
+      // Update existing accessory
+      await this.infoLog(`Restoring existing doorbell from cache: ${device.deviceName}, Device ID: ${device.deviceId}`)
+      
+      existingAccessory.context.device = device
+      existingAccessory.displayName = await this.validateAndCleanDisplayName(device.deviceName, 'deviceName', device.deviceName)
+      existingAccessory.context.firmwareVersion = device.firmwareVersion
+      existingAccessory.context.model = device.deviceModel || 'August Doorbell'
+      existingAccessory.context.serialnumber = device.macAddress
+      existingAccessory.context.deviceId = device.deviceId
+      
+      this.api.updatePlatformAccessories([existingAccessory])
+      new DoorbellDevice(this, existingAccessory, device)
+      await this.debugLog(`Doorbell: ${device.deviceName} (${device.deviceId}) uuid: ${existingAccessory.UUID}`)
+    } else {
+      // Create new accessory
+      const accessory = new this.api.platformAccessory(device.deviceName, uuid)
+      
+      accessory.context.device = device
+      accessory.displayName = await this.validateAndCleanDisplayName(device.deviceName, 'deviceName', device.deviceName)
+      accessory.context.firmwareVersion = device.firmwareVersion
+      accessory.context.model = device.deviceModel || 'August Doorbell'
+      accessory.context.serialnumber = device.macAddress
+      accessory.context.deviceId = device.deviceId
+      
+      // Set accessory information
+      accessory
+        .getService(this.api.hap.Service.AccessoryInformation)!
+        .setCharacteristic(this.api.hap.Characteristic.Manufacturer, 'August')
+        .setCharacteristic(this.api.hap.Characteristic.Model, accessory.context.model)
+        .setCharacteristic(this.api.hap.Characteristic.SerialNumber, accessory.context.serialnumber)
+        .setCharacteristic(this.api.hap.Characteristic.FirmwareRevision, accessory.context.firmwareVersion)
+        .getCharacteristic(this.api.hap.Characteristic.FirmwareRevision)
+        .updateValue(accessory.context.firmwareVersion)
+
+      // Create the accessory handler
+      new DoorbellDevice(this, accessory, device)
+      await this.debugLog(`Registering new doorbell: ${device.deviceName} (${device.deviceId})`)
+      
+      // Link the accessory to your platform
+      await this.externalOrPlatform(device, accessory)
     }
   }
 
