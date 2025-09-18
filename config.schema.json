@@ -403,7 +403,7 @@
           "disableCountryCodeNormalization": {
             "title": "Disable Country Code Normalization",
             "type": "boolean",
-            "description": "If true, country code normalization will be disabled. Note: Some country codes (like CA) may cause 403 errors if not normalized to US.",
+            "description": "If true, country code normalization will be disabled. Note: Some country codes (CA, MX, GB) may cause 403 errors if not normalized to US.",
             "default": false
           }
         }

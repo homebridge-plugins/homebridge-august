@@ -227,6 +227,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     const countryCodeMapping: Record<string, string> = {
       'CA': 'US', // Canada -> United States (North American region)
       'MX': 'US', // Mexico -> United States (North American region)
+      'GB': 'US', // United Kingdom -> United States (after August/Yale split, UK uses US endpoints)
     }
 
     const originalCountryCode = credentials.countryCode?.toUpperCase()
@@ -463,7 +464,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       await this.externalOrPlatform(device, accessory)
       this.accessories.push(accessory)
     } else {
-      await this.debugErrorLog(`Unable to Register: ${device.LockName}, Lock ID: ${device.lockId} Check Config to see if is being Hidden.`)
+      await this.warnLog(`Unable to Register: ${device.LockName}, Lock ID: ${device.lockId}. Check device configuration.`)
     }
   }
 
@@ -477,8 +478,8 @@ export class AugustPlatform implements DynamicPlatformPlugin {
         + `Override HomeKit Enabled: ${device.overrideHomeKitEnabled}`)
     } else if (device.homeKitEnabled && !device.overrideHomeKitEnabled) {
       this.registeringDevice = false
-      await this.debugErrorLog(`Device: ${device.LockName} HomeKit Enabled: `
-        + `${device.homeKitEnabled}, device will not be registered. To enable, set overrideHomeKitEnabled to true.`)
+      await this.errorLog(`Device: ${device.LockName} already has HomeKit enabled. `
+        + `To register with Homebridge, add "overrideHomeKitEnabled": true to your device config.`)
     } else {
       this.registeringDevice = false
       await this.debugLog(`Device: ${device.LockName} is Hidden.`)

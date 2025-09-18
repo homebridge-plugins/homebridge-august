@@ -256,7 +256,8 @@ export class LockMechanism extends deviceBase {
         if (this.LockMechanism && (this.lockEvent.state.unlocking || this.lockEvent.state.locking)) {
           await this.debugLog(`is  ${this.lockEvent.state.unlocking ? 'Unlocking' : this.lockEvent.state.locking ? 'Locking' : ''}, parseEventStatus`
             + ` lockEventState: ${JSON.stringify(this.lockEvent.state)}`)
-          return
+          // Note: Removed early return to allow processing of final state when transitional state resolves
+          // This prevents the lock from getting stuck in "Unlocking..." status
         }
         if (!this.device.lock?.hide_lock && this.LockMechanism?.Service && (this.lockEvent.state.locked !== this.lockEvent.state.unlocked)) {
           this.LockMechanism.LockCurrentState = this.lockEvent.state.locked

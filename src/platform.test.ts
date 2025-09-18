@@ -118,6 +118,33 @@ describe('AugustPlatform', () => {
     expect(normalizedCredentials.password).toBe('test-password')
   })
 
+  it('should normalize UK (GB) country code to US for API compatibility', async () => {
+    const config: AugustPlatformConfig = {
+      platform: 'August',
+      name: 'Test August',
+      credentials: {
+        installId: 'test-install-id',
+        augustId: 'test@example.com',
+        password: 'test-password',
+        countryCode: 'GB',
+        isValidated: true,
+      },
+      options: {
+        logging: 'debug',
+      },
+    }
+
+    platform = new AugustPlatform(mockLog, config, mockApi)
+
+    // Access the private method for testing
+    const normalizeMethod = (platform as any).normalizeCredentialsForApi.bind(platform)
+    const normalizedCredentials = await normalizeMethod(config.credentials)
+
+    expect(normalizedCredentials.countryCode).toBe('US')
+    expect(normalizedCredentials.augustId).toBe('test@example.com')
+    expect(normalizedCredentials.password).toBe('test-password')
+  })
+
   it('should normalize Mexican country code to US for API compatibility', async () => {
     const config: AugustPlatformConfig = {
       platform: 'August',
@@ -173,6 +200,34 @@ describe('AugustPlatform', () => {
     expect(normalizedCredentials.password).toBe('test-password')
   })
 
+  it('should respect disableCountryCodeNormalization option for GB', async () => {
+    const config: AugustPlatformConfig = {
+      platform: 'August',
+      name: 'Test August',
+      credentials: {
+        installId: 'test-install-id',
+        augustId: 'test@example.com',
+        password: 'test-password',
+        countryCode: 'GB',
+        isValidated: true,
+      },
+      options: {
+        logging: 'debug',
+        disableCountryCodeNormalization: true,
+      },
+    }
+
+    platform = new AugustPlatform(mockLog, config, mockApi)
+
+    // Access the private method for testing
+    const normalizeMethod = (platform as any).normalizeCredentialsForApi.bind(platform)
+    const normalizedCredentials = await normalizeMethod(config.credentials)
+
+    expect(normalizedCredentials.countryCode).toBe('GB') // Should remain unchanged
+    expect(normalizedCredentials.augustId).toBe('test@example.com')
+    expect(normalizedCredentials.password).toBe('test-password')
+  })
+
   it('should handle case-insensitive country codes', async () => {
     const config: AugustPlatformConfig = {
       platform: 'August',
@@ -182,6 +237,31 @@ describe('AugustPlatform', () => {
         augustId: 'test@example.com',
         password: 'test-password',
         countryCode: 'ca', // lowercase
+        isValidated: true,
+      },
+      options: {
+        logging: 'debug',
+      },
+    }
+
+    platform = new AugustPlatform(mockLog, config, mockApi)
+
+    // Access the private method for testing
+    const normalizeMethod = (platform as any).normalizeCredentialsForApi.bind(platform)
+    const normalizedCredentials = await normalizeMethod(config.credentials)
+
+    expect(normalizedCredentials.countryCode).toBe('US')
+  })
+
+  it('should handle case-insensitive UK country code (gb)', async () => {
+    const config: AugustPlatformConfig = {
+      platform: 'August',
+      name: 'Test August',
+      credentials: {
+        installId: 'test-install-id',
+        augustId: 'test@example.com',
+        password: 'test-password',
+        countryCode: 'gb', // lowercase GB
         isValidated: true,
       },
       options: {
@@ -496,6 +576,80 @@ describe('AugustPlatform', () => {
       const savedConfig = JSON.parse(writeCall[1] as string)
       expect(savedConfig.platforms[0].credentials).toBeDefined()
       expect(savedConfig.platforms[0].credentials.installId).toBeDefined()
+    })
+  })
+
+  describe('registerDevice', () => {
+    it('should register device when hide_device is false and homeKitEnabled is false', async () => {
+      platform = new AugustPlatform(mockLog, mockConfig, mockApi)
+      
+      const mockDevice = {
+        LockName: 'Test Lock',
+        lockId: 'test-lock-id',
+        hide_device: false,
+        homeKitEnabled: false,
+        overrideHomeKitEnabled: false,
+      } as any
+
+      const result = await platform.registerDevice(mockDevice)
+      
+      expect(result).toBe(true)
+      expect(mockLog.info).toHaveBeenCalledWith('[DEBUG]', 'Device: Test Lock Enabled')
+    })
+
+    it('should register device when homeKitEnabled is true and overrideHomeKitEnabled is true', async () => {
+      platform = new AugustPlatform(mockLog, mockConfig, mockApi)
+      
+      const mockDevice = {
+        LockName: 'Test Lock',
+        lockId: 'test-lock-id',
+        hide_device: false,
+        homeKitEnabled: true,
+        overrideHomeKitEnabled: true,
+      } as any
+
+      const result = await platform.registerDevice(mockDevice)
+      
+      expect(result).toBe(true)
+      expect(mockLog.warn).toHaveBeenCalledWith(
+        '[DEBUG]', 'Device: Test Lock HomeKit Enabled: true, Override HomeKit Enabled: true'
+      )
+    })
+
+    it('should NOT register device when homeKitEnabled is true and overrideHomeKitEnabled is false', async () => {
+      platform = new AugustPlatform(mockLog, mockConfig, mockApi)
+      
+      const mockDevice = {
+        LockName: 'Test Lock',
+        lockId: 'test-lock-id',
+        hide_device: false,
+        homeKitEnabled: true,
+        overrideHomeKitEnabled: false,
+      } as any
+
+      const result = await platform.registerDevice(mockDevice)
+      
+      expect(result).toBe(false)
+      expect(mockLog.error).toHaveBeenCalledWith(
+        'Device: Test Lock already has HomeKit enabled. To register with Homebridge, add "overrideHomeKitEnabled": true to your device config.'
+      )
+    })
+
+    it('should NOT register device when hide_device is true', async () => {
+      platform = new AugustPlatform(mockLog, mockConfig, mockApi)
+      
+      const mockDevice = {
+        LockName: 'Test Lock',
+        lockId: 'test-lock-id',
+        hide_device: true,
+        homeKitEnabled: false,
+        overrideHomeKitEnabled: false,
+      } as any
+
+      const result = await platform.registerDevice(mockDevice)
+      
+      expect(result).toBe(false)
+      expect(mockLog.info).toHaveBeenCalledWith('[DEBUG]', 'Device: Test Lock is Hidden.')
     })
   })
 })
