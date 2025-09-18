@@ -135,7 +135,7 @@ export class AugustEnhancedApi {
   async getHouseActivities(houseId: string, limit = 8) {
     try {
       const { body } = await this.augustInstance.get(
-        `/houses/${houseId}/activities?limit=${limit}`
+        `/houses/${houseId}/activities?limit=${limit}`,
       )
       return body?.events || []
     } catch (error: any) {
@@ -167,7 +167,7 @@ export class AugustEnhancedApi {
   async getDeviceCapabilities(serialNumber: string) {
     try {
       const { body } = await this.augustInstance.get(
-        `/devices/capabilities?serialNumber=${serialNumber}&topLevelHost=true`
+        `/devices/capabilities?serialNumber=${serialNumber}&topLevelHost=true`,
       )
       return body
     } catch (error: any) {
@@ -252,7 +252,7 @@ export class AugustEnhancedApi {
    */
   async getWebsocketSubscriptions(subscriberId?: string) {
     try {
-      const endpoint = subscriberId 
+      const endpoint = subscriberId
         ? `/websocket/subscribers/${subscriberId}`
         : '/websocket/subscribers'
       const response = await this.augustInstance.get(endpoint)
@@ -287,7 +287,7 @@ export class AugustEnhancedApi {
    */
   async lockAsync(lockId: string, hyperBridge = true) {
     try {
-      const endpoint = hyperBridge 
+      const endpoint = hyperBridge
         ? `/remoteoperate/${lockId}/lock?v=2.3.1&type=async&connection=persistent`
         : `/remoteoperate/${lockId}/lock?v=2.3.1&type=async`
       const response = await this.augustInstance.put(endpoint, {})
@@ -302,7 +302,7 @@ export class AugustEnhancedApi {
    */
   async unlockAsync(lockId: string, hyperBridge = true) {
     try {
-      const endpoint = hyperBridge 
+      const endpoint = hyperBridge
         ? `/remoteoperate/${lockId}/unlock?v=2.3.1&type=async&connection=persistent`
         : `/remoteoperate/${lockId}/unlock?v=2.3.1&type=async`
       const response = await this.augustInstance.put(endpoint, {})
@@ -329,7 +329,7 @@ export class AugustEnhancedApi {
    */
   async unlatchAsync(lockId: string, hyperBridge = true) {
     try {
-      const endpoint = hyperBridge 
+      const endpoint = hyperBridge
         ? `/remoteoperate/${lockId}/unlatch?v=2.3.1&type=async&connection=persistent`
         : `/remoteoperate/${lockId}/unlatch?v=2.3.1&type=async`
       const response = await this.augustInstance.put(endpoint, {})
@@ -344,7 +344,7 @@ export class AugustEnhancedApi {
    */
   async statusAsync(lockId: string, hyperBridge = true) {
     try {
-      const endpoint = hyperBridge 
+      const endpoint = hyperBridge
         ? `/remoteoperate/${lockId}/status?v=2.3.1&type=async&intent=wakeup&connection=persistent`
         : `/remoteoperate/${lockId}/status?v=2.3.1&type=async&intent=wakeup`
       const response = await this.augustInstance.put(endpoint, {})

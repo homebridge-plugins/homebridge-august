@@ -1,11 +1,12 @@
+import type { credentials } from '../settings.js'
+
 /* Copyright(C) 2021-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
  *
  * augustApi.test.ts: homebridge-august enhanced API tests.
  */
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AugustEnhancedApi } from './augustApi.js'
-import type { credentials } from '../settings.js'
 
 // Mock the august-yale module
 vi.mock('august-yale', () => {
@@ -23,19 +24,19 @@ vi.mock('august-yale', () => {
     post: vi.fn(),
     put: vi.fn(),
   }))
-  
+
   return {
     default: MockAugust,
   }
 })
 
-describe('AugustEnhancedApi', () => {
+describe('augustEnhancedApi', () => {
   let enhancedApi: AugustEnhancedApi
   let mockCredentials: credentials
 
   beforeEach(() => {
     vi.clearAllMocks()
-    
+
     mockCredentials = {
       installId: 'test-install-id',
       augustId: 'test@example.com',
@@ -47,13 +48,13 @@ describe('AugustEnhancedApi', () => {
     enhancedApi = new AugustEnhancedApi(mockCredentials)
   })
 
-  describe('Core August API methods', () => {
+  describe('core August API methods', () => {
     it('should delegate authorize to august-yale', async () => {
       const mockAuthorize = vi.fn()
       ;(enhancedApi as any).augustInstance.authorize = mockAuthorize
 
       await enhancedApi.authorize()
-      
+
       expect(mockAuthorize).toHaveBeenCalled()
     })
 
@@ -62,7 +63,7 @@ describe('AugustEnhancedApi', () => {
       ;(enhancedApi as any).augustInstance.validate = mockValidate
 
       await enhancedApi.validate('123456')
-      
+
       expect(mockValidate).toHaveBeenCalledWith('123456')
     })
 
@@ -71,7 +72,7 @@ describe('AugustEnhancedApi', () => {
       ;(enhancedApi as any).augustInstance.locks = mockLocks
 
       await enhancedApi.locks()
-      
+
       expect(mockLocks).toHaveBeenCalled()
     })
 
@@ -80,7 +81,7 @@ describe('AugustEnhancedApi', () => {
       ;(enhancedApi as any).augustInstance.details = mockDetails
 
       await enhancedApi.details()
-      
+
       expect(mockDetails).toHaveBeenCalledWith('')
     })
 
@@ -89,19 +90,19 @@ describe('AugustEnhancedApi', () => {
       ;(enhancedApi as any).augustInstance.details = mockDetails
 
       await enhancedApi.details('test-lock-id')
-      
+
       expect(mockDetails).toHaveBeenCalledWith('test-lock-id')
     })
   })
 
-  describe('Enhanced API methods', () => {
+  describe('enhanced API methods', () => {
     it('should get doorbells successfully', async () => {
-      const mockDoorbells = { 'doorbell1': { deviceName: 'Front Door' } }
+      const mockDoorbells = { doorbell1: { deviceName: 'Front Door' } }
       const mockGet = vi.fn().mockResolvedValue({ body: mockDoorbells })
       ;(enhancedApi as any).augustInstance.get = mockGet
 
       const result = await enhancedApi.getDoorbells()
-      
+
       expect(mockGet).toHaveBeenCalledWith('/users/doorbells/mine')
       expect(result).toEqual(mockDoorbells)
     })
@@ -111,7 +112,7 @@ describe('AugustEnhancedApi', () => {
       ;(enhancedApi as any).augustInstance.get = mockGet
 
       const result = await enhancedApi.getDoorbells()
-      
+
       expect(result).toEqual({})
     })
 
@@ -121,7 +122,7 @@ describe('AugustEnhancedApi', () => {
       ;(enhancedApi as any).augustInstance.get = mockGet
 
       const result = await enhancedApi.getDoorbellDetail('doorbell1')
-      
+
       expect(mockGet).toHaveBeenCalledWith('/doorbells/doorbell1')
       expect(result).toEqual(mockDetail)
     })
@@ -131,18 +132,18 @@ describe('AugustEnhancedApi', () => {
       ;(enhancedApi as any).augustInstance.post = mockPost
 
       const result = await enhancedApi.wakeupDoorbell('doorbell1')
-      
+
       expect(mockPost).toHaveBeenCalledWith('/doorbells/doorbell1/wakeup', {})
       expect(result).toBe(true)
     })
 
     it('should get houses successfully', async () => {
-      const mockHouses = { 'house1': { houseName: 'Home' } }
+      const mockHouses = { house1: { houseName: 'Home' } }
       const mockGet = vi.fn().mockResolvedValue({ body: mockHouses })
       ;(enhancedApi as any).augustInstance.get = mockGet
 
       const result = await enhancedApi.getHouses()
-      
+
       expect(mockGet).toHaveBeenCalledWith('/users/houses/mine')
       expect(result).toEqual(mockHouses)
     })
@@ -153,7 +154,7 @@ describe('AugustEnhancedApi', () => {
       ;(enhancedApi as any).augustInstance.get = mockGet
 
       const result = await enhancedApi.getHouseActivities('house1', 10)
-      
+
       expect(mockGet).toHaveBeenCalledWith('/houses/house1/activities?limit=10')
       expect(result).toEqual(mockActivities.events)
     })
@@ -164,7 +165,7 @@ describe('AugustEnhancedApi', () => {
       ;(enhancedApi as any).augustInstance.get = mockGet
 
       const result = await enhancedApi.getLockPins('lock1')
-      
+
       expect(mockGet).toHaveBeenCalledWith('/locks/lock1/pins')
       expect(result).toEqual(mockPins.loaded)
     })
@@ -174,7 +175,7 @@ describe('AugustEnhancedApi', () => {
       ;(enhancedApi as any).augustInstance.put = mockPut
 
       const result = await enhancedApi.lockAsync('lock1')
-      
+
       expect(mockPut).toHaveBeenCalledWith('/remoteoperate/lock1/lock?v=2.3.1&type=async&connection=persistent', {})
       expect(result).toBe('success')
     })
@@ -184,7 +185,7 @@ describe('AugustEnhancedApi', () => {
       ;(enhancedApi as any).augustInstance.put = mockPut
 
       const result = await enhancedApi.unlockAsync('lock1')
-      
+
       expect(mockPut).toHaveBeenCalledWith('/remoteoperate/lock1/unlock?v=2.3.1&type=async&connection=persistent', {})
       expect(result).toBe('success')
     })
@@ -194,13 +195,13 @@ describe('AugustEnhancedApi', () => {
       ;(enhancedApi as any).augustInstance.put = mockPut
 
       const result = await enhancedApi.unlatch('lock1')
-      
+
       expect(mockPut).toHaveBeenCalledWith('/remoteoperate/lock1/unlatch', {})
       expect(result).toBe('success')
     })
   })
 
-  describe('Error handling', () => {
+  describe('error handling', () => {
     it('should throw error for invalid doorbell detail request', async () => {
       const mockGet = vi.fn().mockRejectedValue(new Error('404'))
       ;(enhancedApi as any).augustInstance.get = mockGet
@@ -220,7 +221,7 @@ describe('AugustEnhancedApi', () => {
       ;(enhancedApi as any).augustInstance.get = mockGet
 
       const result = await enhancedApi.getAlarms()
-      
+
       expect(result).toEqual([])
     })
 
@@ -229,7 +230,7 @@ describe('AugustEnhancedApi', () => {
       ;(enhancedApi as any).augustInstance.get = mockGet
 
       const result = await enhancedApi.getAlarms()
-      
+
       expect(result).toEqual([])
     })
   })

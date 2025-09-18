@@ -229,9 +229,9 @@ export interface doorbellDetail extends doorbell {
     chimeEnabled: boolean
   }
   status?: {
-    lastActivity: string
-    lastMotion: string
-    lastDing: string
+    lastActivity?: string
+    lastMotion?: string
+    lastDing?: string
   }
 }
 

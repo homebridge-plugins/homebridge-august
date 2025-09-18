@@ -4,12 +4,13 @@
  */
 import type { API, Logging, PlatformAccessory } from 'homebridge'
 
-import { describe, expect, it, vi, beforeEach } from 'vitest'
-
-import { AugustPlatform } from '../platform.js'
-import { DoorbellDevice } from './doorbell.js'
+import type { AugustEnhancedApi } from '../api/augustApi.js'
+import type { AugustPlatform } from '../platform.js'
 import type { AugustPlatformConfig } from '../settings.js'
-import { AugustEnhancedApi } from '../api/augustApi.js'
+
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { DoorbellDevice } from './doorbell.js'
 
 // Mock the august-yale module
 vi.mock('august-yale', () => {
@@ -24,7 +25,7 @@ vi.mock('august-yale', () => {
     subscribe: vi.fn(),
     end: vi.fn(),
   }))
-  
+
   return {
     default: MockAugust,
   }
@@ -38,7 +39,7 @@ vi.mock('../api/augustApi.js', () => ({
   })),
 }))
 
-describe('DoorbellDevice', () => {
+describe('doorbellDevice', () => {
   let doorbellDevice: DoorbellDevice
   let mockPlatform: AugustPlatform
   let mockAccessory: PlatformAccessory
@@ -157,7 +158,7 @@ describe('DoorbellDevice', () => {
         refreshRate: 300,
         debugMode: true,
       },
-      getService: vi.fn().mockImplementation((serviceType) => {
+      getService: vi.fn().mockImplementation(() => {
         return {
           setCharacteristic: vi.fn().mockReturnThis(),
           getCharacteristic: vi.fn().mockImplementation(() => ({
@@ -168,7 +169,7 @@ describe('DoorbellDevice', () => {
           updateCharacteristic: vi.fn(),
         }
       }),
-      addService: vi.fn().mockImplementation((serviceType, name) => {
+      addService: vi.fn().mockImplementation(() => {
         return {
           setCharacteristic: vi.fn().mockReturnThis(),
           getCharacteristic: vi.fn().mockImplementation(() => ({
@@ -229,7 +230,7 @@ describe('DoorbellDevice', () => {
     mockEnhancedApi.wakeupDoorbell = mockWakeup
 
     doorbellDevice = new DoorbellDevice(mockPlatform, mockAccessory, mockDevice)
-    
+
     await doorbellDevice.wakeupDoorbell()
 
     expect(mockWakeup).toHaveBeenCalledWith('doorbell123')
@@ -240,13 +241,14 @@ describe('DoorbellDevice', () => {
       ...mockDevice,
       batteryLevel: 75,
       status: {
+        lastActivity: new Date(Date.now() - 5000).toISOString(), // 5 seconds ago
         lastMotion: new Date(Date.now() - 15000).toISOString(), // 15 seconds ago
         lastDing: new Date(Date.now() - 10000).toISOString(), // 10 seconds ago
       },
     }
 
     doorbellDevice = new DoorbellDevice(mockPlatform, mockAccessory, mockDevice)
-    
+
     await doorbellDevice.parseStatus(mockDoorbellDetail)
 
     expect(doorbellDevice.doorbellDetails).toEqual(mockDoorbellDetail)

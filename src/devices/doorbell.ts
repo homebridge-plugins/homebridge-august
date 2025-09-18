@@ -1,14 +1,14 @@
 import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge'
 
 import type { AugustPlatform } from '../platform.js'
-import type { doorbell, doorbellConfig, doorbellDetail } from '../settings.js'
+import type { doorbellConfig, doorbellDetail } from '../settings.js'
 
 /* Copyright(C) 2021-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
  *
  * doorbell.ts: homebridge-august doorbell device.
  */
 import { interval, Subject } from 'rxjs'
-import { debounceTime, skipWhile, tap } from 'rxjs/operators'
+import { debounceTime, skipWhile } from 'rxjs/operators'
 
 /**
  * Base device interface for doorbell
@@ -54,7 +54,7 @@ export class DoorbellDevice {
   public readonly platform: AugustPlatform
   public readonly accessory: PlatformAccessory
   public device: DoorbellBaseDevice & doorbellConfig
-  
+
   protected readonly hap
   // Services
   private DoorbellService?: {
@@ -86,7 +86,7 @@ export class DoorbellDevice {
   doorbellDetails!: doorbellDetail
   lastMotionTime = 0
   lastDingTime = 0
-  
+
   // Update tracking
   doorbellUpdateInProgress: boolean
   doDoorbellUpdate: any
@@ -176,7 +176,7 @@ export class DoorbellDevice {
       .onGet(() => {
         return this.Battery.BatteryLevel
       })
-      
+
     this.Battery.Service
       .getCharacteristic(this.hap.Characteristic.StatusLowBattery)
       .onGet(() => {
@@ -209,15 +209,15 @@ export class DoorbellDevice {
   async updateHomeKitCharacteristics(): Promise<void> {
     if (this.DoorbellService?.Service) {
       this.DoorbellService.Service.updateCharacteristic(
-        this.hap.Characteristic.ProgrammableSwitchEvent, 
-        this.DoorbellService.ProgrammableSwitchEvent
+        this.hap.Characteristic.ProgrammableSwitchEvent,
+        this.DoorbellService.ProgrammableSwitchEvent,
       )
     }
 
     if (this.MotionSensor?.Service) {
       this.MotionSensor.Service.updateCharacteristic(
-        this.hap.Characteristic.MotionDetected, 
-        this.MotionSensor.MotionDetected
+        this.hap.Characteristic.MotionDetected,
+        this.MotionSensor.MotionDetected,
       )
     }
 
@@ -248,7 +248,7 @@ export class DoorbellDevice {
       } else {
         await this.errorLog(`Failed to refresh doorbell status: ${e.message ?? e}`)
       }
-      
+
       // Always trigger an update even if there's an error
       this.doDoorbellUpdate.next('Doorbell')
     }
@@ -273,11 +273,11 @@ export class DoorbellDevice {
     if (doorbellDetails.status?.lastMotion) {
       const lastMotionTime = new Date(doorbellDetails.status.lastMotion).getTime()
       const isRecentMotion = (now - lastMotionTime) < activityThreshold
-      
+
       if (isRecentMotion && this.MotionSensor) {
         this.MotionSensor.MotionDetected = true
         await this.debugLog(`Motion detected at ${doorbellDetails.status.lastMotion}`)
-        
+
         // Clear motion after threshold
         setTimeout(() => {
           if (this.MotionSensor) {
@@ -292,7 +292,7 @@ export class DoorbellDevice {
     if (doorbellDetails.status?.lastDing) {
       const lastDingTime = new Date(doorbellDetails.status.lastDing).getTime()
       const isRecentDing = (now - lastDingTime) < activityThreshold
-      
+
       if (isRecentDing && this.DoorbellService && lastDingTime > this.lastDingTime) {
         this.lastDingTime = lastDingTime
         this.DoorbellService.ProgrammableSwitchEvent = this.hap.Characteristic.ProgrammableSwitchEvent.SINGLE_PRESS
@@ -301,7 +301,7 @@ export class DoorbellDevice {
     }
 
     await this.debugLog(`Parsed doorbell status: Battery ${this.Battery.BatteryLevel}%, Online: ${doorbellDetails.isOnline}`)
-    
+
     // Trigger characteristic updates
     this.doDoorbellUpdate.next('Doorbell Status Updated')
   }
