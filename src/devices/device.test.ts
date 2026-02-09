@@ -23,10 +23,18 @@ class MockDevice {
       return true
     }
 
-    // Check for error messages containing these status codes
+    // Check for error messages containing these status codes (from tiny-json-http error format)
+    // Format: "POST failed with: 502" or "GET failed with: 401"
     if (error.message) {
-      const sessionErrorPatterns = ['502', '503', '401', 'Bad Gateway', 'Service Unavailable', 'Unauthorized']
-      return sessionErrorPatterns.some(pattern => error.message.includes(pattern))
+      const sessionErrorPatterns = [
+        /failed with: 502/i,
+        /failed with: 503/i,
+        /failed with: 401/i,
+        /Bad Gateway/i,
+        /Service Unavailable/i,
+        /Unauthorized/i,
+      ]
+      return sessionErrorPatterns.some(pattern => pattern.test(error.message))
     }
 
     return false
@@ -122,6 +130,16 @@ describe('statusCode error handling', () => {
 
     it('should return false for empty message', () => {
       const error = { message: '' }
+      expect(mockDevice.isTimeoutError(error)).toBe(false)
+    })
+
+    it('should not match 401 in non-HTTP status contexts', () => {
+      const error = { message: 'Expected 4012 records but found 401' }
+      expect(mockDevice.isTimeoutError(error)).toBe(false)
+    })
+
+    it('should not match 502 in non-HTTP status contexts', () => {
+      const error = { message: 'Lock ID 50234 not found' }
       expect(mockDevice.isTimeoutError(error)).toBe(false)
     })
   })

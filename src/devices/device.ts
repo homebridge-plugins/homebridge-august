@@ -198,10 +198,18 @@ export abstract class deviceBase {
       return true
     }
 
-    // Check for error messages containing these status codes
+    // Check for error messages containing these status codes (from tiny-json-http error format)
+    // Format: "POST failed with: 502" or "GET failed with: 401"
     if (error.message) {
-      const sessionErrorPatterns = ['502', '503', '401', 'Bad Gateway', 'Service Unavailable', 'Unauthorized']
-      return sessionErrorPatterns.some(pattern => error.message.includes(pattern))
+      const sessionErrorPatterns = [
+        /failed with: 502/i,
+        /failed with: 503/i,
+        /failed with: 401/i,
+        /Bad Gateway/i,
+        /Service Unavailable/i,
+        /Unauthorized/i,
+      ]
+      return sessionErrorPatterns.some(pattern => pattern.test(error.message))
     }
 
     return false
