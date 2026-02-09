@@ -22,8 +22,6 @@ jobs:
     with:
       release_type: ${{ needs.determine-release-type.outputs.release_type }}
       is_esm: ${{ needs.determine-release-type.outputs.is_esm == 'true' }}
-    secrets:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   # 3️⃣ Publish to NPM and create GitHub release
   publish-release:
@@ -48,8 +46,6 @@ jobs:
       branch_name: ${{ needs.determine-release-type.outputs.branch_name }}
       release_type: ${{ needs.determine-release-type.outputs.release_type }}
       is_esm: ${{ needs.determine-release-type.outputs.is_esm == 'true' }}
-    secrets:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   # 5️⃣ Notify if any previous job fails
   workflow-failure:
@@ -61,10 +57,22 @@ jobs:
       job_name: ${{ github.job }}
       run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-  # 6️⃣ Post to Discord
+  # 6️⃣ Sync GitHub Release body from CHANGELOG.md
+  sync-github-release:
+    name: Sync GitHub Release (reusable)
+    needs: [determine-release-type, update-version, publish-release]
+    uses: homebridge/.github/.github/workflows/sync-github-release.yml@latest
+    with:
+      version: ${{ needs.update-version.outputs.version }}
+      changelog_path: CHANGELOG.md
+      tag_prefix: v
+    secrets:
+      repo_token: ${{ secrets.GITHUB_TOKEN }}
+
+  # 7️⃣ Post to Discord
   github-releases-to-discord:
     name: Discord Webhooks
-    needs: [determine-release-type, update-version, publish-release]
+    needs: [determine-release-type, update-version, publish-release, sync-github-release]
     uses: homebridge/.github/.github/workflows/discord-webhooks.yml@latest
     with:
       title: "August Release"
@@ -73,4 +81,3 @@ jobs:
       url: "https://github.com/homebridge-plugins/homebridge-august/releases/tag/v${{ needs.update-version.outputs.version }}"
     secrets:
       DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL_LATEST }}
-      
