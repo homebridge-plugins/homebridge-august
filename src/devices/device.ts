@@ -181,10 +181,30 @@ export abstract class deviceBase {
   }
 
   /**
-   * Check if error is a network timeout that requires session refresh
+   * Check if error is a network timeout or session expiration that requires session refresh
+   * Handles 502 Bad Gateway, 401 Unauthorized, 503 Service Unavailable, and network timeouts
    */
-  isTimeoutError(error: { message: string }): boolean {
-    return Boolean(error.message && error.message.includes('ETIMEDOUT'))
+  isTimeoutError(error: { message: string, statusCode?: number }): boolean {
+    // Check for network timeout errors
+    if (error.message && error.message.includes('ETIMEDOUT')) {
+      return true
+    }
+
+    // Check for status codes that indicate session expiration or temporary server issues
+    // 502 Bad Gateway - typically indicates session has expired or server issues
+    // 503 Service Unavailable - temporary server issues
+    // 401 Unauthorized - session has expired
+    if (error.statusCode && (error.statusCode === 502 || error.statusCode === 503 || error.statusCode === 401)) {
+      return true
+    }
+
+    // Check for error messages containing these status codes
+    if (error.message) {
+      const sessionErrorPatterns = ['502', '503', '401', 'Bad Gateway', 'Service Unavailable', 'Unauthorized']
+      return sessionErrorPatterns.some(pattern => error.message.includes(pattern))
+    }
+
+    return false
   }
 
   /**
