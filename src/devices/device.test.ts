@@ -1,4 +1,44 @@
+import type { CharacteristicValue, Service } from 'homebridge'
+
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+// Create a simplified test implementation that mimics the updateCharacteristic behavior
+class MockDeviceWithCharacteristics {
+  accessory = { context: {} as Record<string, CharacteristicValue>, displayName: 'Test Lock' }
+  debugLog = vi.fn()
+  debugWarnLog = vi.fn()
+  infoLog = vi.fn()
+
+  async updateCharacteristic(
+    Service: Service,
+    ServiceName: string,
+    Characteristic: any,
+    CharacteristicValue: CharacteristicValue,
+    CharacteristicName: string,
+    Value?: CharacteristicValue,
+    StatusMatch?: string,
+    StatusDoesNotMatch?: string,
+  ): Promise<void> {
+    if (CharacteristicValue === undefined) {
+      await this.debugLog(`${CharacteristicName}: ${CharacteristicValue}`)
+    } else {
+      const contextKey = `${ServiceName}${CharacteristicName}`
+      await this.debugWarnLog(`context before: ${this.accessory.context[contextKey]}`)
+      const contextBefore = this.accessory.context[contextKey]
+      this.accessory.context[contextKey] = CharacteristicValue
+      await this.debugWarnLog(`context after: ${this.accessory.context[contextKey]}`)
+      await this.debugLog(`updateCharacteristic ${CharacteristicName}: ${CharacteristicValue} (${CharacteristicValue === Value ? StatusMatch : StatusDoesNotMatch})`)
+      if (contextBefore !== CharacteristicValue) {
+        // Value actually changed - push update to HomeKit
+        Service.updateCharacteristic(Characteristic, CharacteristicValue)
+        // Only log state change messages when we had a prior known value (not initial discovery)
+        if (contextBefore !== undefined && StatusMatch && StatusDoesNotMatch) {
+          await this.infoLog(`was ${CharacteristicValue === Value ? StatusMatch : StatusDoesNotMatch}`)
+        }
+      }
+    }
+  }
+}
 
 // Create a simplified test implementation that mimics the statusCode behavior
 class MockDevice {
@@ -188,6 +228,141 @@ describe('statusCode error handling', () => {
 
       expect(mockDevice.debugLog).toHaveBeenCalledWith('Unknown statusCode: 503 Service Unavailable, Submit Bugs Here: https://tinyurl.com/AugustYaleBug')
       expect(mockDevice.debugErrorLog).toHaveBeenCalledWith('failed test action, Error: [object Object]')
+    })
+  })
+})
+
+describe('updateCharacteristic', () => {
+  let device: MockDeviceWithCharacteristics
+  let mockService: Service
+  const CHARACTERISTIC = 'LockCurrentState'
+
+  beforeEach(() => {
+    device = new MockDeviceWithCharacteristics()
+    mockService = {
+      updateCharacteristic: vi.fn(),
+    } as unknown as Service
+  })
+
+  it('should skip HomeKit update when CharacteristicValue is undefined', async () => {
+    await device.updateCharacteristic(mockService, 'LockMechanism', CHARACTERISTIC, undefined as any, 'LockCurrentState')
+
+    expect(mockService.updateCharacteristic).not.toHaveBeenCalled()
+    expect(device.debugLog).toHaveBeenCalledWith('LockCurrentState: undefined')
+  })
+
+  describe('initial state discovery (no prior context)', () => {
+    it('should push value to HomeKit on first update', async () => {
+      await device.updateCharacteristic(mockService, 'LockMechanism', CHARACTERISTIC, 0, 'LockCurrentState', 1, 'Locked', 'Unlocked')
+
+      expect(mockService.updateCharacteristic).toHaveBeenCalledWith(CHARACTERISTIC, 0)
+    })
+
+    it('should NOT log info message on initial discovery', async () => {
+      await device.updateCharacteristic(mockService, 'LockMechanism', CHARACTERISTIC, 0, 'LockCurrentState', 1, 'Locked', 'Unlocked')
+
+      expect(device.infoLog).not.toHaveBeenCalled()
+    })
+
+    it('should store the value in context for future comparisons', async () => {
+      await device.updateCharacteristic(mockService, 'LockMechanism', CHARACTERISTIC, 0, 'LockCurrentState', 1, 'Locked', 'Unlocked')
+
+      expect(device.accessory.context.LockMechanismLockCurrentState).toBe(0)
+    })
+  })
+
+  describe('subsequent updates with unchanged value', () => {
+    it('should NOT push to HomeKit when value has not changed', async () => {
+      // Seed context as if a previous update occurred
+      device.accessory.context.LockMechanismLockCurrentState = 1
+
+      await device.updateCharacteristic(mockService, 'LockMechanism', CHARACTERISTIC, 1, 'LockCurrentState', 1, 'Locked', 'Unlocked')
+
+      expect(mockService.updateCharacteristic).not.toHaveBeenCalled()
+    })
+
+    it('should NOT log info message when value has not changed', async () => {
+      device.accessory.context.LockMechanismLockCurrentState = 1
+
+      await device.updateCharacteristic(mockService, 'LockMechanism', CHARACTERISTIC, 1, 'LockCurrentState', 1, 'Locked', 'Unlocked')
+
+      expect(device.infoLog).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('genuine state change', () => {
+    it('should push to HomeKit when value changes', async () => {
+      device.accessory.context.LockMechanismLockCurrentState = 1
+
+      await device.updateCharacteristic(mockService, 'LockMechanism', CHARACTERISTIC, 0, 'LockCurrentState', 1, 'Locked', 'Unlocked')
+
+      expect(mockService.updateCharacteristic).toHaveBeenCalledWith(CHARACTERISTIC, 0)
+    })
+
+    it('should log "was Unlocked" when lock changes from secured to unsecured', async () => {
+      device.accessory.context.LockMechanismLockCurrentState = 1
+
+      await device.updateCharacteristic(mockService, 'LockMechanism', CHARACTERISTIC, 0, 'LockCurrentState', 1, 'Locked', 'Unlocked')
+
+      expect(device.infoLog).toHaveBeenCalledWith('was Unlocked')
+    })
+
+    it('should log "was Locked" when lock changes from unsecured to secured', async () => {
+      device.accessory.context.LockMechanismLockCurrentState = 0
+
+      await device.updateCharacteristic(mockService, 'LockMechanism', CHARACTERISTIC, 1, 'LockCurrentState', 1, 'Locked', 'Unlocked')
+
+      expect(device.infoLog).toHaveBeenCalledWith('was Locked')
+    })
+
+    it('should update context to new value', async () => {
+      device.accessory.context.LockMechanismLockCurrentState = 1
+
+      await device.updateCharacteristic(mockService, 'LockMechanism', CHARACTERISTIC, 0, 'LockCurrentState', 1, 'Locked', 'Unlocked')
+
+      expect(device.accessory.context.LockMechanismLockCurrentState).toBe(0)
+    })
+  })
+
+  describe('contact sensor state changes', () => {
+    it('should log "was Closed" when door changes to closed', async () => {
+      device.accessory.context.ContactSensorContactSensorState = 1
+
+      await device.updateCharacteristic(mockService, 'ContactSensor', 'ContactSensorState', 0, 'ContactSensorState', 1, 'Opened', 'Closed')
+
+      expect(device.infoLog).toHaveBeenCalledWith('was Closed')
+    })
+
+    it('should log "was Opened" when door changes to open', async () => {
+      device.accessory.context.ContactSensorContactSensorState = 0
+
+      await device.updateCharacteristic(mockService, 'ContactSensor', 'ContactSensorState', 1, 'ContactSensorState', 1, 'Opened', 'Closed')
+
+      expect(device.infoLog).toHaveBeenCalledWith('was Opened')
+    })
+  })
+
+  describe('updates without StatusMatch/StatusDoesNotMatch', () => {
+    it('should push to HomeKit but not log info when no status strings provided', async () => {
+      device.accessory.context.BatteryBatteryLevel = 90
+
+      await device.updateCharacteristic(mockService, 'Battery', 'BatteryLevel', 85, 'BatteryLevel')
+
+      expect(mockService.updateCharacteristic).toHaveBeenCalledWith('BatteryLevel', 85)
+      expect(device.infoLog).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('startup simulation (seeded context matches API response)', () => {
+    it('should not push to HomeKit or log when seeded context matches first API value', async () => {
+      // Simulate constructor seeding: accessory.context.LockMechanismLockCurrentState ??= SECURED
+      device.accessory.context.LockMechanismLockCurrentState = 1
+
+      // First API response returns same state (SECURED = 1)
+      await device.updateCharacteristic(mockService, 'LockMechanism', CHARACTERISTIC, 1, 'LockCurrentState', 1, 'Locked', 'Unlocked')
+
+      expect(mockService.updateCharacteristic).not.toHaveBeenCalled()
+      expect(device.infoLog).not.toHaveBeenCalled()
     })
   })
 })

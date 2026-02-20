@@ -27,3 +27,54 @@ describe('lock pushChanges method', () => {
     expect(lockTsContent).toContain('pushChanges: ${e.message')
   })
 })
+
+describe('lock context seeding for change detection', () => {
+  const lockTsPath = join(__dirname, 'lock.ts')
+  const lockTsContent = readFileSync(lockTsPath, 'utf8')
+
+  it('should seed LockMechanism context keys for change detection', () => {
+    expect(lockTsContent).toContain('accessory.context.LockMechanismLockCurrentState ??= this.LockMechanism.LockCurrentState')
+    expect(lockTsContent).toContain('accessory.context.LockMechanismLockTargetState ??= this.LockMechanism.LockTargetState')
+  })
+
+  it('should seed ContactSensor context key for change detection', () => {
+    expect(lockTsContent).toContain('accessory.context.ContactSensorContactSensorState ??= this.ContactSensor.ContactSensorState')
+  })
+
+  it('should seed Battery context keys for change detection', () => {
+    expect(lockTsContent).toContain('accessory.context.BatteryBatteryLevel ??= this.Battery.BatteryLevel')
+    expect(lockTsContent).toContain('accessory.context.BatteryStatusLowBattery ??= this.Battery.StatusLowBattery')
+  })
+
+  it('should seed context keys after creating service objects but before initializing characteristics', () => {
+    // Verify seeding happens between object assignment and characteristic initialization
+    const lockMechanismSeed = lockTsContent.indexOf('accessory.context.LockMechanismLockCurrentState ??=')
+    const lockMechanismAssign = lockTsContent.indexOf('accessory.context.LockMechanism = this.LockMechanism as object')
+    const lockCharInit = lockTsContent.indexOf('this.LockMechanism.Service\n        .setCharacteristic(this.hap.Characteristic.Name')
+
+    expect(lockMechanismSeed).toBeGreaterThan(lockMechanismAssign)
+    expect(lockMechanismSeed).toBeLessThan(lockCharInit)
+
+    const contactSensorSeed = lockTsContent.indexOf('accessory.context.ContactSensorContactSensorState ??=')
+    const contactSensorAssign = lockTsContent.indexOf('accessory.context.ContactSensor = this.ContactSensor as object')
+    const contactCharInit = lockTsContent.indexOf('this.ContactSensor.Service\n        .setCharacteristic(this.hap.Characteristic.Name')
+
+    expect(contactSensorSeed).toBeGreaterThan(contactSensorAssign)
+    expect(contactSensorSeed).toBeLessThan(contactCharInit)
+  })
+
+  it('should use nullish coalescing assignment (??=) to preserve existing persisted values', () => {
+    // Ensure ??= is used (not = or ||=) so that persisted context values from previous runs are kept
+    const lockCurrentLine = lockTsContent.match(/accessory\.context\.LockMechanismLockCurrentState\s*\?\?=/)
+    const lockTargetLine = lockTsContent.match(/accessory\.context\.LockMechanismLockTargetState\s*\?\?=/)
+    const contactLine = lockTsContent.match(/accessory\.context\.ContactSensorContactSensorState\s*\?\?=/)
+    const batteryLevelLine = lockTsContent.match(/accessory\.context\.BatteryBatteryLevel\s*\?\?=/)
+    const batteryLowLine = lockTsContent.match(/accessory\.context\.BatteryStatusLowBattery\s*\?\?=/)
+
+    expect(lockCurrentLine).not.toBeNull()
+    expect(lockTargetLine).not.toBeNull()
+    expect(contactLine).not.toBeNull()
+    expect(batteryLevelLine).not.toBeNull()
+    expect(batteryLowLine).not.toBeNull()
+  })
+})
