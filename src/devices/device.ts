@@ -142,15 +142,19 @@ export abstract class deviceBase {
     if (CharacteristicValue === undefined) {
       await this.debugLog(`${CharacteristicName}: ${CharacteristicValue}`)
     } else {
-      Service.updateCharacteristic(Characteristic, CharacteristicValue)
-      await this.debugLog(`updateCharacteristic ${CharacteristicName}: ${CharacteristicValue} (${CharacteristicValue === Value ? StatusMatch : StatusDoesNotMatch})`)
       const contextKey = `${ServiceName}${CharacteristicName}`
       await this.debugWarnLog(`context before: ${this.accessory.context[contextKey]}`)
       const contextBefore = this.accessory.context[contextKey]
       this.accessory.context[contextKey] = CharacteristicValue
       await this.debugWarnLog(`context after: ${this.accessory.context[contextKey]}`)
-      if ((contextBefore !== this.accessory.context[contextKey]) && StatusMatch && StatusDoesNotMatch) {
-        await this.infoLog(`was ${CharacteristicValue === Value ? StatusMatch : StatusDoesNotMatch}`)
+      await this.debugLog(`updateCharacteristic ${CharacteristicName}: ${CharacteristicValue} (${CharacteristicValue === Value ? StatusMatch : StatusDoesNotMatch})`)
+      if (contextBefore !== CharacteristicValue) {
+        // Value actually changed - push update to HomeKit
+        Service.updateCharacteristic(Characteristic, CharacteristicValue)
+        // Only log state change messages when we had a prior known value (not initial discovery)
+        if (contextBefore !== undefined && StatusMatch && StatusDoesNotMatch) {
+          await this.infoLog(`was ${CharacteristicValue === Value ? StatusMatch : StatusDoesNotMatch}`)
+        }
       }
     }
   }
