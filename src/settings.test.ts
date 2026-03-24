@@ -53,6 +53,7 @@ describe('settings', () => {
   it('should define options interface', () => {
     const opts: options = {
       devices: [],
+      excludeLockIds: ['LOCK-ID-TO-EXCLUDE'],
       allowInvalidCharacters: true,
       refreshRate: 60,
       updateRate: 60,
@@ -61,6 +62,7 @@ describe('settings', () => {
     }
     expect(opts.refreshRate).toBe(60)
     expect(opts.logging).toBe('debug')
+    expect(opts.excludeLockIds).toContain('LOCK-ID-TO-EXCLUDE')
   })
 
   it('should define device interface', () => {

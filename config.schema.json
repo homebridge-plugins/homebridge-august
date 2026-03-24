@@ -351,6 +351,16 @@
             },
             "uniqueItems": true
           },
+          "excludeLockIds": {
+            "title": "Exclude Lock IDs",
+            "type": "array",
+            "items": {
+              "title": "Lock ID",
+              "type": "string",
+              "placeholder": "TSSQ97FRDMX7TPGU3Z2HWNRDPQXJ9YSM"
+            },
+            "description": "List of Lock IDs to exclude from HomeKit. Locks with these IDs will not be discovered or registered."
+          },
           "refreshRate": {
             "title": "Refresh Rate",
             "type": "number",
@@ -488,6 +498,17 @@
           "description": "<em class='primary-text'>Specifies the interval, in seconds, between pushes to the August API.</em>"
         },
         "options.logging",
+        {
+          "key": "options.excludeLockIds",
+          "type": "array",
+          "title": "Exclude Lock IDs",
+          "expandable": true,
+          "expanded": false,
+          "orderable": false,
+          "items": [
+            "options.excludeLockIds[]"
+          ]
+        },
         "options.allowInvalidCharacters",
         "options.disableCountryCodeNormalization"
       ]

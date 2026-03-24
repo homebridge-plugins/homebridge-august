@@ -32,6 +32,7 @@ export interface credentials {
 
 export interface options {
   devices?: devicesConfig[]
+  excludeLockIds?: string[]
   allowInvalidCharacters?: boolean
   refreshRate?: number
   updateRate?: number
