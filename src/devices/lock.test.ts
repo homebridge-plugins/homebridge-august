@@ -107,7 +107,7 @@ describe('parseStatus uses lockStatus not lockEvent', () => {
 
   it('should log lockStatus in parseStatus warn messages', () => {
     // The locking/unlocking warn log and UNKNOWN warn log should reference lockStatus
-    expect(parseStatusBody).toContain('lockStatus: ${JSON.stringify(this.lockStatus)}')
+    expect(parseStatusBody).toMatch(/lockStatus: \$\{JSON\.stringify\(this\.lockStatus\)\}/)
     expect(parseStatusBody).not.toMatch(/lockEvent: \$\{JSON\.stringify\(this\.lockEvent\)\}/)
   })
 
