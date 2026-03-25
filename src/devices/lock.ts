@@ -192,9 +192,9 @@ export class LockMechanism extends deviceBase {
         this.platform.augustConfig.addSimpleProps(this.lockStatus)
         if (this.LockMechanism && (this.lockStatus.state.unlocking || this.lockStatus.state.locking)) {
           await this.warnLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}, locking/unlocking parseStatus`
-            + ` lockEvent: ${JSON.stringify(this.lockEvent)}`)
+            + ` lockStatus: ${JSON.stringify(this.lockStatus)}`)
         }
-        if (!this.device.lock?.hide_lock && this.LockMechanism?.Service && (this.lockEvent.state.locked !== this.lockEvent.state.unlocked)) {
+        if (!this.device.lock?.hide_lock && this.LockMechanism?.Service && (this.lockStatus.state.locked !== this.lockStatus.state.unlocked)) {
           this.LockMechanism.LockCurrentState = this.lockStatus.state.locked
             ? this.hap.Characteristic.LockCurrentState.SECURED
             : this.lockStatus.state.unlocked
@@ -204,7 +204,7 @@ export class LockMechanism extends deviceBase {
 
           if (this.LockMechanism.LockCurrentState === this.hap.Characteristic.LockCurrentState.UNKNOWN) {
             await this.warnLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}, (UNKNOWN) parseStatus`
-              + ` lockEvent: ${JSON.stringify(this.lockEvent)}`)
+              + ` lockStatus: ${JSON.stringify(this.lockStatus)}`)
           }
           await this.debugLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}`)
           await this.debugLog(`LockTargetState: ${this.LockMechanism.LockTargetState}`)
