@@ -74,8 +74,8 @@ export class LockMechanism extends deviceBase {
       this.LockMechanism = {
         Name: accessory.displayName,
         Service: accessory.getService(this.hap.Service.LockMechanism) ?? accessory.addService(this.hap.Service.LockMechanism) as Service,
-        LockTargetState: accessory.context.LockTargetState ?? this.hap.Characteristic.LockTargetState.SECURED,
-        LockCurrentState: accessory.context.LockCurrentState ?? this.hap.Characteristic.LockCurrentState.SECURED,
+        LockTargetState: accessory.context.LockMechanismLockTargetState ?? this.hap.Characteristic.LockTargetState.SECURED,
+        LockCurrentState: accessory.context.LockMechanismLockCurrentState ?? this.hap.Characteristic.LockCurrentState.SECURED,
       }
       accessory.context.LockMechanism = this.LockMechanism as object
       // Seed context keys for updateCharacteristic change detection
@@ -103,7 +103,7 @@ export class LockMechanism extends deviceBase {
       this.ContactSensor = {
         Name: `${accessory.displayName} Contact Sensor`,
         Service: accessory.getService(this.hap.Service.ContactSensor) ?? accessory.addService(this.hap.Service.ContactSensor) as Service,
-        ContactSensorState: accessory.context.ContactSensorState ?? this.hap.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED,
+        ContactSensorState: accessory.context.ContactSensorContactSensorState ?? this.hap.Characteristic.ContactSensorState.CONTACT_DETECTED,
       }
       accessory.context.ContactSensor = this.ContactSensor as object
       // Seed context key for updateCharacteristic change detection
@@ -122,8 +122,8 @@ export class LockMechanism extends deviceBase {
     this.Battery = {
       Name: `${accessory.displayName} Battery`,
       Service: accessory.getService(this.hap.Service.Battery) ?? accessory.addService(this.hap.Service.Battery) as Service,
-      BatteryLevel: accessory.context.BatteryLevel ?? 100,
-      StatusLowBattery: accessory.context.StatusLowBattery ?? this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
+      BatteryLevel: accessory.context.BatteryBatteryLevel ?? 100,
+      StatusLowBattery: accessory.context.BatteryStatusLowBattery ?? this.hap.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
       ChargingState: accessory.context.ChargingState ?? this.hap.Characteristic.ChargingState.NOT_CHARGING,
     }
     accessory.context.Battery = this.Battery as object
@@ -444,7 +444,7 @@ export class LockMechanism extends deviceBase {
           + ` LockCurrentState: ${this.LockMechanism.LockCurrentState}`)
       }
 
-      this.accessory.context.LockTargetState = this.LockMechanism.LockTargetState = value
+      this.accessory.context.LockMechanismLockTargetState = this.LockMechanism.LockTargetState = value
       this.doLockUpdate.next()
     }
   }
