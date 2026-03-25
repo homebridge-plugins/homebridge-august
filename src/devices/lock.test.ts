@@ -78,3 +78,53 @@ describe('lock context seeding for change detection', () => {
     expect(batteryLowLine).not.toBeNull()
   })
 })
+
+describe('parseStatus uses lockStatus not lockEvent', () => {
+  const lockTsPath = join(__dirname, 'lock.ts')
+  const lockTsContent = readFileSync(lockTsPath, 'utf8')
+
+  // Extract the two methods so we can assert on each independently
+  const parseStatusMatch = lockTsContent.match(/async parseStatus\(\)[\s\S]*?(?=\n {2}async parseEventStatus)/)
+  const parseEventStatusMatch = lockTsContent.match(/async parseEventStatus\(\)[\s\S]*?(?=\n {2}\/\*\*|\n {2}async refreshStatus)/)
+  const parseStatusBody = parseStatusMatch?.[0] ?? ''
+  const parseEventStatusBody = parseEventStatusMatch?.[0] ?? ''
+
+  it('should have extractable parseStatus and parseEventStatus methods', () => {
+    expect(parseStatusBody.length).toBeGreaterThan(0)
+    expect(parseEventStatusBody.length).toBeGreaterThan(0)
+  })
+
+  it('should use lockStatus.state for the guard condition in parseStatus', () => {
+    // The definitive-state check must reference lockStatus, not lockEvent
+    expect(parseStatusBody).toContain('this.lockStatus.state.locked !== this.lockStatus.state.unlocked')
+  })
+
+  it('should NOT reference lockEvent.state in parseStatus guard condition', () => {
+    // Regression guard: lockEvent is undefined on startup when parseStatus runs
+    expect(parseStatusBody).not.toContain('this.lockEvent.state.locked')
+    expect(parseStatusBody).not.toContain('this.lockEvent.state.unlocked')
+  })
+
+  it('should log lockStatus in parseStatus warn messages', () => {
+    // The locking/unlocking warn log and UNKNOWN warn log should reference lockStatus
+    expect(parseStatusBody).toContain('lockStatus: ${JSON.stringify(this.lockStatus)}')
+    expect(parseStatusBody).not.toMatch(/lockEvent: \$\{JSON\.stringify\(this\.lockEvent\)\}/)
+  })
+
+  it('should still use lockEvent.state in parseEventStatus', () => {
+    // parseEventStatus handles PubNub subscription events where lockEvent IS populated
+    expect(parseEventStatusBody).toContain('this.lockEvent.state.locked !== this.lockEvent.state.unlocked')
+    expect(parseEventStatusBody).toContain('this.lockEvent.state.locked')
+  })
+
+  it('should guard parseEventStatus with an if (this.lockEvent) check', () => {
+    // parseEventStatus must be guarded so it only runs when lockEvent is defined
+    expect(parseEventStatusBody).toMatch(/if\s*\(this\.lockEvent\)/)
+  })
+
+  it('should still derive LockCurrentState from lockStatus.state in parseStatus', () => {
+    // The actual state assignment inside the guard should use lockStatus
+    expect(parseStatusBody).toContain('this.lockStatus.state.locked')
+    expect(parseStatusBody).toContain('this.lockStatus.state.unlocked')
+  })
+})
