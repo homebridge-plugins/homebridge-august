@@ -427,6 +427,144 @@ describe('AugustPlatform', () => {
       // So Lock gets called with [device] instead of device
       expect(lockSpy).toHaveBeenCalledWith([mockDevice])
     })
+
+    it('should exclude locks matching excludeLockIds', async () => {
+      const configWithExcludes: AugustPlatformConfig = {
+        ...mockConfig,
+        options: {
+          logging: 'debug',
+          excludeLockIds: ['excluded-lock-id'],
+        },
+      }
+
+      platform = new AugustPlatform(mockLog, configWithExcludes, mockApi)
+
+      const August = await import('august-yale')
+      const mockDeviceIncluded = { lockId: 'included-lock-id', LockName: 'Included Lock' } as any
+      const mockDeviceExcluded = { lockId: 'excluded-lock-id', LockName: 'Excluded Lock' } as any
+      August.default.details = vi.fn().mockResolvedValueOnce([mockDeviceIncluded, mockDeviceExcluded])
+
+      const lockSpy = vi.spyOn(platform as any, 'Lock').mockImplementation(async () => {})
+
+      await platform.discoverDevices()
+
+      // Only the non-excluded lock should be processed
+      expect(lockSpy).toHaveBeenCalledTimes(1)
+      expect(lockSpy).toHaveBeenCalledWith(expect.objectContaining({ lockId: 'included-lock-id' }))
+    })
+
+    it('should handle case-insensitive excludeLockIds matching', async () => {
+      const configWithExcludes: AugustPlatformConfig = {
+        ...mockConfig,
+        options: {
+          logging: 'debug',
+          excludeLockIds: ['EXCLUDED-LOCK-ID'],
+        },
+      }
+
+      platform = new AugustPlatform(mockLog, configWithExcludes, mockApi)
+
+      const August = await import('august-yale')
+      const mockDeviceIncluded = { lockId: 'included-lock-id', LockName: 'Included Lock' } as any
+      const mockDeviceExcluded = { lockId: 'excluded-lock-id', LockName: 'Excluded Lock' } as any
+      August.default.details = vi.fn().mockResolvedValueOnce([mockDeviceIncluded, mockDeviceExcluded])
+
+      const lockSpy = vi.spyOn(platform as any, 'Lock').mockImplementation(async () => {})
+
+      await platform.discoverDevices()
+
+      expect(lockSpy).toHaveBeenCalledTimes(1)
+      expect(lockSpy).toHaveBeenCalledWith(expect.objectContaining({ lockId: 'included-lock-id' }))
+    })
+
+    it('should unregister cached accessories for excluded lock IDs', async () => {
+      const configWithExcludes: AugustPlatformConfig = {
+        ...mockConfig,
+        options: {
+          logging: 'debug',
+          excludeLockIds: ['excluded-lock-id'],
+        },
+      }
+
+      // Make uuid.generate return predictable UUIDs based on input
+      vi.mocked(mockApi.hap.uuid.generate).mockImplementation((input: any) => `uuid-${input}`)
+
+      platform = new AugustPlatform(mockLog, configWithExcludes, mockApi)
+
+      // Simulate a cached accessory for the excluded lock
+      const mockAccessory = {
+        UUID: 'uuid-excluded-lock-id',
+        displayName: 'Excluded Lock',
+      } as unknown as PlatformAccessory
+      platform.accessories.push(mockAccessory)
+
+      const August = await import('august-yale')
+      const mockDevice = { lockId: 'included-lock-id', LockName: 'Included Lock' } as any
+      August.default.details = vi.fn().mockResolvedValueOnce([mockDevice])
+
+      vi.spyOn(platform as any, 'Lock').mockImplementation(async () => {})
+
+      await platform.discoverDevices()
+
+      // Verify the cached accessory was unregistered
+      expect(mockApi.unregisterPlatformAccessories).toHaveBeenCalledWith(
+        'homebridge-august',
+        'August',
+        [mockAccessory],
+      )
+      // Verify the accessory was removed from the accessories array
+      expect(platform.accessories.find(a => a.UUID === 'uuid-excluded-lock-id')).toBeUndefined()
+    })
+
+    it('should not filter when excludeLockIds is empty', async () => {
+      const configWithEmptyExcludes: AugustPlatformConfig = {
+        ...mockConfig,
+        options: {
+          logging: 'debug',
+          excludeLockIds: [],
+        },
+      }
+
+      platform = new AugustPlatform(mockLog, configWithEmptyExcludes, mockApi)
+
+      const August = await import('august-yale')
+      const mockDeviceA = { lockId: 'lock-a', LockName: 'Lock A' } as any
+      const mockDeviceB = { lockId: 'lock-b', LockName: 'Lock B' } as any
+      August.default.details = vi.fn().mockResolvedValueOnce([mockDeviceA, mockDeviceB])
+
+      const lockSpy = vi.spyOn(platform as any, 'Lock').mockImplementation(async () => {})
+
+      await platform.discoverDevices()
+
+      expect(lockSpy).toHaveBeenCalledTimes(2)
+    })
+
+    it('should exclude locks when using per-device config', async () => {
+      const configWithBoth: AugustPlatformConfig = {
+        ...mockConfig,
+        options: {
+          logging: 'debug',
+          excludeLockIds: ['excluded-lock-id'],
+          devices: [
+            { lockId: 'included-lock-id', configLockName: 'My Lock', overrideHomeKitEnabled: false } as any,
+          ],
+        },
+      }
+
+      platform = new AugustPlatform(mockLog, configWithBoth, mockApi)
+
+      const August = await import('august-yale')
+      const mockDeviceIncluded = { lockId: 'included-lock-id', LockName: 'Included Lock' } as any
+      const mockDeviceExcluded = { lockId: 'excluded-lock-id', LockName: 'Excluded Lock' } as any
+      August.default.details = vi.fn().mockResolvedValueOnce([mockDeviceIncluded, mockDeviceExcluded])
+
+      const lockSpy = vi.spyOn(platform as any, 'Lock').mockImplementation(async () => {})
+
+      await platform.discoverDevices()
+
+      // Only the included lock should reach the Lock method
+      expect(lockSpy).toHaveBeenCalledTimes(1)
+    })
   })
 
   describe('validated method', () => {

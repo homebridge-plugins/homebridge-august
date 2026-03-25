@@ -340,6 +340,32 @@ export class AugustPlatform implements DynamicPlatformPlugin {
         deviceLists = [devices]
         await this.infoLog(`Total August Locks Found: ${deviceLists.length}`)
       }
+
+      // Filter out excluded lock IDs before processing
+      const excludeLockIds = this.config.options?.excludeLockIds ?? []
+      if (excludeLockIds.length > 0) {
+        const normalizedExcludeIds = excludeLockIds.map(id => id.toUpperCase().replace(/[^A-Z0-9]+/g, ''))
+        const beforeCount = deviceLists.length
+        deviceLists = deviceLists.filter((device: any) => {
+          const normalizedLockId = (device.lockId ?? device.LockId ?? '').toUpperCase().replace(/[^A-Z0-9]+/g, '')
+          return !normalizedExcludeIds.includes(normalizedLockId)
+        })
+        const excludedCount = beforeCount - deviceLists.length
+        if (excludedCount > 0) {
+          await this.infoLog(`Excluded ${excludedCount} lock(s) via excludeLockIds config.`)
+        }
+        // Unregister cached accessories for excluded lock IDs
+        for (const excludedId of excludeLockIds) {
+          const uuid = this.api.hap.uuid.generate(excludedId)
+          const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
+          if (existingAccessory) {
+            this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory])
+            this.accessories = this.accessories.filter(accessory => accessory.UUID !== uuid)
+            await this.warnLog(`Removing excluded accessory from cache: ${existingAccessory.displayName} (${excludedId})`)
+          }
+        }
+      }
+
       if (!this.config.options?.devices) {
         await this.debugWarnLog(`August Platform Config Not Set: ${JSON.stringify(this.config.options?.devices)}`)
         const devices = deviceLists.map((v: any) => v)
