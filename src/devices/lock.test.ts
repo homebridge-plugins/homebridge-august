@@ -128,3 +128,50 @@ describe('parseStatus uses lockStatus not lockEvent', () => {
     expect(parseStatusBody).toContain('this.lockStatus.state.unlocked')
   })
 })
+
+describe('lock commands are not dropped during updates', () => {
+  const lockTsPath = join(__dirname, 'lock.ts')
+  const lockTsContent = readFileSync(lockTsPath, 'utf8')
+
+  const parseStatusMatch = lockTsContent.match(/async parseStatus\(\)[\s\S]*?(?=\n {2}async parseEventStatus)/)
+  const parseEventStatusMatch = lockTsContent.match(/async parseEventStatus\(\)[\s\S]*?(?=\n {2}\/\*\*|\n {2}async refreshStatus)/)
+  const parseStatusBody = parseStatusMatch?.[0] ?? ''
+  const parseEventStatusBody = parseEventStatusMatch?.[0] ?? ''
+
+  it('should use filter (not skipWhile) on the refresh interval', () => {
+    // skipWhile only suppresses at the start of the stream and then permanently
+    // stops filtering. filter evaluates on every emission.
+    expect(lockTsContent).toContain('filter(() => !this.lockUpdateInProgress)')
+    expect(lockTsContent).not.toContain('skipWhile')
+  })
+
+  it('should import filter from rxjs/operators', () => {
+    expect(lockTsContent).toMatch(/import\s*\{[^}]*filter[^}]*\}\s*from\s*'rxjs\/operators'/)
+  })
+
+  it('should guard LockTargetState sync in parseStatus with lockUpdateInProgress', () => {
+    // parseStatus must NOT unconditionally overwrite TargetState, or it will
+    // erase the user's lock/unlock intent before pushChanges can act on it
+    expect(parseStatusBody).toContain('if (!this.lockUpdateInProgress)')
+    expect(parseStatusBody).toContain('this.LockMechanism.LockTargetState = this.LockMechanism.LockCurrentState')
+  })
+
+  it('should guard LockTargetState sync in parseEventStatus with lockUpdateInProgress', () => {
+    // PubNub events arrive continuously and must not reset TargetState during updates
+    expect(parseEventStatusBody).toContain('if (!this.lockUpdateInProgress)')
+    expect(parseEventStatusBody).toContain('this.LockMechanism.LockTargetState = this.LockMechanism.LockCurrentState')
+  })
+
+  it('should always update LockCurrentState regardless of lockUpdateInProgress', () => {
+    // LockCurrentState should reflect the physical lock state at all times.
+    // The lockUpdateInProgress guard must only wrap TargetState, not CurrentState.
+    // Verify that the CurrentState assignment is NOT inside the guard.
+    const parseStatusCurrentAssign = parseStatusBody.indexOf('this.LockMechanism.LockCurrentState = this.lockStatus.state.locked')
+    const parseStatusGuard = parseStatusBody.indexOf('if (!this.lockUpdateInProgress)')
+    expect(parseStatusCurrentAssign).toBeLessThan(parseStatusGuard)
+
+    const parseEventCurrentAssign = parseEventStatusBody.indexOf('this.LockMechanism.LockCurrentState = this.lockEvent.state.locked')
+    const parseEventGuard = parseEventStatusBody.indexOf('if (!this.lockUpdateInProgress)')
+    expect(parseEventCurrentAssign).toBeLessThan(parseEventGuard)
+  })
+})

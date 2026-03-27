@@ -9,7 +9,7 @@ import type { device, devicesConfig, lockDetails, lockEvent, lockStatus } from '
  */
 import August from 'august-yale'
 import { interval, Subject } from 'rxjs'
-import { debounceTime, skipWhile, tap } from 'rxjs/operators'
+import { debounceTime, filter, tap } from 'rxjs/operators'
 
 import { deviceBase } from './device.js'
 
@@ -153,7 +153,7 @@ export class LockMechanism extends deviceBase {
 
     // Start an update interval
     interval(this.deviceRefreshRate * 1000)
-      .pipe(skipWhile(() => this.lockUpdateInProgress))
+      .pipe(filter(() => !this.lockUpdateInProgress))
       .subscribe(async () => {
         await this.refreshStatus()
       })
@@ -200,7 +200,9 @@ export class LockMechanism extends deviceBase {
             : this.lockStatus.state.unlocked
               ? this.hap.Characteristic.LockCurrentState.UNSECURED
               : retryCount > 1 ? this.hap.Characteristic.LockCurrentState.JAMMED : this.hap.Characteristic.LockCurrentState.UNKNOWN
-          this.LockMechanism.LockTargetState = this.LockMechanism.LockCurrentState
+          if (!this.lockUpdateInProgress) {
+            this.LockMechanism.LockTargetState = this.LockMechanism.LockCurrentState
+          }
 
           if (this.LockMechanism.LockCurrentState === this.hap.Characteristic.LockCurrentState.UNKNOWN) {
             await this.warnLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}, (UNKNOWN) parseStatus`
@@ -272,7 +274,9 @@ export class LockMechanism extends deviceBase {
             : this.lockEvent.state.unlocked
               ? this.hap.Characteristic.LockCurrentState.UNSECURED
               : retryCount > 1 ? this.hap.Characteristic.LockCurrentState.JAMMED : this.hap.Characteristic.LockCurrentState.UNKNOWN
-          this.LockMechanism.LockTargetState = this.LockMechanism.LockCurrentState
+          if (!this.lockUpdateInProgress) {
+            this.LockMechanism.LockTargetState = this.LockMechanism.LockCurrentState
+          }
 
           if (this.LockMechanism.LockCurrentState === this.hap.Characteristic.LockCurrentState.UNKNOWN) {
             await this.warnLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}, (UNKNOWN) parseEventStatus`
