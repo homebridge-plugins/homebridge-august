@@ -201,6 +201,8 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   async augustCredentials() {
     if (!this.config.credentials) {
       throw new Error('Missing Credentials')
+    } else if (this.augustConfig) {
+      await this.debugLog('August API instance already initialized, skipping')
     } else {
       // Create normalized credentials for August API compatibility
       const normalizedCredentials = await this.normalizeCredentialsForApi(this.config.credentials)
@@ -295,12 +297,13 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       if (this.augustConfig) {
         await this.debugLog('Refreshing August session due to timeout error')
         this.augustConfig.end() // Clear the current token to force re-authentication
+        this.augustConfig = undefined as any // Allow augustCredentials() to create a fresh instance
+        await this.augustCredentials()
         await this.debugLog('August session refreshed successfully')
       }
     } catch (e: any) {
       await this.errorLog(`Failed to refresh August session: ${e.message ?? e}`)
     }
-
   }
 
   async pluginConfig() {
@@ -329,6 +332,11 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   async discoverDevices() {
     // August Locks
     try {
+      // Ensure the August API instance is initialized before processing
+      // devices. augustCredentials() is idempotent — safe to call if
+      // already initialized (e.g. from the validated() path).
+      await this.augustCredentials()
+
       const normalizedCredentials = await this.normalizeCredentialsForApi(this.config.credentials!)
       const devices = await August.details(normalizedCredentials, '')
       
