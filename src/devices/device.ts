@@ -57,16 +57,19 @@ export abstract class deviceBase {
   }
 
   async getDeviceRateSettings(device: devicesConfig): Promise<void> {
-    // refreshRate
+    // Set all rate properties synchronously before any await
+    // This is critical because the constructor cannot await this method,
+    // so only code before the first await is guaranteed to run before
+    // the LockMechanism constructor uses these values.
     this.deviceRefreshRate = device.refreshRate ?? this.platform.platformRefreshRate ?? 30
+    this.deviceUpdateRate = device.updateRate ?? this.platform.platformUpdateRate ?? 5
+    this.devicePushRate = device.pushRate ?? this.platform.platformPushRate ?? 1
+
+    // Log after all assignments are complete
     const refreshRate = device.refreshRate ? 'Device Config' : this.platform.platformRefreshRate ? 'Platform Config' : 'Default'
     await this.debugLog(`Using ${refreshRate} refreshRate: ${this.deviceRefreshRate}`)
-    // updateRate
-    this.deviceUpdateRate = device.updateRate ?? this.platform.platformUpdateRate ?? 5
     const updateRate = device.updateRate ? 'Device Config' : this.platform.platformUpdateRate ? 'Platform Config' : 'Default'
     await this.debugLog(`Using ${updateRate} updateRate: ${this.deviceUpdateRate}`)
-    // pushRate
-    this.devicePushRate = device.pushRate ?? this.platform.platformPushRate ?? 1
     const pushRate = device.pushRate ? 'Device Config' : this.platform.platformPushRate ? 'Platform Config' : 'Default'
     await this.debugLog(`Using ${pushRate} pushRate: ${this.devicePushRate}`)
   }
