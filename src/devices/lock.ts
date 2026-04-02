@@ -148,8 +148,9 @@ export class LockMechanism extends deviceBase {
     // Initial Device Refresh
     this.refreshStatus()
 
-    // Subscribe to august changes
+    // Subscribe to august changes and register for re-subscription after session refresh
     this.subscribeAugust()
+    this.platform.registerResubscribeCallback(() => this.subscribeAugust())
 
     // Start an update interval
     interval(this.deviceRefreshRate * 1000)
