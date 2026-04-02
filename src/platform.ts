@@ -37,6 +37,11 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   // August API
   augustConfig!: August
 
+  // Session refresh: promise coalescing ensures concurrent 502s from
+  // multiple locks share a single refresh instead of cascading.
+  private sessionRefreshPromise?: Promise<void>
+  private readonly resubscribeCallbacks = new Map<string, () => Promise<void>>()
+
   // Cached normalized credentials for performance
   private normalizedCredentialsCache?: credentials
 
@@ -290,17 +295,53 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   }
 
   /**
-   * Refresh August session by clearing current token
+   * Register a callback to re-establish a lock's PubNub subscription
+   * after a session refresh. Called by each LockMechanism during construction.
+   */
+  public registerResubscribeCallback(lockId: string, callback: () => Promise<void>): void {
+    this.resubscribeCallbacks.set(lockId, callback)
+  }
+
+  public unregisterResubscribeCallback(lockId: string): void {
+    this.resubscribeCallbacks.delete(lockId)
+  }
+
+  /**
+   * Refresh the August session and re-subscribe all locks.
+   *
+   * Uses promise coalescing: if multiple locks hit 502 simultaneously,
+   * they all await the same refresh promise instead of each triggering
+   * their own. This prevents the cascade where Lock A's refresh destroys
+   * Lock B's fresh instance.
    */
   async refreshAugustSession(): Promise<void> {
+    if (this.sessionRefreshPromise) {
+      return this.sessionRefreshPromise
+    }
+    this.sessionRefreshPromise = this.executeSessionRefresh()
+    try {
+      await this.sessionRefreshPromise
+    } finally {
+      this.sessionRefreshPromise = undefined
+    }
+  }
+
+  private async executeSessionRefresh(): Promise<void> {
     try {
       if (this.augustConfig) {
-        await this.debugLog('Refreshing August session due to timeout error')
-        this.augustConfig.end() // Clear the current token to force re-authentication
-        this.augustConfig = undefined as any // Allow augustCredentials() to create a fresh instance
-        await this.augustCredentials()
-        await this.debugLog('August session refreshed successfully')
+        await this.warnLog('Refreshing August session due to timeout error')
+        this.augustConfig.end()
+        this.augustConfig = undefined as any
       }
+      await this.augustCredentials()
+      for (const resubscribe of this.resubscribeCallbacks.values()) {
+        try {
+          await resubscribe()
+        } catch (e: any) {
+          await this.errorLog(`Failed to re-subscribe lock after session refresh: ${e.message ?? e}`)
+        }
+      }
+      await this.warnLog('August session refreshed and all locks re-subscribed')
     } catch (e: any) {
       await this.errorLog(`Failed to refresh August session: ${e.message ?? e}`)
     }
@@ -368,6 +409,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
           const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
           if (existingAccessory) {
             this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory])
+            this.unregisterResubscribeCallback(excludedId)
             this.accessories = this.accessories.filter(accessory => accessory.UUID !== uuid)
             await this.warnLog(`Removing excluded accessory from cache: ${existingAccessory.displayName} (${excludedId})`)
           }
@@ -537,6 +579,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   public async unregisterPlatformAccessories(existingAccessory: PlatformAccessory, device: device & devicesConfig) {
     // remove platform accessories when no longer present
     this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory])
+    this.unregisterResubscribeCallback(device.lockId)
     await this.warnLog(`Removing existing accessory from cache: ${device.LockName}`)
   }
 

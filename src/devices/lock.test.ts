@@ -175,3 +175,75 @@ describe('lock commands are not dropped during updates', () => {
     expect(parseEventCurrentAssign).toBeLessThan(parseEventGuard)
   })
 })
+
+describe('session refresh prevents 502 cascade', () => {
+  const lockTsPath = join(__dirname, 'lock.ts')
+  const lockTsContent = readFileSync(lockTsPath, 'utf8')
+  const platformTsPath = join(__dirname, '..', 'platform.ts')
+  const platformTsContent = readFileSync(platformTsPath, 'utf8')
+
+  // Extract refreshAugustSession and executeSessionRefresh
+  const refreshMatch = platformTsContent.match(/async refreshAugustSession\(\)[\s\S]*?(?=\n {2}private async executeSessionRefresh)/)
+  const executeMatch = platformTsContent.match(/private async executeSessionRefresh\(\)[\s\S]*?(?=\n {2}async pluginConfig)/)
+  const refreshBody = refreshMatch?.[0] ?? ''
+  const executeBody = executeMatch?.[0] ?? ''
+
+  it('should have extractable refreshAugustSession and executeSessionRefresh methods', () => {
+    expect(refreshBody.length).toBeGreaterThan(0)
+    expect(executeBody.length).toBeGreaterThan(0)
+  })
+
+  it('should use promise coalescing, not a boolean flag', () => {
+    // Promise coalescing: concurrent callers share the same promise.
+    // Boolean flag causes "skip" — callers retry with a dead instance.
+    expect(refreshBody).toContain('this.sessionRefreshPromise')
+    expect(platformTsContent).not.toContain('sessionRefreshInProgress')
+  })
+
+  it('should return the existing promise when a refresh is already in progress', () => {
+    // This is the coalescing: callers await the in-flight refresh
+    // instead of starting their own or skipping entirely
+    expect(refreshBody).toContain('return this.sessionRefreshPromise')
+  })
+
+  it('should clear the promise after refresh completes', () => {
+    // Ensures the next 502 triggers a fresh refresh
+    expect(refreshBody).toContain('this.sessionRefreshPromise = undefined')
+  })
+
+  it('should re-subscribe all locks after cycling the instance', () => {
+    // Without re-subscription, end() kills all PubNub subscriptions
+    // and they are never re-established — causing hours of 502s
+    expect(executeBody).toContain('for (const resubscribe of this.resubscribeCallbacks.values())')
+  })
+
+  it('should end the old instance before creating a new one', () => {
+    const endCall = executeBody.indexOf('.end()')
+    const nullAssign = executeBody.indexOf('this.augustConfig = undefined')
+    const credentialsCall = executeBody.indexOf('this.augustCredentials()')
+    const resubscribeLoop = executeBody.indexOf('for (const resubscribe')
+
+    // Verify the order: end → null → create → resubscribe
+    expect(endCall).toBeGreaterThan(-1)
+    expect(nullAssign).toBeGreaterThan(endCall)
+    expect(credentialsCall).toBeGreaterThan(nullAssign)
+    expect(resubscribeLoop).toBeGreaterThan(credentialsCall)
+  })
+
+  it('should register a resubscribe callback keyed by lockId in the lock constructor', () => {
+    expect(lockTsContent).toMatch(/this\.platform\.registerResubscribeCallback\(this\.device\.lockId,/)
+  })
+
+  it('should use a Map for resubscribe callbacks to allow cleanup by lockId', () => {
+    expect(platformTsContent).toContain('new Map<string, () => Promise<void>>()')
+  })
+
+  it('should expose registerResubscribeCallback and unregisterResubscribeCallback', () => {
+    expect(platformTsContent).toMatch(/public registerResubscribeCallback\(lockId: string,/)
+    expect(platformTsContent).toMatch(/public unregisterResubscribeCallback\(lockId: string\)/)
+  })
+
+  it('should clean up resubscribe callback when unregistering accessories', () => {
+    expect(platformTsContent).toMatch(/unregisterResubscribeCallback\(device\.lockId\)/)
+  })
+})
