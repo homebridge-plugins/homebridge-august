@@ -40,7 +40,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   // Session refresh: promise coalescing ensures concurrent 502s from
   // multiple locks share a single refresh instead of cascading.
   private sessionRefreshPromise?: Promise<void>
-  private readonly resubscribeCallbacks: (() => Promise<void>)[] = []
+  private readonly resubscribeCallbacks = new Map<string, () => Promise<void>>()
 
   // Cached normalized credentials for performance
   private normalizedCredentialsCache?: credentials
@@ -298,8 +298,12 @@ export class AugustPlatform implements DynamicPlatformPlugin {
    * Register a callback to re-establish a lock's PubNub subscription
    * after a session refresh. Called by each LockMechanism during construction.
    */
-  public registerResubscribeCallback(callback: () => Promise<void>): void {
-    this.resubscribeCallbacks.push(callback)
+  public registerResubscribeCallback(lockId: string, callback: () => Promise<void>): void {
+    this.resubscribeCallbacks.set(lockId, callback)
+  }
+
+  public unregisterResubscribeCallback(lockId: string): void {
+    this.resubscribeCallbacks.delete(lockId)
   }
 
   /**
@@ -330,7 +334,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
         this.augustConfig = undefined as any
       }
       await this.augustCredentials()
-      for (const resubscribe of this.resubscribeCallbacks) {
+      for (const resubscribe of this.resubscribeCallbacks.values()) {
         try {
           await resubscribe()
         } catch (e: any) {
@@ -405,6 +409,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
           const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
           if (existingAccessory) {
             this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory])
+            this.unregisterResubscribeCallback(excludedId)
             this.accessories = this.accessories.filter(accessory => accessory.UUID !== uuid)
             await this.warnLog(`Removing excluded accessory from cache: ${existingAccessory.displayName} (${excludedId})`)
           }
@@ -574,6 +579,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   public async unregisterPlatformAccessories(existingAccessory: PlatformAccessory, device: device & devicesConfig) {
     // remove platform accessories when no longer present
     this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory])
+    this.unregisterResubscribeCallback(device.lockId)
     await this.warnLog(`Removing existing accessory from cache: ${device.LockName}`)
   }
 

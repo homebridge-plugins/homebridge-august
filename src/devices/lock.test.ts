@@ -214,7 +214,7 @@ describe('session refresh prevents 502 cascade', () => {
   it('should re-subscribe all locks after cycling the instance', () => {
     // Without re-subscription, end() kills all PubNub subscriptions
     // and they are never re-established — causing hours of 502s
-    expect(executeBody).toContain('for (const resubscribe of this.resubscribeCallbacks)')
+    expect(executeBody).toContain('for (const resubscribe of this.resubscribeCallbacks.values())')
   })
 
   it('should end the old instance before creating a new one', () => {
@@ -230,11 +230,20 @@ describe('session refresh prevents 502 cascade', () => {
     expect(resubscribeLoop).toBeGreaterThan(credentialsCall)
   })
 
-  it('should register a resubscribe callback in the lock constructor', () => {
-    expect(lockTsContent).toContain('this.platform.registerResubscribeCallback(() => this.subscribeAugust())')
+  it('should register a resubscribe callback keyed by lockId in the lock constructor', () => {
+    expect(lockTsContent).toMatch(/this\.platform\.registerResubscribeCallback\(this\.device\.lockId,/)
   })
 
-  it('should expose registerResubscribeCallback as a public method', () => {
-    expect(platformTsContent).toMatch(/public registerResubscribeCallback\(/)
+  it('should use a Map for resubscribe callbacks to allow cleanup by lockId', () => {
+    expect(platformTsContent).toContain('new Map<string, () => Promise<void>>()')
+  })
+
+  it('should expose registerResubscribeCallback and unregisterResubscribeCallback', () => {
+    expect(platformTsContent).toMatch(/public registerResubscribeCallback\(lockId: string,/)
+    expect(platformTsContent).toMatch(/public unregisterResubscribeCallback\(lockId: string\)/)
+  })
+
+  it('should clean up resubscribe callback when unregistering accessories', () => {
+    expect(platformTsContent).toMatch(/unregisterResubscribeCallback\(device\.lockId\)/)
   })
 })
