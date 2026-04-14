@@ -2,13 +2,12 @@
  *
  * platform.matter.ts: homebridge-august Matter platform.
  */
-import type { MatterAccessory, PlatformAccessory } from 'homebridge'
+import type { MatterAccessory, MatterAPI, PlatformAccessory } from 'homebridge'
 
 import type { device, devicesConfig, lockEvent } from './settings.js'
 
 import August from 'august-yale'
 import { interval } from 'rxjs'
-import { filter } from 'rxjs/operators'
 
 import { AugustPlatform } from './platform.js'
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
@@ -52,7 +51,7 @@ export class AugustMatterPlatform extends AugustPlatform {
       return
     }
 
-    const matterApi = this.api.matter
+    const matterApi: MatterAPI = this.api.matter
     if (!matterApi) {
       await this.errorLog('Matter API is not available. Cannot register Matter accessory.')
       return
@@ -138,7 +137,7 @@ export class AugustMatterPlatform extends AugustPlatform {
   private async subscribeAugustMatter(
     device: device & devicesConfig,
     uuid: string,
-    matterApi: typeof this.api.matter,
+    matterApi: MatterAPI,
   ): Promise<void> {
     try {
       await this.augustCredentials()
@@ -185,7 +184,7 @@ export class AugustMatterPlatform extends AugustPlatform {
   private startMatterStatusPolling(
     device: device & devicesConfig,
     uuid: string,
-    matterApi: typeof this.api.matter,
+    matterApi: MatterAPI,
   ): void {
     const refreshRate = this.platformRefreshRate ?? 30
     if (refreshRate === 0) {
@@ -193,7 +192,6 @@ export class AugustMatterPlatform extends AugustPlatform {
     }
 
     interval(refreshRate * 1000)
-      .pipe(filter(() => true))
       .subscribe(async () => {
         try {
           if (this.augustConfig?.details) {

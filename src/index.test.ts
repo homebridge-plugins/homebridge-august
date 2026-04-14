@@ -112,4 +112,3 @@ describe('registerPlatform', () => {
     expect(instance.constructor.name).toBe('AugustPlatform')
   })
 })
-
