@@ -275,7 +275,7 @@ describe('AugustMatterPlatform', () => {
       expect(mockMatterApi.registerPlatformAccessories).not.toHaveBeenCalled()
     })
 
-    it('should set initial lockState to null (fetched on first poll)', async () => {
+    it('should set initial lockState to 0 (NotFullyLocked) until first poll resolves', async () => {
       platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
 
       const device = {
@@ -289,7 +289,7 @@ describe('AugustMatterPlatform', () => {
       await (platform as any).Lock(device)
 
       const registeredAccessory = mockMatterApi.registerPlatformAccessories.mock.calls[0][2][0] as MatterAccessory
-      expect(registeredAccessory.clusters?.doorLock?.lockState).toBeNull()
+      expect(registeredAccessory.clusters?.doorLock?.lockState).toBe(0)
     })
   })
 

@@ -56,8 +56,10 @@ export class AugustMatterPlatform extends AugustPlatform {
 
     const uuid = matterApi.uuid.generate(device.lockId)
 
-    if (!await this.registerDevice(device)) {
-      // Unregister any stale cached Matter accessory for this lock
+    // Determine whether the device should be registered. If not, clean up any stale Matter
+    // accessory from a previous session and return early.
+    const shouldRegister = await this.registerDevice(device)
+    if (!shouldRegister) {
       const staleAccessory = this.matterAccessories.get(uuid)
       if (staleAccessory) {
         await matterApi.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [staleAccessory])
@@ -90,8 +92,9 @@ export class AugustMatterPlatform extends AugustPlatform {
       },
       clusters: {
         doorLock: {
-          // LockState will be populated on the first polling tick (timer fires immediately at 0ms)
-          lockState: null,
+          // LockState: 0 = NotFullyLocked (unknown until first poll), 1 = Locked, 2 = Unlocked.
+          // timer(0, ...) fires immediately so accurate state is pushed on the first poll tick.
+          lockState: 0,
           lockType: 0, // 0 = DeadBolt
           actuatorEnabled: true,
           operatingMode: 0, // 0 = Normal
@@ -159,6 +162,7 @@ export class AugustMatterPlatform extends AugustPlatform {
           await this.debugLog(`Matter AugustEvent: ${JSON.stringify(augustEvent)}`)
           if (augustEvent.state) {
             let lockState: number
+            // If both flags are somehow set simultaneously, treat as Locked (fail-safe).
             if (augustEvent.state.locked) {
               lockState = 1 // Locked
             }
@@ -166,7 +170,7 @@ export class AugustMatterPlatform extends AugustPlatform {
               lockState = 2 // Unlocked
             }
             else {
-              lockState = 0 // NotFullyLocked
+              lockState = 0 // NotFullyLocked / unknown
             }
             try {
               await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState })
@@ -203,6 +207,7 @@ export class AugustMatterPlatform extends AugustPlatform {
         if (lockDetails?.LockStatus?.state) {
           const state = lockDetails.LockStatus.state
           let lockState: number
+          // If both flags are somehow set simultaneously, treat as Locked (fail-safe).
           if (state.locked) {
             lockState = 1 // Locked
           }
@@ -210,7 +215,7 @@ export class AugustMatterPlatform extends AugustPlatform {
             lockState = 2 // Unlocked
           }
           else {
-            lockState = 0 // NotFullyLocked
+            lockState = 0 // NotFullyLocked / unknown
           }
           await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState })
           await this.debugLog(`Matter: Poll updated lockState to ${lockState} for ${device.LockName}`)
