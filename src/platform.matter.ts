@@ -7,7 +7,8 @@ import type { MatterAccessory, MatterAPI, PlatformAccessory } from 'homebridge'
 import type { device, devicesConfig, lockEvent } from './settings.js'
 
 import August from 'august-yale'
-import { interval } from 'rxjs'
+import { timer } from 'rxjs'
+import { exhaustMap } from 'rxjs/operators'
 
 import { AugustPlatform } from './platform.js'
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
@@ -24,10 +25,13 @@ export class AugustMatterPlatform extends AugustPlatform {
 
   /**
    * Called when homebridge restores cached HAP accessories from disk at startup.
-   * Overridden to do nothing — this platform registers Matter accessories, not HAP accessories.
+   * Since this platform now registers Matter accessories instead of HAP accessories,
+   * any restored cached HAP accessories must be unregistered to avoid orphaned
+   * or duplicate accessories after migration from HAP to Matter.
    */
-  override async configureAccessory(_accessory: PlatformAccessory): Promise<void> {
-    // Not used for Matter accessories
+  override async configureAccessory(accessory: PlatformAccessory): Promise<void> {
+    this.log.debug(`Removing cached HAP accessory migrated to Matter: ${accessory.displayName}`)
+    this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
   }
 
   /**
@@ -44,13 +48,6 @@ export class AugustMatterPlatform extends AugustPlatform {
    * Overrides the HAP-based Lock() method from AugustPlatform.
    */
   protected override async Lock(device: device & devicesConfig): Promise<void> {
-    if (!await this.registerDevice(device)) {
-      await this.debugErrorLog(
-        `Unable to Register: ${device.LockName}, Lock ID: ${device.lockId} Check Config to see if is being Hidden.`,
-      )
-      return
-    }
-
     const matterApi: MatterAPI = this.api.matter
     if (!matterApi) {
       await this.errorLog('Matter API is not available. Cannot register Matter accessory.')
@@ -58,6 +55,21 @@ export class AugustMatterPlatform extends AugustPlatform {
     }
 
     const uuid = matterApi.uuid.generate(device.lockId)
+
+    if (!await this.registerDevice(device)) {
+      // Unregister any stale cached Matter accessory for this lock
+      const staleAccessory = this.matterAccessories.get(uuid)
+      if (staleAccessory) {
+        await matterApi.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [staleAccessory])
+        this.matterAccessories.delete(uuid)
+        await this.warnLog(`Removing stale Matter accessory: ${device.LockName} (${device.lockId})`)
+      }
+      await this.debugErrorLog(
+        `Unable to Register: ${device.LockName}, Lock ID: ${device.lockId} Check Config to see if is being Hidden.`,
+      )
+      return
+    }
+
     const displayName = device.configLockName
       ? await this.validateAndCleanDisplayName(device.configLockName, 'configLockName', device.configLockName)
       : await this.validateAndCleanDisplayName(device.LockName, 'LockName', device.LockName)
@@ -78,8 +90,8 @@ export class AugustMatterPlatform extends AugustPlatform {
       },
       clusters: {
         doorLock: {
-          // LockState: 0 = NotFullyLocked, 1 = Locked, 2 = Unlocked
-          lockState: 1, // default to Locked (safe state)
+          // LockState will be populated on the first polling tick (timer fires immediately at 0ms)
+          lockState: null,
           lockType: 0, // 0 = DeadBolt
           actuatorEnabled: true,
           operatingMode: 0, // 0 = Normal
@@ -127,7 +139,7 @@ export class AugustMatterPlatform extends AugustPlatform {
     // Subscribe to August real-time events for instant state updates
     await this.subscribeAugustMatter(device, uuid, matterApi)
 
-    // Start polling for periodic status refresh
+    // Start polling for periodic status refresh (fires immediately at 0ms for accurate initial state)
     this.startMatterStatusPolling(device, uuid, matterApi)
   }
 
@@ -178,8 +190,42 @@ export class AugustMatterPlatform extends AugustPlatform {
   }
 
   /**
-   * Poll the August API for lock status at the configured refresh rate
-   * and update the Matter DoorLock state.
+   * Fetch the current lock status from the August API and update the Matter DoorLock state.
+   */
+  async fetchAndUpdateMatterLockState(
+    device: device & devicesConfig,
+    uuid: string,
+    matterApi: MatterAPI,
+  ): Promise<void> {
+    try {
+      if (this.augustConfig?.details) {
+        const lockDetails: any = await this.augustConfig.details(device.lockId)
+        if (lockDetails?.LockStatus?.state) {
+          const state = lockDetails.LockStatus.state
+          let lockState: number
+          if (state.locked) {
+            lockState = 1 // Locked
+          }
+          else if (state.unlocked) {
+            lockState = 2 // Unlocked
+          }
+          else {
+            lockState = 0 // NotFullyLocked
+          }
+          await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState })
+          await this.debugLog(`Matter: Poll updated lockState to ${lockState} for ${device.LockName}`)
+        }
+      }
+    }
+    catch (e: any) {
+      await this.debugLog(`Matter: refreshStatus failed: ${e.message ?? e}`)
+    }
+  }
+
+  /**
+   * Poll the August API for lock status at the configured refresh rate and update the Matter
+   * DoorLock state. Uses `timer(0, ...)` for an immediate first fetch (accurate initial state)
+   * and `exhaustMap` to prevent overlapping concurrent requests.
    */
   private startMatterStatusPolling(
     device: device & devicesConfig,
@@ -191,31 +237,10 @@ export class AugustMatterPlatform extends AugustPlatform {
       return
     }
 
-    interval(refreshRate * 1000)
-      .subscribe(async () => {
-        try {
-          if (this.augustConfig?.details) {
-            const lockDetails: any = await this.augustConfig.details(device.lockId)
-            if (lockDetails?.LockStatus?.state) {
-              const state = lockDetails.LockStatus.state
-              let lockState: number
-              if (state.locked) {
-                lockState = 1 // Locked
-              }
-              else if (state.unlocked) {
-                lockState = 2 // Unlocked
-              }
-              else {
-                lockState = 0 // NotFullyLocked
-              }
-              await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState })
-              await this.debugLog(`Matter: Poll updated lockState to ${lockState} for ${device.LockName}`)
-            }
-          }
-        }
-        catch (e: any) {
-          await this.debugLog(`Matter: refreshStatus failed: ${e.message ?? e}`)
-        }
-      })
+    timer(0, refreshRate * 1000)
+      .pipe(
+        exhaustMap(() => this.fetchAndUpdateMatterLockState(device, uuid, matterApi)),
+      )
+      .subscribe()
   }
 }
