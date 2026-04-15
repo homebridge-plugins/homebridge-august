@@ -50,6 +50,11 @@ export class LockMechanism extends deviceBase {
   lockUpdateInProgress: boolean
   doLockUpdate: any
 
+  // PubNub subscription cleanup function. Captured from August.subscribe()
+  // so the subscription can be properly torn down (both when the lock is
+  // unregistered and before creating a replacement subscription).
+  private pubnubUnsubscribe?: () => void
+
   constructor(
     readonly platform: AugustPlatform,
     accessory: PlatformAccessory,
@@ -148,9 +153,11 @@ export class LockMechanism extends deviceBase {
     // Initial Device Refresh
     this.refreshStatus()
 
-    // Subscribe to august changes and register for re-subscription after session refresh
+    // Subscribe to august changes. PubNub subscriptions are independent of
+    // the HTTP session and survive refreshAugustSession() — no resubscribe
+    // needed. The August.subscribe() call uses its own internal August
+    // instance dedicated to PubNub, separate from platform.augustConfig.
     this.subscribeAugust()
-    this.platform.registerResubscribeCallback(this.device.lockId, () => this.subscribeAugust())
 
     // Start an update interval
     interval(this.deviceRefreshRate * 1000)
@@ -458,8 +465,14 @@ export class LockMechanism extends deviceBase {
     await this.debugLog('subscribeAugust')
     await this.platform.augustCredentials()
     if (this.config.credentials) {
+      // Clean up any previous subscription before creating a new one.
+      // This is defensive: subscribeAugust() is currently only called once
+      // from the constructor, but this makes the method idempotent and safe
+      // to call again in the future.
+      this.tearDownPubNubSubscription()
+
       const normalizedCredentials = await this.platform.getNormalizedCredentials()
-      await August.subscribe(normalizedCredentials, this.device.lockId, async (AugustEvent: lockEvent, timestamp: Date) => {
+      this.pubnubUnsubscribe = await August.subscribe(normalizedCredentials, this.device.lockId, async (AugustEvent: lockEvent, timestamp: Date) => {
         await this.debugLog(`AugustEvent: ${JSON.stringify(AugustEvent)}, ${JSON.stringify(timestamp)}`)
         // Update HomeKit
         this.lockEvent = AugustEvent
@@ -468,6 +481,22 @@ export class LockMechanism extends deviceBase {
       })
     } else {
       await this.errorLog('subscribeAugust: No credentials')
+    }
+  }
+
+  /**
+   * Tear down the PubNub subscription for this lock. Safe to call multiple
+   * times and when no subscription exists. Called on lock removal to free
+   * the PubNub instance, WebSocket connection, and listener.
+   */
+  tearDownPubNubSubscription(): void {
+    if (this.pubnubUnsubscribe) {
+      try {
+        this.pubnubUnsubscribe()
+      } catch (e: any) {
+        this.debugLog(`Error tearing down PubNub subscription: ${e.message || e}`)
+      }
+      this.pubnubUnsubscribe = undefined
     }
   }
 }
