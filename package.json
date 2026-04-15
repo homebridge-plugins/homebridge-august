@@ -63,7 +63,7 @@
   },
   "dependencies": {
     "@homebridge/plugin-ui-utils": "^2.0.1",
-    "august-yale": "^1.1.2",
+    "august-yale": "^1.1.6",
     "rxjs": "^7.8.2"
   },
   "devDependencies": {
