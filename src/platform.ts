@@ -40,7 +40,10 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   // Session refresh: promise coalescing ensures concurrent 502s from
   // multiple locks share a single refresh instead of cascading.
   private sessionRefreshPromise?: Promise<void>
-  private readonly resubscribeCallbacks = new Map<string, () => Promise<void>>()
+
+  // Track LockMechanism instances by lockId so they can be properly torn
+  // down when the accessory is unregistered (releases PubNub subscriptions).
+  private readonly lockMechanisms = new Map<string, LockMechanism>()
 
   // Cached normalized credentials for performance
   private normalizedCredentialsCache?: credentials
@@ -295,24 +298,17 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   }
 
   /**
-   * Register a callback to re-establish a lock's PubNub subscription
-   * after a session refresh. Called by each LockMechanism during construction.
-   */
-  public registerResubscribeCallback(lockId: string, callback: () => Promise<void>): void {
-    this.resubscribeCallbacks.set(lockId, callback)
-  }
-
-  public unregisterResubscribeCallback(lockId: string): void {
-    this.resubscribeCallbacks.delete(lockId)
-  }
-
-  /**
-   * Refresh the August session and re-subscribe all locks.
+   * Refresh the August session.
    *
    * Uses promise coalescing: if multiple locks hit 502 simultaneously,
    * they all await the same refresh promise instead of each triggering
-   * their own. This prevents the cascade where Lock A's refresh destroys
-   * Lock B's fresh instance.
+   * their own. This prevents cascading refreshes where each lock destroys
+   * the instance the previous lock just created.
+   *
+   * PubNub subscriptions are independent of the HTTP session (August.subscribe
+   * uses its own internal August instance), so they are NOT torn down or
+   * rebuilt during a session refresh. Only the HTTP client (augustConfig)
+   * is recreated.
    */
   async refreshAugustSession(): Promise<void> {
     if (this.sessionRefreshPromise) {
@@ -334,14 +330,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
         this.augustConfig = undefined as any
       }
       await this.augustCredentials()
-      for (const resubscribe of this.resubscribeCallbacks.values()) {
-        try {
-          await resubscribe()
-        } catch (e: any) {
-          await this.errorLog(`Failed to re-subscribe lock after session refresh: ${e.message ?? e}`)
-        }
-      }
-      await this.warnLog('August session refreshed and all locks re-subscribed')
+      await this.warnLog('August session refreshed successfully')
     } catch (e: any) {
       await this.errorLog(`Failed to refresh August session: ${e.message ?? e}`)
     }
@@ -409,7 +398,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
           const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid)
           if (existingAccessory) {
             this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory])
-            this.unregisterResubscribeCallback(excludedId)
+            this.tearDownLockMechanism(excludedId)
             this.accessories = this.accessories.filter(accessory => accessory.UUID !== uuid)
             await this.warnLog(`Removing excluded accessory from cache: ${existingAccessory.displayName} (${excludedId})`)
           }
@@ -507,7 +496,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
         this.api.updatePlatformAccessories([existingAccessory])
         // create the accessory handler for the restored accessory
         // this is imported from `platformAccessory.ts`
-        new LockMechanism(this, existingAccessory, device)
+        this.lockMechanisms.set(device.lockId, new LockMechanism(this, existingAccessory, device))
         await this.debugLog(`Lock: ${device.LockName} (${device.lockId}) uuid: ${existingAccessory.UUID}`)
       } else {
         await this.unregisterPlatformAccessories(existingAccessory, device)
@@ -532,7 +521,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       }
       // create the accessory handler for the newly create accessory
       // this is imported from `platformAccessory.ts`
-      new LockMechanism(this, accessory, device)
+      this.lockMechanisms.set(device.lockId, new LockMechanism(this, accessory, device))
       await this.debugLog(`Lock: ${device.LockName} (${device.lockId}) uuid:  ${accessory.UUID}`)
 
       // link the accessory to your platform
@@ -579,8 +568,21 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   public async unregisterPlatformAccessories(existingAccessory: PlatformAccessory, device: device & devicesConfig) {
     // remove platform accessories when no longer present
     this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory])
-    this.unregisterResubscribeCallback(device.lockId)
+    this.tearDownLockMechanism(device.lockId)
     await this.warnLog(`Removing existing accessory from cache: ${device.LockName}`)
+  }
+
+  /**
+   * Tear down the LockMechanism for a given lockId, releasing its PubNub
+   * subscription. Called when an accessory is unregistered (either via
+   * explicit removal or excludeLockIds config).
+   */
+  private tearDownLockMechanism(lockId: string): void {
+    const lockMechanism = this.lockMechanisms.get(lockId)
+    if (lockMechanism) {
+      lockMechanism.tearDownPubNubSubscription()
+      this.lockMechanisms.delete(lockId)
+    }
   }
 
   async getPlatformLogSettings() {

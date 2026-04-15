@@ -176,7 +176,7 @@ describe('lock commands are not dropped during updates', () => {
   })
 })
 
-describe('session refresh prevents 502 cascade', () => {
+describe('session refresh and PubNub subscription lifecycle', () => {
   const lockTsPath = join(__dirname, 'lock.ts')
   const lockTsContent = readFileSync(lockTsPath, 'utf8')
   const platformTsPath = join(__dirname, '..', 'platform.ts')
@@ -192,6 +192,8 @@ describe('session refresh prevents 502 cascade', () => {
     expect(refreshBody.length).toBeGreaterThan(0)
     expect(executeBody.length).toBeGreaterThan(0)
   })
+
+  // --- Promise coalescing (concurrent 502 protection) ---
 
   it('should use promise coalescing, not a boolean flag', () => {
     // Promise coalescing: concurrent callers share the same promise.
@@ -211,39 +213,78 @@ describe('session refresh prevents 502 cascade', () => {
     expect(refreshBody).toContain('this.sessionRefreshPromise = undefined')
   })
 
-  it('should re-subscribe all locks after cycling the instance', () => {
-    // Without re-subscription, end() kills all PubNub subscriptions
-    // and they are never re-established — causing hours of 502s
-    expect(executeBody).toContain('for (const resubscribe of this.resubscribeCallbacks.values())')
-  })
+  // --- Session refresh lifecycle ---
 
   it('should end the old instance before creating a new one', () => {
     const endCall = executeBody.indexOf('.end()')
     const nullAssign = executeBody.indexOf('this.augustConfig = undefined')
     const credentialsCall = executeBody.indexOf('this.augustCredentials()')
-    const resubscribeLoop = executeBody.indexOf('for (const resubscribe')
 
-    // Verify the order: end → null → create → resubscribe
+    // Verify the order: end → null → create
     expect(endCall).toBeGreaterThan(-1)
     expect(nullAssign).toBeGreaterThan(endCall)
     expect(credentialsCall).toBeGreaterThan(nullAssign)
-    expect(resubscribeLoop).toBeGreaterThan(credentialsCall)
   })
 
-  it('should register a resubscribe callback keyed by lockId in the lock constructor', () => {
-    expect(lockTsContent).toMatch(/this\.platform\.registerResubscribeCallback\(this\.device\.lockId,/)
+  it('should NOT rebuild PubNub subscriptions during session refresh', () => {
+    // PubNub subscriptions are independent of the HTTP session and should
+    // NOT be torn down or rebuilt during a session refresh. Doing so
+    // caused the 502 cascade + memory leak in earlier versions.
+    expect(executeBody).not.toContain('resubscribeCallbacks')
+    expect(executeBody).not.toContain('subscribeAugust')
+    expect(platformTsContent).not.toContain('registerResubscribeCallback')
+    expect(platformTsContent).not.toContain('unregisterResubscribeCallback')
   })
 
-  it('should use a Map for resubscribe callbacks to allow cleanup by lockId', () => {
-    expect(platformTsContent).toContain('new Map<string, () => Promise<void>>()')
+  // --- PubNub subscription cleanup on lock removal ---
+
+  it('should capture the unsubscribe function returned by August.subscribe', () => {
+    // Previously the return value was discarded, leaking PubNub instances.
+    expect(lockTsContent).toMatch(/this\.pubnubUnsubscribe\s*=\s*await August\.subscribe/)
   })
 
-  it('should expose registerResubscribeCallback and unregisterResubscribeCallback', () => {
-    expect(platformTsContent).toMatch(/public registerResubscribeCallback\(lockId: string,/)
-    expect(platformTsContent).toMatch(/public unregisterResubscribeCallback\(lockId: string\)/)
+  it('should provide a tearDownPubNubSubscription method on LockMechanism', () => {
+    expect(lockTsContent).toMatch(/tearDownPubNubSubscription\(\)/)
+    expect(lockTsContent).toContain('this.pubnubUnsubscribe()')
   })
 
-  it('should clean up resubscribe callback when unregistering accessories', () => {
-    expect(platformTsContent).toMatch(/unregisterResubscribeCallback\(device\.lockId\)/)
+  it('should call the unsubscribe function and clear the reference', () => {
+    // Extract tearDownPubNubSubscription method definition (not calls to it)
+    const tearDownMatch = lockTsContent.match(/tearDownPubNubSubscription\(\):\s*void\s*\{[\s\S]*?\n {2}\}/)
+    const tearDownBody = tearDownMatch?.[0] ?? ''
+    expect(tearDownBody).toContain('this.pubnubUnsubscribe()')
+    expect(tearDownBody).toContain('this.pubnubUnsubscribe = undefined')
+  })
+
+  it('should tear down PubNub subscription before creating a new one (idempotent subscribeAugust)', () => {
+    // subscribeAugust() should clean up any previous subscription first,
+    // so repeated calls do not leak PubNub instances.
+    const subscribeMatch = lockTsContent.match(/async subscribeAugust\(\)[\s\S]*?(?=\n {2}\/\*\*|\n {2}tearDownPubNubSubscription)/)
+    const subscribeBody = subscribeMatch?.[0] ?? ''
+    const tearDownCall = subscribeBody.indexOf('this.tearDownPubNubSubscription()')
+    const augustSubscribeCall = subscribeBody.indexOf('August.subscribe')
+    expect(tearDownCall).toBeGreaterThan(-1)
+    expect(augustSubscribeCall).toBeGreaterThan(tearDownCall)
+  })
+
+  // --- Platform-side tracking for proper cleanup ---
+
+  it('should track LockMechanism instances by lockId for cleanup', () => {
+    expect(platformTsContent).toMatch(/lockMechanisms\s*=\s*new Map<string, LockMechanism>/)
+  })
+
+  it('should tear down LockMechanism PubNub subscription when unregistering accessory', () => {
+    expect(platformTsContent).toMatch(/tearDownLockMechanism\(device\.lockId\)/)
+  })
+
+  it('should tear down LockMechanism when excluding lock via excludeLockIds', () => {
+    expect(platformTsContent).toMatch(/tearDownLockMechanism\(excludedId\)/)
+  })
+
+  it('tearDownLockMechanism should call tearDownPubNubSubscription and remove from map', () => {
+    const tearDownMatch = platformTsContent.match(/private tearDownLockMechanism\([\s\S]*?(?=\n {2}\})/)
+    const body = tearDownMatch?.[0] ?? ''
+    expect(body).toContain('tearDownPubNubSubscription()')
+    expect(body).toContain('this.lockMechanisms.delete')
   })
 })

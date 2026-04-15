@@ -181,11 +181,6 @@ export class AugustMatterPlatform extends AugustPlatform {
             }
           }
         })
-        // Register re-subscribe callback so session refresh re-establishes the subscription
-        this.registerResubscribeCallback(
-          device.lockId,
-          () => this.subscribeAugustMatter(device, uuid, matterApi),
-        )
       }
     }
     catch (e: any) {
