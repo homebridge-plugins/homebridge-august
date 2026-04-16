@@ -1,5 +1,108 @@
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/)
 
+## [3.0.11](https://github.com/homebridge-plugins/homebridge-august/compare/v3.0.10...v3.0.11) (2026-04-16)
+
+
+### Bug Fixes
+
+* add cooldown to session refresh to prevent wasted refreshes ([#209](https://github.com/homebridge-plugins/homebridge-august/issues/209)) ([946f828](https://github.com/homebridge-plugins/homebridge-august/commit/946f828ee2e96535ed4c35603a7892f0e59cf6a1))
+
+## [3.0.10](https://github.com/homebridge-plugins/homebridge-august/compare/v3.0.9...v3.0.10) (2026-04-15)
+
+
+### Bug Fixes
+
+* capture PubNub unsubscribe function to prevent memory leak ([#206](https://github.com/homebridge-plugins/homebridge-august/issues/206)) ([387e689](https://github.com/homebridge-plugins/homebridge-august/commit/387e689ab0b5bc2b63133e39a312874a78c7566d))
+
+## [3.0.9](https://github.com/homebridge-plugins/homebridge-august/compare/v3.0.8...v3.0.9) (2026-04-02)
+
+
+### Bug Fixes
+
+* prevent 502 errors from cascading across all locks ([#201](https://github.com/homebridge-plugins/homebridge-august/issues/201)) ([e20cf9c](https://github.com/homebridge-plugins/homebridge-august/commit/e20cf9c67698fd56a100686015ad7ecfabb8a334))
+
+## [3.0.8](https://github.com/homebridge-plugins/homebridge-august/compare/v3.0.7...v3.0.8) (2026-03-28)
+
+
+### Bug Fixes
+
+* align context key reads with updateCharacteristic writes ([#199](https://github.com/homebridge-plugins/homebridge-august/issues/199)) ([d4dd29a](https://github.com/homebridge-plugins/homebridge-august/commit/d4dd29a716a1700824edbe0e4fb235a12c9b6259))
+* prevent lock commands from being dropped and resolve startup warnings ([#200](https://github.com/homebridge-plugins/homebridge-august/issues/200)) ([d362b56](https://github.com/homebridge-plugins/homebridge-august/commit/d362b56ff50c6107f92c762c76a04c3705dbdfcf))
+
+## [3.0.7](https://github.com/homebridge-plugins/homebridge-august/compare/v3.0.6...v3.0.7) (2026-03-25)
+
+
+### Bug Fixes
+
+* resolve lock showing "Locking..." on startup due to undefined lockEvent ([#197](https://github.com/homebridge-plugins/homebridge-august/issues/197)) ([f3b13e3](https://github.com/homebridge-plugins/homebridge-august/commit/f3b13e38b5b3435990b79ae78321d0e5041a8ea3))
+
+## [3.0.6](https://github.com/homebridge-plugins/homebridge-august/compare/v3.0.5...v3.0.6) (2026-03-25)
+
+
+### Features
+
+* add excludeLockIds option to exclude locks by ID ([#196](https://github.com/homebridge-plugins/homebridge-august/issues/196)) ([45f2c8e](https://github.com/homebridge-plugins/homebridge-august/commit/45f2c8e1adc638c43432b2af8192e29deff77c28))
+
+## [3.0.5](https://github.com/homebridge-plugins/homebridge-august/compare/v3.0.4...v3.0.5) (2026-02-20)
+
+## [3.0.4](https://github.com/homebridge-plugins/homebridge-august/compare/v3.0.3...v3.0.4) (2026-02-09)
+
+## [3.0.2](https://github.com/homebridge-plugins/homebridge-august/compare/v3.0.1...v3.0.2) (2025-03-05)
+
+## [3.0.1](https://github.com/homebridge-plugins/homebridge-august/compare/v3.0.0...v3.0.1) (2025-01-25)
+
+# [3.0.0](https://github.com/homebridge-plugins/homebridge-august/compare/v2.2.9...v3.0.0) (2025-01-17)
+
+## [2.2.9](https://github.com/homebridge-plugins/homebridge-august/compare/v2.2.8...v2.2.9) (2024-11-05)
+
+## [2.2.8](https://github.com/homebridge-plugins/homebridge-august/compare/v2.2.7...v2.2.8) (2024-11-04)
+
+## [2.2.7](https://github.com/homebridge-plugins/homebridge-august/compare/v2.2.6...v2.2.7) (2024-09-25)
+
+## [2.2.6](https://github.com/homebridge-plugins/homebridge-august/compare/v2.2.5...v2.2.6) (2024-06-24)
+
+## [2.2.5](https://github.com/homebridge-plugins/homebridge-august/compare/v2.2.4...v2.2.5) (2024-06-23)
+
+## [2.2.4](https://github.com/homebridge-plugins/homebridge-august/compare/v2.2.3...v2.2.4) (2024-06-23)
+
+## [2.2.3](https://github.com/homebridge-plugins/homebridge-august/compare/v2.2.2...v2.2.3) (2024-06-23)
+
+## [2.2.2](https://github.com/homebridge-plugins/homebridge-august/compare/v2.2.1...v2.2.2) (2024-06-23)
+
+## [2.2.1](https://github.com/homebridge-plugins/homebridge-august/compare/v2.2.0...v2.2.1) (2024-06-23)
+
+# [2.2.0](https://github.com/homebridge-plugins/homebridge-august/compare/v2.1.0...v2.2.0) (2024-05-25)
+
+# [2.1.0](https://github.com/homebridge-plugins/homebridge-august/compare/v2.0.0...v2.1.0) (2024-05-08)
+
+# [2.0.0](https://github.com/homebridge-plugins/homebridge-august/compare/v1.3.4...v2.0.0) (2024-01-31)
+
+## [1.3.4](https://github.com/homebridge-plugins/homebridge-august/compare/v1.3.3...v1.3.4) (2024-01-16)
+
+## [1.3.3](https://github.com/homebridge-plugins/homebridge-august/compare/v1.3.2...v1.3.3) (2023-12-15)
+
+## [1.3.2](https://github.com/homebridge-plugins/homebridge-august/compare/v1.3.1...v1.3.2) (2023-11-26)
+
+## [1.3.1](https://github.com/homebridge-plugins/homebridge-august/compare/v1.3.0...v1.3.1) (2023-11-08)
+
+# [1.3.0](https://github.com/homebridge-plugins/homebridge-august/compare/v1.2.1...v1.3.0) (2023-11-01)
+
+## [1.2.1](https://github.com/homebridge-plugins/homebridge-august/compare/v1.2.0...v1.2.1) (2023-08-28)
+
+# [1.2.0](https://github.com/homebridge-plugins/homebridge-august/compare/v1.1.1...v1.2.0) (2023-08-19)
+
+## [1.1.1](https://github.com/homebridge-plugins/homebridge-august/compare/v1.1.0...v1.1.1) (2023-04-08)
+
+# [1.1.0](https://github.com/homebridge-plugins/homebridge-august/compare/v1.0.5...v1.1.0) (2022-12-08)
+
+## [1.0.5](https://github.com/homebridge-plugins/homebridge-august/compare/v1.0.4...v1.0.5) (2022-10-10)
+
+## [1.0.4](https://github.com/homebridge-plugins/homebridge-august/compare/v1.0.3...v1.0.4) (2022-10-07)
+
+## [1.0.3](https://github.com/homebridge-plugins/homebridge-august/compare/v1.0.2...v1.0.3) (2022-10-07)
+
+# 1.0.0 (2022-10-07)
+
 
 ## [3.0.10](https://github.com/homebridge-plugins/homebridge-august/compare/v3.0.9...v3.0.10) (2026-04-15)
 

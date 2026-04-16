@@ -40,6 +40,11 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   // Session refresh: promise coalescing ensures concurrent 502s from
   // multiple locks share a single refresh instead of cascading.
   private sessionRefreshPromise?: Promise<void>
+  // Cooldown prevents wasted sequential refreshes during prolonged
+  // network outages, where every poll cycle would otherwise trigger
+  // a new POST /session call (and risk rate limiting).
+  private lastSessionRefresh = 0
+  private static readonly SESSION_REFRESH_COOLDOWN_MS = 5 * 60 * 1000 // 5 minutes
 
   // Track LockMechanism instances by lockId so they can be properly torn
   // down when the accessory is unregistered (releases PubNub subscriptions).
@@ -305,6 +310,12 @@ export class AugustPlatform implements DynamicPlatformPlugin {
    * their own. This prevents cascading refreshes where each lock destroys
    * the instance the previous lock just created.
    *
+   * Also enforces a cooldown period: refreshes within SESSION_REFRESH_COOLDOWN_MS
+   * of the last attempt are skipped. This prevents wasted sequential refreshes
+   * during prolonged network outages — without this, every poll cycle (default
+   * 30s) would trigger a new POST /session call to August, risking rate limiting
+   * and spamming logs.
+   *
    * PubNub subscriptions are independent of the HTTP session (August.subscribe
    * uses its own internal August instance), so they are NOT torn down or
    * rebuilt during a session refresh. Only the HTTP client (augustConfig)
@@ -314,9 +325,16 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     if (this.sessionRefreshPromise) {
       return this.sessionRefreshPromise
     }
+    const sinceLastRefresh = Date.now() - this.lastSessionRefresh
+    if (sinceLastRefresh < AugustPlatform.SESSION_REFRESH_COOLDOWN_MS) {
+      const remainingSeconds = Math.ceil((AugustPlatform.SESSION_REFRESH_COOLDOWN_MS - sinceLastRefresh) / 1000)
+      await this.debugLog(`Session refresh skipped: cooldown active (${remainingSeconds}s remaining)`)
+      return
+    }
     this.sessionRefreshPromise = this.executeSessionRefresh()
     try {
       await this.sessionRefreshPromise
+      this.lastSessionRefresh = Date.now()
     } finally {
       this.sessionRefreshPromise = undefined
     }
