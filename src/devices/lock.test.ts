@@ -288,3 +288,36 @@ describe('session refresh and PubNub subscription lifecycle', () => {
     expect(body).toContain('this.lockMechanisms.delete')
   })
 })
+
+describe('session refresh cooldown', () => {
+  const platformTsPath = join(__dirname, '..', 'platform.ts')
+  const platformTsContent = readFileSync(platformTsPath, 'utf8')
+  const refreshMatch = platformTsContent.match(/async refreshAugustSession\(\)[\s\S]*?(?=\n {2}private async executeSessionRefresh)/)
+  const refreshBody = refreshMatch?.[0] ?? ''
+
+  it('should track the time of the last refresh attempt', () => {
+    expect(platformTsContent).toMatch(/lastSessionRefresh\s*=\s*0/)
+  })
+
+  it('should define a cooldown constant', () => {
+    expect(platformTsContent).toMatch(/SESSION_REFRESH_COOLDOWN_MS/)
+  })
+
+  it('should skip refresh when within the cooldown window', () => {
+    expect(refreshBody).toContain('sinceLastRefresh')
+    expect(refreshBody).toMatch(/sinceLastRefresh\s*<\s*AugustPlatform\.SESSION_REFRESH_COOLDOWN_MS/)
+  })
+
+  it('should update lastSessionRefresh after a refresh completes', () => {
+    expect(refreshBody).toContain('this.lastSessionRefresh = Date.now()')
+  })
+
+  it('should check cooldown after coalescing check', () => {
+    // Promise coalescing should still take priority over the cooldown.
+    // If a refresh is in flight, callers await it regardless of cooldown.
+    const coalescingCheck = refreshBody.indexOf('this.sessionRefreshPromise')
+    const cooldownCheck = refreshBody.indexOf('sinceLastRefresh')
+    expect(coalescingCheck).toBeGreaterThan(-1)
+    expect(cooldownCheck).toBeGreaterThan(coalescingCheck)
+  })
+})
