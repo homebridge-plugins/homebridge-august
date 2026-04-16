@@ -7,6 +7,39 @@ on:
       - 'beta'
       - 'latest'
   workflow_dispatch:
+    inputs:
+      release_type:
+        description: Release channel
+        required: true
+        type: choice
+        options:
+          - latest
+          - beta
+          - alpha
+        default: latest
+      is_esm:
+        description: Package is ESM
+        required: true
+        type: boolean
+        default: true
+      version_override:
+        description: Exact version (for example 2.1.0). Leave empty for auto bump.
+        required: false
+        type: string
+      version_bump:
+        description: Auto bump type when version_override is empty
+        required: false
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+      max_attempts:
+        description: Max retries for prerelease collision handling
+        required: false
+        type: number
+        default: 5
 
 # Cancel any in-progress workflow for the same branch. A new push should
 # supersede the previous run rather than racing it to publish.
@@ -78,8 +111,10 @@ jobs:
     needs: determine-release-type
     uses: homebridge/.github/.github/workflows/update-version.yml@latest
     with:
-      release_type: ${{ needs.determine-release-type.outputs.release_type }}
-      is_esm: ${{ needs.determine-release-type.outputs.is_esm == 'true' }}
+      release_type: ${{ needs.determine-release-type.outputs.release_type || inputs.release_type }}
+      is_esm: ${{ needs.determine-release-type.outputs.is_esm == 'true' || inputs.is_esm == 'true' }}
+      version_override: ${{ inputs.version_override }}
+      version_bump: ${{ inputs.version_bump }}
 
   # 5️⃣ Publish to NPM and create GitHub release (OIDC — id-token required here and in the reusable workflow)
   publish-release:
@@ -93,6 +128,9 @@ jobs:
       release_type: ${{ needs.determine-release-type.outputs.release_type }}
       version: ${{ needs.update-version.outputs.version }}
       is_esm: ${{ needs.determine-release-type.outputs.is_esm == 'true' }}
+      version_override: ${{ inputs.version_override || '' }}
+      version_bump: ${{ inputs.version_bump || 'patch' }}
+      max_attempts: ${{ inputs.max_attempts || 5 }}
     secrets:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -104,7 +142,7 @@ jobs:
     with:
       branch_name: ${{ needs.determine-release-type.outputs.branch_name }}
       release_type: ${{ needs.determine-release-type.outputs.release_type }}
-      is_esm: ${{ needs.determine-release-type.outputs.is_esm == 'true' }}
+      is_esm: ${{ needs.determine-release-type.outputs.is_esm == 'true' || inputs.is_esm == 'true' }}
 
   # 7️⃣ Notify if any job fails
   workflow-failure:

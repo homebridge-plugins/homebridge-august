@@ -2,7 +2,14 @@
 
 All notable changes to this project are documented in this file. This project follows Semantic Versioning.
 
- 
+## [3.1.1](https://github.com/homebridge-plugins/homebridge-august/compare/v3.1.0...v3.1.1) (2026-04-16)
+
+### Bug Fixes
+
+* Matter quality, CI gating, lint coverage, and TypeScript strictness ([#210](https://github.com/homebridge-plugins/homebridge-august/issues/210)) ([67d44fe](https://github.com/homebridge-plugins/homebridge-august/commit/67d44febd15ff8467a73458b262dad620235cfaa))
+
+**Full Changelog**: https://github.com/homebridge-plugins/homebridge-august/compare/v3.1.0...v3.1.1
+
 ## [3.1.0](https://github.com/homebridge-plugins/homebridge-august/releases/tag/v3.1.0) (2026-04-16)
 
 ### What's Changes
