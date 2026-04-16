@@ -7,7 +7,7 @@ import type { MatterAccessory, MatterAPI, PlatformAccessory } from 'homebridge'
 import type { device, devicesConfig, lockEvent } from './settings.js'
 
 import August from 'august-yale'
-import { timer } from 'rxjs'
+import { Subscription, timer } from 'rxjs'
 import { exhaustMap } from 'rxjs/operators'
 
 import { AugustPlatform } from './platform.js'
@@ -32,6 +32,11 @@ export class AugustMatterPlatform extends AugustPlatform {
   // prevent accumulating orphaned PubNub instances (equivalent of the fix in
   // lock.ts / PR #206 for the HAP path).
   private readonly matterPubNubUnsubscribes: Map<string, () => void> = new Map()
+
+  // RxJS polling subscriptions keyed by accessory UUID. Must be tracked so
+  // they can be unsubscribed when a lock is removed or re-registered, otherwise
+  // the polling timer keeps firing forever even after the accessory is gone.
+  private readonly matterPollingSubscriptions: Map<string, Subscription> = new Map()
 
   /**
    * Called when homebridge restores cached HAP accessories from disk at startup.
@@ -70,21 +75,11 @@ export class AugustMatterPlatform extends AugustPlatform {
     // accessory from a previous session and return early.
     const shouldRegister = await this.registerDevice(device)
     if (!shouldRegister) {
-      const staleAccessory = this.matterAccessories.get(uuid)
-      if (staleAccessory) {
-        await matterApi.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [staleAccessory])
-        this.matterAccessories.delete(uuid)
-        await this.warnLog(`Removing stale Matter accessory: ${device.LockName} (${device.lockId})`)
-      }
-      // Also tear down any PubNub subscription for this lock so its resources are freed.
-      const existingUnsubscribe = this.matterPubNubUnsubscribes.get(uuid)
-      if (existingUnsubscribe) {
-        try {
-          existingUnsubscribe()
-        }
-        catch { /* ignore */ }
-        this.matterPubNubUnsubscribes.delete(uuid)
-      }
+      // Tear down all per-lock state atomically. Whether there's a stale Matter
+      // accessory from a previous session, a PubNub subscription, or a polling
+      // subscription, they all need to go together when a lock is hidden or
+      // removed from the account.
+      await this.tearDownMatterLock(uuid, device.LockName, matterApi)
       await this.debugErrorLog(
         `Unable to Register: ${device.LockName}, Lock ID: ${device.lockId} Check Config to see if is being Hidden.`,
       )
@@ -295,6 +290,11 @@ export class AugustMatterPlatform extends AugustPlatform {
    * Poll the August API for lock status at the configured refresh rate and update the Matter
    * DoorLock state. Uses `timer(0, ...)` for an immediate first fetch (accurate initial state)
    * and `exhaustMap` to prevent overlapping concurrent requests.
+   *
+   * Idempotent: disposes any previous polling subscription for the same UUID
+   * before starting a new one. The subscription is tracked in
+   * matterPollingSubscriptions so it can be disposed on lock removal — otherwise
+   * the timer keeps firing forever even after the accessory is gone.
    */
   private startMatterStatusPolling(
     device: device & devicesConfig,
@@ -306,10 +306,55 @@ export class AugustMatterPlatform extends AugustPlatform {
       return
     }
 
-    timer(0, refreshRate * 1000)
+    // Dispose any previous polling subscription for this UUID before starting a new one
+    const existing = this.matterPollingSubscriptions.get(uuid)
+    if (existing) {
+      existing.unsubscribe()
+      this.matterPollingSubscriptions.delete(uuid)
+    }
+
+    const subscription = timer(0, refreshRate * 1000)
       .pipe(
         exhaustMap(() => this.fetchAndUpdateMatterLockState(device, uuid, matterApi)),
       )
       .subscribe()
+    this.matterPollingSubscriptions.set(uuid, subscription)
+  }
+
+  /**
+   * Release all resources associated with a given Matter lock UUID:
+   * the registered Matter accessory, the PubNub subscription, and the
+   * RxJS polling subscription. Safe to call when some or all of these
+   * do not exist.
+   */
+  private async tearDownMatterLock(
+    uuid: string,
+    lockName: string,
+    matterApi: MatterAPI,
+  ): Promise<void> {
+    // Polling subscription — must be disposed or the timer keeps firing
+    const pollingSub = this.matterPollingSubscriptions.get(uuid)
+    if (pollingSub) {
+      pollingSub.unsubscribe()
+      this.matterPollingSubscriptions.delete(uuid)
+    }
+
+    // PubNub subscription — calls the unsubscribe function returned by August.subscribe()
+    const pubnubUnsubscribe = this.matterPubNubUnsubscribes.get(uuid)
+    if (pubnubUnsubscribe) {
+      try {
+        pubnubUnsubscribe()
+      }
+      catch { /* best-effort */ }
+      this.matterPubNubUnsubscribes.delete(uuid)
+    }
+
+    // Registered Matter accessory
+    const staleAccessory = this.matterAccessories.get(uuid)
+    if (staleAccessory) {
+      await matterApi.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [staleAccessory])
+      this.matterAccessories.delete(uuid)
+      await this.warnLog(`Removing stale Matter accessory: ${lockName}`)
+    }
   }
 }

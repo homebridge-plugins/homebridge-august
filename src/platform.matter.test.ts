@@ -507,4 +507,93 @@ describe('augustMatterPlatform', () => {
       expect((platform as any).matterPubNubUnsubscribes.has(uuid)).toBe(false)
     })
   })
+
+  describe('polling subscription lifecycle', () => {
+    it('should track the polling subscription so it can be disposed', async () => {
+      platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
+
+      const device = {
+        lockId: 'lock-poll-track',
+        LockName: 'Tracked Lock',
+        SerialNumber: 'SN100',
+        hide_device: false,
+        homeKitEnabled: false,
+      } as any
+
+      await (platform as any).Lock(device)
+
+      const uuid = mockMatterApi.uuid.generate('lock-poll-track')
+      const stored = (platform as any).matterPollingSubscriptions.get(uuid)
+      expect(stored).toBeDefined()
+      expect(typeof stored.unsubscribe).toBe('function')
+    })
+
+    it('should dispose previous polling subscription before starting a new one (idempotent)', async () => {
+      platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
+
+      const device = {
+        lockId: 'lock-poll-idem',
+        LockName: 'Idempotent Lock',
+        SerialNumber: 'SN101',
+        hide_device: false,
+        homeKitEnabled: false,
+      } as any
+
+      await (platform as any).Lock(device)
+
+      const uuid = mockMatterApi.uuid.generate('lock-poll-idem')
+      const firstSub = (platform as any).matterPollingSubscriptions.get(uuid)
+      const firstUnsubSpy = vi.spyOn(firstSub, 'unsubscribe')
+
+      // Call polling again (simulating re-registration)
+      ;(platform as any).startMatterStatusPolling(device, uuid, mockMatterApi)
+
+      // Previous subscription should have been disposed
+      expect(firstUnsubSpy).toHaveBeenCalledOnce()
+      // A new subscription should be stored
+      const secondSub = (platform as any).matterPollingSubscriptions.get(uuid)
+      expect(secondSub).toBeDefined()
+      expect(secondSub).not.toBe(firstSub)
+    })
+
+    it('should dispose polling subscription when device is hidden', async () => {
+      platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
+
+      const uuid = 'matter-uuid-hidden-poll'
+      mockMatterApi.uuid.generate.mockReturnValueOnce(uuid)
+
+      const fakeSubscription = { unsubscribe: vi.fn() }
+      ;(platform as any).matterPollingSubscriptions.set(uuid, fakeSubscription)
+
+      const device = {
+        lockId: 'hidden-poll',
+        LockName: 'Hidden Poll Lock',
+        hide_device: true,
+        homeKitEnabled: false,
+      } as any
+
+      await (platform as any).Lock(device)
+
+      expect(fakeSubscription.unsubscribe).toHaveBeenCalledOnce()
+      expect((platform as any).matterPollingSubscriptions.has(uuid)).toBe(false)
+    })
+
+    it('should not start polling when refreshRate is 0', async () => {
+      platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
+      ;(platform as any).platformRefreshRate = 0
+
+      const device = {
+        lockId: 'lock-no-poll',
+        LockName: 'No Poll Lock',
+        SerialNumber: 'SN102',
+        hide_device: false,
+        homeKitEnabled: false,
+      } as any
+
+      await (platform as any).Lock(device)
+
+      const uuid = mockMatterApi.uuid.generate('lock-no-poll')
+      expect((platform as any).matterPollingSubscriptions.has(uuid)).toBe(false)
+    })
+  })
 })
