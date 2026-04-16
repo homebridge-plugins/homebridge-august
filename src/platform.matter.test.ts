@@ -596,4 +596,72 @@ describe('augustMatterPlatform', () => {
       expect((platform as any).matterPollingSubscriptions.has(uuid)).toBe(false)
     })
   })
+
+  describe('pendingHapCleanup sweep after discovery', () => {
+    it('should unregister staged HAP accessories that were not handled during discovery', async () => {
+      platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
+
+      // Stage two HAP accessories from a previous session
+      const orphanedHap1 = { UUID: 'hap-orphan-1', displayName: 'Removed Lock 1' } as unknown as PlatformAccessory
+      const orphanedHap2 = { UUID: 'hap-orphan-2', displayName: 'Removed Lock 2' } as unknown as PlatformAccessory
+      await platform.configureAccessory(orphanedHap1)
+      await platform.configureAccessory(orphanedHap2)
+
+      // Stub super.discoverDevices so it's a no-op (doesn't touch pendingHapCleanup)
+      const baseProto = Object.getPrototypeOf(Object.getPrototypeOf(platform))
+      vi.spyOn(baseProto, 'discoverDevices').mockResolvedValue(undefined as never)
+
+      await platform.discoverDevices()
+
+      // Both staged HAP accessories should have been unregistered since neither
+      // had a matching Lock() call during discovery
+      expect(mockApi.unregisterPlatformAccessories).toHaveBeenCalledWith(
+        'homebridge-august',
+        'August',
+        expect.arrayContaining([orphanedHap1, orphanedHap2]),
+      )
+      // Map should be empty after the sweep
+      expect((platform as any).pendingHapCleanup.size).toBe(0)
+    })
+
+    it('should leave handled HAP accessories alone (those already removed by Lock())', async () => {
+      platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
+
+      // Simulate a successful Lock() having already cleaned its entry
+      // (pendingHapCleanup is empty)
+      const baseProto = Object.getPrototypeOf(Object.getPrototypeOf(platform))
+      vi.spyOn(baseProto, 'discoverDevices').mockResolvedValue(undefined as never)
+
+      await platform.discoverDevices()
+
+      // unregisterPlatformAccessories should not be called — nothing to sweep
+      expect(mockApi.unregisterPlatformAccessories).not.toHaveBeenCalled()
+    })
+
+    it('should only sweep the orphans, not the locks that were successfully migrated', async () => {
+      platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
+
+      // One lock that will be migrated (has matching active lock in account)
+      // and one orphan that no longer exists in the account
+      const migrated = { UUID: 'hap-migrated', displayName: 'Still Active' } as unknown as PlatformAccessory
+      const orphan = { UUID: 'hap-orphan', displayName: 'Deleted From Account' } as unknown as PlatformAccessory
+      await platform.configureAccessory(migrated)
+      await platform.configureAccessory(orphan)
+
+      // Simulate a successful Lock() call for the 'migrated' UUID by removing
+      // that entry from pendingHapCleanup directly (mimicking what Lock() does).
+      const baseProto = Object.getPrototypeOf(Object.getPrototypeOf(platform))
+      vi.spyOn(baseProto, 'discoverDevices').mockImplementation(async () => {
+        (platform as any).pendingHapCleanup.delete('hap-migrated')
+      })
+
+      await platform.discoverDevices()
+
+      // Only the orphan should have been unregistered in the sweep
+      expect(mockApi.unregisterPlatformAccessories).toHaveBeenCalledOnce()
+      const swept = (mockApi.unregisterPlatformAccessories as any).mock.calls[0][2]
+      expect(swept).toContain(orphan)
+      expect(swept).not.toContain(migrated)
+    })
+  })
 })

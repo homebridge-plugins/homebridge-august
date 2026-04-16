@@ -59,6 +59,38 @@ export class AugustMatterPlatform extends AugustPlatform {
   }
 
   /**
+   * Run device discovery, then sweep any staged HAP accessories that were not
+   * handled during discovery.
+   *
+   * The normal deferred-cleanup flow removes a staged HAP accessory when Lock()
+   * is called for its UUID and Matter registration succeeds. But if a lock has
+   * been removed from the user's August account entirely, Lock() is never
+   * called for its UUID — leaving the staged HAP accessory registered with
+   * Homebridge indefinitely and the pendingHapCleanup map growing on every
+   * restart.
+   *
+   * After discoverDevices() finishes, any remaining entries in
+   * pendingHapCleanup correspond to locks no longer in the account, so it is
+   * safe to unregister them.
+   */
+  override async discoverDevices(): Promise<void> {
+    await super.discoverDevices()
+    await this.sweepUnhandledHapAccessories()
+  }
+
+  private async sweepUnhandledHapAccessories(): Promise<void> {
+    if (this.pendingHapCleanup.size === 0) {
+      return
+    }
+    const accessories = Array.from(this.pendingHapCleanup.values())
+    this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, accessories)
+    for (const accessory of accessories) {
+      this.log.debug(`Removing unhandled cached HAP accessory (no matching lock found): ${accessory.displayName}`)
+    }
+    this.pendingHapCleanup.clear()
+  }
+
+  /**
    * Register an August lock as a Matter DoorLock accessory.
    * Overrides the HAP-based Lock() method from AugustPlatform.
    */
