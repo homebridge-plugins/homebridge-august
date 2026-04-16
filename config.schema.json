@@ -415,6 +415,12 @@
             "type": "boolean",
             "description": "If true, country code normalization will be disabled. Note: Some country codes (like CA) may cause 403 errors if not normalized to US.",
             "default": false
+          },
+          "disableMatter": {
+            "title": "Disable Matter",
+            "type": "boolean",
+            "description": "If true, Matter support will be disabled and the plugin will use the legacy HAP protocol instead, even when Homebridge Matter is available.",
+            "default": false
           }
         }
       }
@@ -510,7 +516,8 @@
           ]
         },
         "options.allowInvalidCharacters",
-        "options.disableCountryCodeNormalization"
+        "options.disableCountryCodeNormalization",
+        "options.disableMatter"
       ]
     }
   ]

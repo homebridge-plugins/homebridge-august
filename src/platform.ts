@@ -491,7 +491,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     }
   }
 
-  private async Lock(device: device & devicesConfig) {
+  protected async Lock(device: device & devicesConfig) {
     const uuid = this.api.hap.uuid.generate(device.lockId)
     // see if an accessory with the same uuid has already been registered and restored from
     // the cached devices we stored in the `configureAccessory` method above

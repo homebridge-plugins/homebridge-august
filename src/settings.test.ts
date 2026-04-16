@@ -65,6 +65,19 @@ describe('settings', () => {
     expect(opts.excludeLockIds).toContain('LOCK-ID-TO-EXCLUDE')
   })
 
+  it('should support disableMatter option', () => {
+    const opts: options = {
+      devices: [],
+      disableMatter: true,
+    }
+    expect(opts.disableMatter).toBe(true)
+
+    const optsDefault: options = {
+      devices: [],
+    }
+    expect(optsDefault.disableMatter).toBeUndefined()
+  })
+
   it('should define device interface', () => {
     const dev: device = {
       LockName: 'Test Lock',

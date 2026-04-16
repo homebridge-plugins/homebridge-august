@@ -79,7 +79,7 @@
     "@vitest/coverage-v8": "^3.0.7",
     "eslint": "^9.21.0",
     "eslint-plugin-format": "^1.0.1",
-    "homebridge": "^1.9.0",
+    "homebridge": "2.0.0-beta.87",
     "homebridge-config-ui-x": "^5.4.1",
     "nodemon": "^3.1.9",
     "shx": "^0.3.4",
