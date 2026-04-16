@@ -4,24 +4,26 @@
  */
 import type { API, Logging, PlatformAccessory } from 'homebridge'
 
+import type { AugustPlatformConfig } from './settings.js'
+
 import { readFileSync, writeFileSync } from 'node:fs'
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AugustPlatform } from './platform.js'
-import type { AugustPlatformConfig } from './settings.js'
 
 // Mock the august-yale module
 vi.mock('august-yale', () => {
-  const MockAugust = vi.fn().mockImplementation(() => ({
-    end: vi.fn(),
-  }))
-  
+  const MockAugust = vi.fn().mockImplementation(function () {
+    return { end: vi.fn() }
+  })
+
   // Type assertion to add static methods
   const MockConstructor = MockAugust as any
   MockConstructor.details = vi.fn()
   MockConstructor.authorize = vi.fn()
   MockConstructor.validate = vi.fn()
-  
+
   return {
     default: MockConstructor,
   }
@@ -33,7 +35,7 @@ vi.mock('node:fs', () => ({
   writeFileSync: vi.fn(),
 }))
 
-describe('AugustPlatform', () => {
+describe('augustPlatform', () => {
   let platform: AugustPlatform
   let mockApi: API
   let mockLog: Logging
@@ -87,7 +89,7 @@ describe('AugustPlatform', () => {
 
     // Mock readFileSync for config file
     vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
-      platforms: [mockConfig]
+      platforms: [mockConfig],
     }))
   })
 
@@ -303,7 +305,7 @@ describe('AugustPlatform', () => {
 
     // Access the private method for testing
     const normalizeMethod = (platform as any).normalizeCredentialsForApi.bind(platform)
-    
+
     await expect(normalizeMethod(null)).rejects.toThrow('Credentials cannot be null or undefined')
     await expect(normalizeMethod(undefined)).rejects.toThrow('Credentials cannot be null or undefined')
   })
@@ -353,7 +355,7 @@ describe('AugustPlatform', () => {
       // Mock validated method to avoid actual re-authentication
       const validateSpy = vi.spyOn(platform, 'validated').mockImplementation(async () => {
         // Don't change the flag back to true, just simulate the method being called
-        return
+
       })
 
       // Call discoverDevices
@@ -376,7 +378,7 @@ describe('AugustPlatform', () => {
 
       // Mock validated method
       const validateSpy = vi.spyOn(platform, 'validated').mockImplementation(async () => {
-        return
+
       })
 
       // Call discoverDevices

@@ -4,21 +4,25 @@
  */
 import type { API, Logging, MatterAccessory, PlatformAccessory } from 'homebridge'
 
+import type { AugustPlatformConfig } from './settings.js'
+
 import { readFileSync, writeFileSync } from 'node:fs'
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import August from 'august-yale'
 import { AugustMatterPlatform } from './platform.matter.js'
-import type { AugustPlatformConfig } from './settings.js'
 
 // Mock the august-yale module
 vi.mock('august-yale', () => {
-  const MockAugust = vi.fn().mockImplementation(() => ({
-    end: vi.fn(),
-    lock: vi.fn().mockResolvedValue(undefined),
-    unlock: vi.fn().mockResolvedValue(undefined),
-    details: vi.fn(),
-  }))
+  const MockAugust = vi.fn().mockImplementation(function () {
+    return {
+      end: vi.fn(),
+      lock: vi.fn().mockResolvedValue(undefined),
+      unlock: vi.fn().mockResolvedValue(undefined),
+      details: vi.fn(),
+    }
+  })
 
   const MockConstructor = MockAugust as any
   MockConstructor.details = vi.fn()
@@ -37,7 +41,7 @@ vi.mock('node:fs', () => ({
   writeFileSync: vi.fn(),
 }))
 
-describe('AugustMatterPlatform', () => {
+describe('augustMatterPlatform', () => {
   let platform: AugustMatterPlatform
   let mockApi: API
   let mockLog: Logging
@@ -196,7 +200,7 @@ describe('AugustMatterPlatform', () => {
     })
   })
 
-  describe('Lock (Matter accessory registration)', () => {
+  describe('lock (Matter accessory registration)', () => {
     it('should register a new Matter DoorLock accessory when Matter API is available', async () => {
       platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
 

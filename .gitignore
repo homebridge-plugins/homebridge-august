@@ -2,6 +2,10 @@
 
 dist
 
+# Ignore generated documentation (build artifact)
+
+docs
+
 # ------------- Defaults -------------
 
 # Logs

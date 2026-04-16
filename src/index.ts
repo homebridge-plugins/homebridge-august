@@ -2,41 +2,31 @@
  *
  * index.ts: homebridge-august.
  */
-import type { API, Logging } from 'homebridge'
+import type { API } from 'homebridge'
 
 import type { AugustPlatformConfig } from './settings.js'
 
-import { AugustMatterPlatform } from './platform.matter.js'
 import { AugustPlatform } from './platform.js'
+import { AugustMatterPlatform } from './platform.matter.js'
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 
 // Register our platform with homebridge.
-export default (api: API): void => {
-  // The proxy constructor returns the appropriate platform instance based on Matter availability.
-  // The `as any` cast is required because TypeScript cannot type-check the constructor return
-  // overriding pattern used for runtime platform selection (same pattern as homebridge-switchbot).
-  api.registerPlatform(PLUGIN_NAME, PLATFORM_NAME, createAugustPlatformProxy() as any)
+// Create a proxy constructor that selects the appropriate platform implementation
+const createAugustPlatformProxy = (api: API) => {
+  return function AugustPlatformProxy(log: any, config: any, apiInner: API) {
+    const disableMatter = config?.options?.disableMatter
+
+    if (api.isMatterAvailable?.() && api.isMatterEnabled?.() && !disableMatter) {
+      return new AugustMatterPlatform(log, config, apiInner)
+    }
+
+    return new AugustPlatform(log, config, apiInner)
+  }
 }
 
-/**
- * Creates a proxy constructor that selects between the Matter and HAP platform
- * implementations at runtime based on Matter availability and configuration.
- *
- * - If Matter is available, enabled, and `options.disableMatter` is not `true`
- *   → instantiates `AugustMatterPlatform`
- * - Otherwise → instantiates `AugustPlatform` (HAP/legacy)
- */
-function createAugustPlatformProxy() {
-  return class AugustPlatformProxy {
-    constructor(log: Logging, config: AugustPlatformConfig, api: API) {
-      const disableMatter = config?.options?.disableMatter === true
-      const matterAvailable = !!(api?.isMatterAvailable?.() && api?.isMatterEnabled?.())
-
-      if (!disableMatter && matterAvailable) {
-        return new AugustMatterPlatform(log, config, api)
-      }
-
-      return new AugustPlatform(log, config, api)
-    }
-  }
+// Register our platform proxy with homebridge.
+export default (api: API): void => {
+  // Type cast to any because we return a dynamic constructor that delegates
+  // to either `AugustPlatform` or `AugustMatterPlatform` at runtime.
+  api.registerPlatform(PLUGIN_NAME, PLATFORM_NAME, createAugustPlatformProxy(api) as unknown as any)
 }

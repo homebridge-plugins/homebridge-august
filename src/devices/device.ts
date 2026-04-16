@@ -166,7 +166,7 @@ export abstract class deviceBase {
     const statusCodeString = error.message || '' // Convert statusCode to a string, handle undefined/null
 
     // Check if the error is an AggregateError or doesn't contain a status code
-    if (error.constructor?.name === 'AggregateError' || !statusCodeString.match(/^\d{3}/)) {
+    if (error.constructor?.name === 'AggregateError' || !/^\d{3}/.test(statusCodeString)) {
       await this.debugErrorLog(`${action} failed with ${error.constructor?.name || 'Error'}: ${statusCodeString}`)
       return
     }

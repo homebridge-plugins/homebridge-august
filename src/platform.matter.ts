@@ -150,8 +150,7 @@ export class AugustMatterPlatform extends AugustPlatform {
 
     if (existingAccessory) {
       await this.infoLog(`Restoring existing Matter accessory from cache: ${displayName}, Lock ID: ${device.lockId}`)
-    }
-    else {
+    } else {
       await this.infoLog(`Adding new Matter accessory: ${displayName}, Lock ID: ${device.lockId}`)
     }
 
@@ -217,8 +216,7 @@ export class AugustMatterPlatform extends AugustPlatform {
             try {
               await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState })
               await this.debugLog(`Matter: Updated lockState to ${lockState} for ${device.LockName}`)
-            }
-            catch (e: any) {
+            } catch (e: any) {
               await this.errorLog(`Matter: updateAccessoryState failed: ${e.message ?? e}`)
             }
           }
@@ -227,8 +225,7 @@ export class AugustMatterPlatform extends AugustPlatform {
           this.matterPubNubUnsubscribes.set(uuid, unsubscribe)
         }
       }
-    }
-    catch (e: any) {
+    } catch (e: any) {
       await this.errorLog(`Matter: subscribeAugust failed: ${e.message ?? e}`)
     }
   }
@@ -264,8 +261,7 @@ export class AugustMatterPlatform extends AugustPlatform {
           await this.debugLog(`Matter: Poll updated lockState to ${lockState} for ${device.LockName}`)
         }
       }
-    }
-    catch (e: any) {
+    } catch (e: any) {
       await this.debugLog(`Matter: refreshStatus failed: ${e.message ?? e}`)
       // Attempt session refresh and retry once. The 5-minute cooldown in refreshAugustSession()
       // prevents spam when every poll fails during a prolonged network outage.

@@ -219,13 +219,20 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     } else {
       // Create normalized credentials for August API compatibility
       const normalizedCredentials = await this.normalizeCredentialsForApi(this.config.credentials)
-      this.augustConfig = new August(normalizedCredentials)
+      try {
+        // Prefer constructing if August is a constructor
+        // eslint-disable-next-line new-cap
+        this.augustConfig = new (August as any)(normalizedCredentials)
+      }
+      catch (e) {
+        // Fallback: some test mocks or builds may export a factory function
+        this.augustConfig = (August as any)(normalizedCredentials)
+      }
       await this.debugLog(`August Credentials: ${JSON.stringify(this.augustConfig)}`)
     }
   }
 
   /**
-
    * Normalize credentials for August API compatibility
    * Handle country code variations that may cause 403 errors
    * Maps regional country codes to supported API endpoints
@@ -236,12 +243,12 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     }
 
     const normalizedCredentials = { ...credentials }
-    
+
     // Country code normalization mapping for API compatibility
     // Some regions don't have dedicated August API endpoints and need to use US servers
     const countryCodeMapping: Record<string, string> = {
-      'CA': 'US', // Canada -> United States (North American region)
-      'MX': 'US', // Mexico -> United States (North American region)
+      CA: 'US', // Canada -> United States (North American region)
+      MX: 'US', // Mexico -> United States (North American region)
     }
 
     const originalCountryCode = credentials.countryCode?.toUpperCase()
@@ -251,15 +258,15 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     const normalizationDisabled = this.config.options?.disableCountryCodeNormalization === true
 
     if (originalCountryCode && normalizedCountryCode && !normalizationDisabled) {
-      await this.debugWarnLog(`Country code normalization: ${originalCountryCode} -> ${normalizedCountryCode} for API compatibility. ` +
-        `To disable this behavior, set 'disableCountryCodeNormalization: true' in options.`)
+      await this.debugWarnLog(`Country code normalization: ${originalCountryCode} -> ${normalizedCountryCode} for API compatibility. `
+        + `To disable this behavior, set 'disableCountryCodeNormalization: true' in options.`)
       normalizedCredentials.countryCode = normalizedCountryCode
     } else if (originalCountryCode && normalizedCountryCode && normalizationDisabled) {
       await this.debugLog(`Country code normalization disabled by config. Using original country code: ${originalCountryCode}`)
     } else if (originalCountryCode && !normalizedCountryCode) {
       await this.debugLog(`Country code ${originalCountryCode} does not require normalization.`)
     }
-    
+
     return normalizedCredentials
   }
 
@@ -280,22 +287,22 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     if (!this.config.credentials) {
       throw new Error('Missing Credentials')
     }
-    
+
     // Return cached credentials if available and credentials haven't changed
     if (this.normalizedCredentialsCache) {
       // Simple check to see if the original credentials have changed
       const currentCredsHash = JSON.stringify(this.config.credentials)
       const cachedCredsHash = JSON.stringify({ ...this.normalizedCredentialsCache, countryCode: this.config.credentials.countryCode })
-      
-      if (currentCredsHash === cachedCredsHash || 
-          (this.normalizedCredentialsCache.augustId === this.config.credentials.augustId &&
-           this.normalizedCredentialsCache.password === this.config.credentials.password &&
-           this.normalizedCredentialsCache.installId === this.config.credentials.installId)) {
+
+      if (currentCredsHash === cachedCredsHash
+        || (this.normalizedCredentialsCache.augustId === this.config.credentials.augustId
+          && this.normalizedCredentialsCache.password === this.config.credentials.password
+          && this.normalizedCredentialsCache.installId === this.config.credentials.installId)) {
         await this.debugLog('Using cached normalized credentials')
         return this.normalizedCredentialsCache
       }
     }
-    
+
     // Generate new normalized credentials and cache them
     this.normalizedCredentialsCache = await this.normalizeCredentialsForApi(this.config.credentials)
     await this.debugLog('Generated and cached new normalized credentials')
@@ -387,7 +394,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
 
       const normalizedCredentials = await this.normalizeCredentialsForApi(this.config.credentials!)
       const devices = await August.details(normalizedCredentials, '')
-      
+
       let deviceLists: any[]
       if (devices.length > 1) {
         deviceLists = devices
@@ -462,10 +469,10 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       const errorMessage = error.message || String(error)
       if (errorMessage.includes('401') || errorMessage.toLowerCase().includes('unauthorized')) {
         await this.warnLog('Authentication session has expired or is invalid. Attempting re-authentication...')
-        
+
         // Reset validation status to force re-authentication
         this.config.credentials!.isValidated = false
-        
+
         // Update the config file to reflect the change
         try {
           const { pluginConfig, currentConfig } = await this.pluginConfig()
@@ -475,12 +482,12 @@ export class AugustPlatform implements DynamicPlatformPlugin {
         } catch (configError: any) {
           await this.errorLog(`Failed to update config file: ${configError.message ?? configError}`)
         }
-        
+
         // Attempt re-authentication
         try {
           await this.warnLog('Initiating re-authentication process. Please check for verification code if prompted.')
           await this.validated()
-          return // validated() will call discoverDevices() again if successful
+          // validated() will call discoverDevices() again if successful
         } catch (authError: any) {
           throw new Error(`Re-authentication failed: ${authError.message ?? authError}. Please check your credentials and try restarting Homebridge.`)
         }
