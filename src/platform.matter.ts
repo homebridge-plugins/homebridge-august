@@ -253,33 +253,42 @@ export class AugustMatterPlatform extends AugustPlatform {
     matterApi: MatterAPI,
   ): Promise<void> {
     try {
-      if (this.augustConfig?.details) {
-        const lockDetails: any = await this.augustConfig.details(device.lockId)
-        if (lockDetails?.LockStatus?.state) {
-          const lockState = this.mapLockState(lockDetails.LockStatus.state, matterApi)
-          await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState })
-          await this.debugLog(`Matter: Poll updated lockState to ${lockState} for ${device.LockName}`)
-        }
-      }
+      await this.fetchAndApplyMatterLockState(device, uuid, matterApi, 'Poll')
     } catch (e: any) {
       await this.debugLog(`Matter: refreshStatus failed: ${e.message ?? e}`)
       // Attempt session refresh and retry once. The 5-minute cooldown in refreshAugustSession()
       // prevents spam when every poll fails during a prolonged network outage.
       try {
         await this.refreshAugustSession()
-        if (this.augustConfig?.details) {
-          const lockDetails: any = await this.augustConfig.details(device.lockId)
-          if (lockDetails?.LockStatus?.state) {
-            const lockState = this.mapLockState(lockDetails.LockStatus.state, matterApi)
-            await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState })
-            await this.debugLog(`Matter: Poll (retry) updated lockState to ${lockState} for ${device.LockName}`)
-          }
-        }
+        await this.fetchAndApplyMatterLockState(device, uuid, matterApi, 'Poll (retry)')
       }
       catch (retryError: any) {
         await this.debugLog(`Matter: refreshStatus retry failed: ${retryError.message ?? retryError}`)
       }
     }
+  }
+
+  /**
+   * Single fetch-and-apply pass: read details from the August API and push the
+   * derived state into the Matter accessory. Throws on API/network errors so
+   * callers can decide whether to retry after a session refresh.
+   */
+  private async fetchAndApplyMatterLockState(
+    device: device & devicesConfig,
+    uuid: string,
+    matterApi: MatterAPI,
+    logLabel: string,
+  ): Promise<void> {
+    if (!this.augustConfig?.details) {
+      return
+    }
+    const lockDetails: any = await this.augustConfig.details(device.lockId)
+    if (!lockDetails?.LockStatus?.state) {
+      return
+    }
+    const lockState = this.mapLockState(lockDetails.LockStatus.state, matterApi)
+    await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState })
+    await this.debugLog(`Matter: ${logLabel} updated lockState to ${lockState} for ${device.LockName}`)
   }
 
   /**
