@@ -3,11 +3,12 @@
  * platform.matter.ts: homebridge-august Matter platform.
  */
 import type { MatterAccessory, MatterAPI, PlatformAccessory } from 'homebridge'
+import type { Subscription } from 'rxjs'
 
 import type { device, devicesConfig, lockEvent } from './settings.js'
 
 import August from 'august-yale'
-import { Subscription, timer } from 'rxjs'
+import { timer } from 'rxjs'
 import { exhaustMap } from 'rxjs/operators'
 
 import { AugustPlatform } from './platform.js'
@@ -155,8 +156,7 @@ export class AugustMatterPlatform extends AugustPlatform {
               await this.augustConfig.lock(device.lockId)
               await this.successLog(`Matter: Locked ${displayName}`)
               await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState: matterApi.types.DoorLock.LockState.Locked })
-            }
-            catch (e: any) {
+            } catch (e: any) {
               await this.errorLog(`Matter: lockDoor failed: ${e.message ?? e}`)
             }
           },
@@ -166,8 +166,7 @@ export class AugustMatterPlatform extends AugustPlatform {
               await this.augustConfig.unlock(device.lockId)
               await this.successLog(`Matter: Unlocked ${displayName}`)
               await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState: matterApi.types.DoorLock.LockState.Unlocked })
-            }
-            catch (e: any) {
+            } catch (e: any) {
               await this.errorLog(`Matter: unlockDoor failed: ${e.message ?? e}`)
             }
           },
@@ -221,12 +220,11 @@ export class AugustMatterPlatform extends AugustPlatform {
         if (existingUnsubscribe) {
           try {
             existingUnsubscribe()
-          }
-          catch { /* ignore */ }
+          } catch { /* ignore */ }
           this.matterPubNubUnsubscribes.delete(uuid)
         }
         const normalizedCredentials = await this.getNormalizedCredentials()
-        const unsubscribe = await August.subscribe(normalizedCredentials, device.lockId, async (augustEvent: lockEvent, _timestamp: Date) => {
+        const unsubscribe = await August.subscribe(normalizedCredentials, device.lockId, async (augustEvent: lockEvent) => {
           await this.debugLog(`Matter AugustEvent: ${JSON.stringify(augustEvent)}`)
           if (augustEvent.state) {
             const lockState = this.mapLockState(augustEvent.state, matterApi)
@@ -288,8 +286,7 @@ export class AugustMatterPlatform extends AugustPlatform {
       try {
         await this.refreshAugustSession()
         await this.fetchAndApplyMatterLockState(device, uuid, matterApi, 'Poll (retry)')
-      }
-      catch (retryError: any) {
+      } catch (retryError: any) {
         await this.debugLog(`Matter: refreshStatus retry failed: ${retryError.message ?? retryError}`)
       }
     }
@@ -376,8 +373,7 @@ export class AugustMatterPlatform extends AugustPlatform {
     if (pubnubUnsubscribe) {
       try {
         pubnubUnsubscribe()
-      }
-      catch { /* best-effort */ }
+      } catch { /* best-effort */ }
       this.matterPubNubUnsubscribes.delete(uuid)
     }
 

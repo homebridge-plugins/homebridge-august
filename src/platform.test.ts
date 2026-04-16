@@ -14,6 +14,7 @@ import { AugustPlatform } from './platform.js'
 
 // Mock the august-yale module
 vi.mock('august-yale', () => {
+  // eslint-disable-next-line prefer-arrow-callback
   const MockAugust = vi.fn().mockImplementation(function () {
     return { end: vi.fn() }
   })

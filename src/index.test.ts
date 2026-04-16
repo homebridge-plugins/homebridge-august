@@ -30,13 +30,13 @@ describe('registerPlatform', () => {
       user: { configPath: vi.fn(() => '/mock/config.json') },
     } as unknown as API
 
-    let registeredCtor: any
+    let RegisteredCtor: any
     vi.mocked(api.registerPlatform).mockImplementation((_plugin, _platform, ctor) => {
-      registeredCtor = ctor
+      RegisteredCtor = ctor
     })
 
     registerPlatform(api)
-    const instance = new registeredCtor(log, config, api)
+    const instance = new RegisteredCtor(log, config, api)
 
     // Should be an AugustPlatform instance (HAP) when Matter is unavailable
     expect(instance).toBeDefined()
@@ -62,13 +62,13 @@ describe('registerPlatform', () => {
       user: { configPath: vi.fn(() => '/mock/config.json') },
     } as unknown as API
 
-    let registeredCtor: any
+    let RegisteredCtor: any
     vi.mocked(api.registerPlatform).mockImplementation((_plugin, _platform, ctor) => {
-      registeredCtor = ctor
+      RegisteredCtor = ctor
     })
 
     registerPlatform(api)
-    const instance = new registeredCtor(log, config, api)
+    const instance = new RegisteredCtor(log, config, api)
 
     // Should be an AugustMatterPlatform instance when Matter is available
     expect(instance).toBeDefined()
@@ -99,13 +99,13 @@ describe('registerPlatform', () => {
       user: { configPath: vi.fn(() => '/mock/config.json') },
     } as unknown as API
 
-    let registeredCtor: any
+    let RegisteredCtor: any
     vi.mocked(api.registerPlatform).mockImplementation((_plugin, _platform, ctor) => {
-      registeredCtor = ctor
+      RegisteredCtor = ctor
     })
 
     registerPlatform(api)
-    const instance = new registeredCtor(log, config, api)
+    const instance = new RegisteredCtor(log, config, api)
 
     // Should be AugustPlatform (HAP) when disableMatter is true
     expect(instance).toBeDefined()

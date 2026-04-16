@@ -6,15 +6,16 @@ import type { API, Logging, MatterAccessory, PlatformAccessory } from 'homebridg
 
 import type { AugustPlatformConfig } from './settings.js'
 
-import { readFileSync, writeFileSync } from 'node:fs'
-
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
 
 import August from 'august-yale'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { AugustMatterPlatform } from './platform.matter.js'
 
 // Mock the august-yale module
 vi.mock('august-yale', () => {
+  // eslint-disable-next-line prefer-arrow-callback
   const MockAugust = vi.fn().mockImplementation(function () {
     return {
       end: vi.fn(),
@@ -451,7 +452,7 @@ describe('augustMatterPlatform', () => {
     })
   })
 
-  describe('PubNub subscription lifecycle (Matter path equivalent of PR #206)', () => {
+  describe('pubNub subscription lifecycle (Matter path equivalent of PR #206)', () => {
     it('should capture unsubscribe function from August.subscribe()', async () => {
       platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
 

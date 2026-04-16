@@ -520,6 +520,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       }
     } else if (await this.registerDevice(device)) {
       // create a new accessory
+      // eslint-disable-next-line new-cap
       const accessory = new this.api.platformAccessory(device.configLockName ?? device.LockName, uuid)
 
       // store a copy of the device object in the `accessory.context`
