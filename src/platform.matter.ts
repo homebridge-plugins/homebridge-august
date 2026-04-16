@@ -27,6 +27,12 @@ export class AugustMatterPlatform extends AugustPlatform {
   // Deferred to avoid leaving users with zero accessories if Matter init fails.
   private readonly pendingHapCleanup: Map<string, PlatformAccessory> = new Map()
 
+  // PubNub unsubscribe functions keyed by accessory UUID.
+  // Must be captured from August.subscribe() and called on lock removal to
+  // prevent accumulating orphaned PubNub instances (equivalent of the fix in
+  // lock.ts / PR #206 for the HAP path).
+  private readonly matterPubNubUnsubscribes: Map<string, () => void> = new Map()
+
   /**
    * Called when homebridge restores cached HAP accessories from disk at startup.
    * HAP accessories are staged here and removed only after Matter registration
@@ -69,6 +75,15 @@ export class AugustMatterPlatform extends AugustPlatform {
         await matterApi.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [staleAccessory])
         this.matterAccessories.delete(uuid)
         await this.warnLog(`Removing stale Matter accessory: ${device.LockName} (${device.lockId})`)
+      }
+      // Also tear down any PubNub subscription for this lock so its resources are freed.
+      const existingUnsubscribe = this.matterPubNubUnsubscribes.get(uuid)
+      if (existingUnsubscribe) {
+        try {
+          existingUnsubscribe()
+        }
+        catch { /* ignore */ }
+        this.matterPubNubUnsubscribes.delete(uuid)
       }
       await this.debugErrorLog(
         `Unable to Register: ${device.LockName}, Lock ID: ${device.lockId} Check Config to see if is being Hidden.`,
@@ -163,6 +178,8 @@ export class AugustMatterPlatform extends AugustPlatform {
 
   /**
    * Subscribe to August real-time lock events and update the Matter DoorLock state.
+   * Captures the unsubscribe function returned by August.subscribe() to allow proper
+   * cleanup on lock removal (equivalent of the fix in lock.ts / PR #206 for HAP).
    */
   private async subscribeAugustMatter(
     device: device & devicesConfig,
@@ -172,8 +189,18 @@ export class AugustMatterPlatform extends AugustPlatform {
     try {
       await this.augustCredentials()
       if (this.config.credentials) {
+        // Tear down any previous subscription for this lock before creating a new one
+        // (defensive: makes this method safe to call on re-registration).
+        const existingUnsubscribe = this.matterPubNubUnsubscribes.get(uuid)
+        if (existingUnsubscribe) {
+          try {
+            existingUnsubscribe()
+          }
+          catch { /* ignore */ }
+          this.matterPubNubUnsubscribes.delete(uuid)
+        }
         const normalizedCredentials = await this.getNormalizedCredentials()
-        await August.subscribe(normalizedCredentials, device.lockId, async (augustEvent: lockEvent, _timestamp: Date) => {
+        const unsubscribe = await August.subscribe(normalizedCredentials, device.lockId, async (augustEvent: lockEvent, _timestamp: Date) => {
           await this.debugLog(`Matter AugustEvent: ${JSON.stringify(augustEvent)}`)
           if (augustEvent.state) {
             let lockState: number
@@ -196,6 +223,9 @@ export class AugustMatterPlatform extends AugustPlatform {
             }
           }
         })
+        if (typeof unsubscribe === 'function') {
+          this.matterPubNubUnsubscribes.set(uuid, unsubscribe)
+        }
       }
     }
     catch (e: any) {
@@ -205,6 +235,9 @@ export class AugustMatterPlatform extends AugustPlatform {
 
   /**
    * Fetch the current lock status from the August API and update the Matter DoorLock state.
+   * On failure, attempts a session refresh and retries once. The 5-minute cooldown in
+   * refreshAugustSession() (added by PR #209 for the HAP path) prevents refresh spam
+   * during prolonged network outages.
    */
   async fetchAndUpdateMatterLockState(
     device: device & devicesConfig,
@@ -234,6 +267,32 @@ export class AugustMatterPlatform extends AugustPlatform {
     }
     catch (e: any) {
       await this.debugLog(`Matter: refreshStatus failed: ${e.message ?? e}`)
+      // Attempt session refresh and retry once. The 5-minute cooldown in refreshAugustSession()
+      // prevents spam when every poll fails during a prolonged network outage.
+      try {
+        await this.refreshAugustSession()
+        if (this.augustConfig?.details) {
+          const lockDetails: any = await this.augustConfig.details(device.lockId)
+          if (lockDetails?.LockStatus?.state) {
+            const state = lockDetails.LockStatus.state
+            let lockState: number
+            if (state.locked) {
+              lockState = matterApi.types.DoorLock.LockState.Locked
+            }
+            else if (state.unlocked) {
+              lockState = matterApi.types.DoorLock.LockState.Unlocked
+            }
+            else {
+              lockState = matterApi.types.DoorLock.LockState.NotFullyLocked
+            }
+            await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState })
+            await this.debugLog(`Matter: Poll (retry) updated lockState to ${lockState} for ${device.LockName}`)
+          }
+        }
+      }
+      catch (retryError: any) {
+        await this.debugLog(`Matter: refreshStatus retry failed: ${retryError.message ?? retryError}`)
+      }
     }
   }
 

@@ -7,6 +7,7 @@ import type { API, Logging, MatterAccessory, PlatformAccessory } from 'homebridg
 import { readFileSync, writeFileSync } from 'node:fs'
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 
+import August from 'august-yale'
 import { AugustMatterPlatform } from './platform.matter.js'
 import type { AugustPlatformConfig } from './settings.js'
 
@@ -23,7 +24,7 @@ vi.mock('august-yale', () => {
   MockConstructor.details = vi.fn()
   MockConstructor.authorize = vi.fn()
   MockConstructor.validate = vi.fn()
-  MockConstructor.subscribe = vi.fn()
+  MockConstructor.subscribe = vi.fn().mockResolvedValue(() => {}) // returns unsubscribe fn by default
 
   return {
     default: MockConstructor,
@@ -382,6 +383,9 @@ describe('AugustMatterPlatform', () => {
         details: vi.fn().mockRejectedValue(new Error('API error')),
       } as any
 
+      // Mock refreshAugustSession to do nothing so retry also fails gracefully
+      vi.spyOn(platform as any, 'refreshAugustSession').mockResolvedValue(undefined)
+
       const device = { lockId: 'lock-test', LockName: 'Test Lock' } as any
 
       await expect(
@@ -402,6 +406,101 @@ describe('AugustMatterPlatform', () => {
       ).resolves.toBeUndefined()
 
       expect(mockMatterApi.updateAccessoryState).not.toHaveBeenCalled()
+    })
+
+    it('should retry with session refresh when details call fails', async () => {
+      platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
+
+      const mockDetailsResult = { LockStatus: { state: { locked: true, unlocked: false } } }
+      const mockDetails = vi.fn()
+        .mockRejectedValueOnce(new Error('502 Bad Gateway'))
+        .mockResolvedValueOnce(mockDetailsResult)
+
+      platform.augustConfig = { details: mockDetails } as any
+
+      const refreshSpy = vi.spyOn(platform as any, 'refreshAugustSession').mockResolvedValue(undefined)
+
+      const device = { lockId: 'lock-test', LockName: 'Test Lock' } as any
+
+      await platform.fetchAndUpdateMatterLockState(device, 'test-uuid', mockMatterApi)
+
+      expect(refreshSpy).toHaveBeenCalledOnce()
+      expect(mockMatterApi.updateAccessoryState).toHaveBeenCalledWith('test-uuid', 'doorLock', { lockState: 1 })
+    })
+
+    it('should not throw when both initial call and retry fail', async () => {
+      platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
+
+      platform.augustConfig = {
+        details: vi.fn().mockRejectedValue(new Error('ETIMEDOUT')),
+      } as any
+
+      vi.spyOn(platform as any, 'refreshAugustSession').mockResolvedValue(undefined)
+
+      const device = { lockId: 'lock-test', LockName: 'Test Lock' } as any
+
+      await expect(
+        platform.fetchAndUpdateMatterLockState(device, 'test-uuid', mockMatterApi),
+      ).resolves.toBeUndefined()
+
+      expect(mockMatterApi.updateAccessoryState).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('PubNub subscription lifecycle (Matter path equivalent of PR #206)', () => {
+    it('should capture unsubscribe function from August.subscribe()', async () => {
+      platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
+
+      const mockUnsubscribe = vi.fn()
+      vi.mocked(August.subscribe).mockResolvedValueOnce(mockUnsubscribe)
+
+      const device = {
+        lockId: 'lock-sub',
+        LockName: 'Sub Lock',
+        SerialNumber: 'SN001',
+        hide_device: false,
+        homeKitEnabled: false,
+      } as any
+
+      await (platform as any).Lock(device)
+
+      // The unsubscribe should be stored in the internal map
+      const uuid = mockMatterApi.uuid.generate('lock-sub')
+      const stored = (platform as any).matterPubNubUnsubscribes.get(uuid)
+      expect(stored).toBe(mockUnsubscribe)
+    })
+
+    it('should tear down PubNub subscription when device is hidden (stale accessory removal)', async () => {
+      platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
+
+      const uuid = 'matter-uuid-hidden-sub'
+      mockMatterApi.uuid.generate.mockReturnValueOnce(uuid)
+
+      const mockUnsubscribe = vi.fn()
+      ;(platform as any).matterPubNubUnsubscribes.set(uuid, mockUnsubscribe)
+
+      const cachedAccessory: MatterAccessory = {
+        UUID: uuid,
+        displayName: 'Hidden Lock',
+        deviceType: { deviceType: 11 } as any,
+        serialNumber: 'SN002',
+        manufacturer: 'August Home Inc.',
+        model: 'AUG-SL05',
+        context: { lockId: 'hidden-sub' },
+      }
+      platform.configureMatterAccessory(cachedAccessory)
+
+      const device = {
+        lockId: 'hidden-sub',
+        LockName: 'Hidden Lock',
+        hide_device: true,
+        homeKitEnabled: false,
+      } as any
+
+      await (platform as any).Lock(device)
+
+      expect(mockUnsubscribe).toHaveBeenCalledOnce()
+      expect((platform as any).matterPubNubUnsubscribes.has(uuid)).toBe(false)
     })
   })
 })
