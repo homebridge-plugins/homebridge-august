@@ -35,7 +35,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   version!: string
 
   // August API
-  augustConfig!: August
+  augustConfig?: August
 
   // Session refresh: promise coalescing ensures concurrent 502s from
   // multiple locks share a single refresh instead of cascading.
@@ -219,15 +219,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     } else {
       // Create normalized credentials for August API compatibility
       const normalizedCredentials = await this.normalizeCredentialsForApi(this.config.credentials)
-      try {
-        // Prefer constructing if August is a constructor
-        // eslint-disable-next-line new-cap
-        this.augustConfig = new (August as any)(normalizedCredentials)
-      }
-      catch (e) {
-        // Fallback: some test mocks or builds may export a factory function
-        this.augustConfig = (August as any)(normalizedCredentials)
-      }
+      this.augustConfig = new August(normalizedCredentials)
       await this.debugLog(`August Credentials: ${JSON.stringify(this.augustConfig)}`)
     }
   }
@@ -352,7 +344,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       if (this.augustConfig) {
         await this.warnLog('Refreshing August session due to timeout error')
         this.augustConfig.end()
-        this.augustConfig = undefined as any
+        this.augustConfig = undefined
       }
       await this.augustCredentials()
       await this.warnLog('August session refreshed successfully')
@@ -528,6 +520,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       }
     } else if (await this.registerDevice(device)) {
       // create a new accessory
+      // eslint-disable-next-line new-cap
       const accessory = new this.api.platformAccessory(device.configLockName ?? device.LockName, uuid)
 
       // store a copy of the device object in the `accessory.context`

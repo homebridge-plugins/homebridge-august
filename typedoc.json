@@ -1,6 +1,6 @@
 {
   "out": "docs",
-  "exclude": ["src/**/*.spec.ts"],
+  "exclude": ["src/**/*.test.ts"],
   "entryPoints": [
     "src/index.ts"
   ],

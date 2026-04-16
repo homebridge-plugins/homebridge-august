@@ -2,9 +2,7 @@
  *
  * index.ts: homebridge-august.
  */
-import type { API } from 'homebridge'
-
-import type { AugustPlatformConfig } from './settings.js'
+import type { API, Logging, PlatformConfig } from 'homebridge'
 
 import { AugustPlatform } from './platform.js'
 import { AugustMatterPlatform } from './platform.matter.js'
@@ -12,8 +10,8 @@ import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 
 // Register our platform with homebridge.
 // Create a proxy constructor that selects the appropriate platform implementation
-const createAugustPlatformProxy = (api: API) => {
-  return function AugustPlatformProxy(log: any, config: any, apiInner: API) {
+function createAugustPlatformProxy(api: API) {
+  return function AugustPlatformProxy(log: Logging, config: PlatformConfig, apiInner: API) {
     const disableMatter = config?.options?.disableMatter
 
     if (api.isMatterAvailable?.() && api.isMatterEnabled?.() && !disableMatter) {

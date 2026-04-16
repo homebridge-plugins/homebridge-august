@@ -90,7 +90,7 @@ class MockDevice {
     }
 
     const statusCode = statusCodeString.slice(0, 3)
-    const logMap = {
+    const logMap: Record<string, string> = {
       100: `Command successfully sent, statusCode: ${statusCodeString}`,
       200: `Request successful, statusCode: ${statusCodeString}`,
       400: `Bad Request, statusCode: ${statusCodeString}`,

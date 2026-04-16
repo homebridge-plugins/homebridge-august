@@ -3,6 +3,7 @@
  * platform.matter.ts: homebridge-august Matter platform.
  */
 import type { MatterAccessory, MatterAPI, PlatformAccessory } from 'homebridge'
+import type { Subscription } from 'rxjs'
 
 import type { device, devicesConfig, lockEvent } from './settings.js'
 
@@ -33,6 +34,11 @@ export class AugustMatterPlatform extends AugustPlatform {
   // lock.ts / PR #206 for the HAP path).
   private readonly matterPubNubUnsubscribes: Map<string, () => void> = new Map()
 
+  // RxJS polling subscriptions keyed by accessory UUID. Must be tracked so
+  // they can be unsubscribed when a lock is removed or re-registered, otherwise
+  // the polling timer keeps firing forever even after the accessory is gone.
+  private readonly matterPollingSubscriptions: Map<string, Subscription> = new Map()
+
   /**
    * Called when homebridge restores cached HAP accessories from disk at startup.
    * HAP accessories are staged here and removed only after Matter registration
@@ -54,6 +60,38 @@ export class AugustMatterPlatform extends AugustPlatform {
   }
 
   /**
+   * Run device discovery, then sweep any staged HAP accessories that were not
+   * handled during discovery.
+   *
+   * The normal deferred-cleanup flow removes a staged HAP accessory when Lock()
+   * is called for its UUID and Matter registration succeeds. But if a lock has
+   * been removed from the user's August account entirely, Lock() is never
+   * called for its UUID — leaving the staged HAP accessory registered with
+   * Homebridge indefinitely and the pendingHapCleanup map growing on every
+   * restart.
+   *
+   * After discoverDevices() finishes, any remaining entries in
+   * pendingHapCleanup correspond to locks no longer in the account, so it is
+   * safe to unregister them.
+   */
+  override async discoverDevices(): Promise<void> {
+    await super.discoverDevices()
+    await this.sweepUnhandledHapAccessories()
+  }
+
+  private async sweepUnhandledHapAccessories(): Promise<void> {
+    if (this.pendingHapCleanup.size === 0) {
+      return
+    }
+    const accessories = Array.from(this.pendingHapCleanup.values())
+    this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, accessories)
+    for (const accessory of accessories) {
+      this.log.debug(`Removing unhandled cached HAP accessory (no matching lock found): ${accessory.displayName}`)
+    }
+    this.pendingHapCleanup.clear()
+  }
+
+  /**
    * Register an August lock as a Matter DoorLock accessory.
    * Overrides the HAP-based Lock() method from AugustPlatform.
    */
@@ -70,21 +108,11 @@ export class AugustMatterPlatform extends AugustPlatform {
     // accessory from a previous session and return early.
     const shouldRegister = await this.registerDevice(device)
     if (!shouldRegister) {
-      const staleAccessory = this.matterAccessories.get(uuid)
-      if (staleAccessory) {
-        await matterApi.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [staleAccessory])
-        this.matterAccessories.delete(uuid)
-        await this.warnLog(`Removing stale Matter accessory: ${device.LockName} (${device.lockId})`)
-      }
-      // Also tear down any PubNub subscription for this lock so its resources are freed.
-      const existingUnsubscribe = this.matterPubNubUnsubscribes.get(uuid)
-      if (existingUnsubscribe) {
-        try {
-          existingUnsubscribe()
-        }
-        catch { /* ignore */ }
-        this.matterPubNubUnsubscribes.delete(uuid)
-      }
+      // Tear down all per-lock state atomically. Whether there's a stale Matter
+      // accessory from a previous session, a PubNub subscription, or a polling
+      // subscription, they all need to go together when a lock is hidden or
+      // removed from the account.
+      await this.tearDownMatterLock(uuid, device.LockName, matterApi)
       await this.debugErrorLog(
         `Unable to Register: ${device.LockName}, Lock ID: ${device.lockId} Check Config to see if is being Hidden.`,
       )
@@ -125,22 +153,20 @@ export class AugustMatterPlatform extends AugustPlatform {
           lockDoor: async () => {
             try {
               await this.augustCredentials()
-              await this.augustConfig.lock(device.lockId)
+              await this.augustConfig!.lock(device.lockId)
               await this.successLog(`Matter: Locked ${displayName}`)
               await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState: matterApi.types.DoorLock.LockState.Locked })
-            }
-            catch (e: any) {
+            } catch (e: any) {
               await this.errorLog(`Matter: lockDoor failed: ${e.message ?? e}`)
             }
           },
           unlockDoor: async () => {
             try {
               await this.augustCredentials()
-              await this.augustConfig.unlock(device.lockId)
+              await this.augustConfig!.unlock(device.lockId)
               await this.successLog(`Matter: Unlocked ${displayName}`)
               await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState: matterApi.types.DoorLock.LockState.Unlocked })
-            }
-            catch (e: any) {
+            } catch (e: any) {
               await this.errorLog(`Matter: unlockDoor failed: ${e.message ?? e}`)
             }
           },
@@ -194,25 +220,14 @@ export class AugustMatterPlatform extends AugustPlatform {
         if (existingUnsubscribe) {
           try {
             existingUnsubscribe()
-          }
-          catch { /* ignore */ }
+          } catch { /* ignore */ }
           this.matterPubNubUnsubscribes.delete(uuid)
         }
         const normalizedCredentials = await this.getNormalizedCredentials()
-        const unsubscribe = await August.subscribe(normalizedCredentials, device.lockId, async (augustEvent: lockEvent, _timestamp: Date) => {
+        const unsubscribe = await August.subscribe(normalizedCredentials, device.lockId, async (augustEvent: lockEvent) => {
           await this.debugLog(`Matter AugustEvent: ${JSON.stringify(augustEvent)}`)
           if (augustEvent.state) {
-            let lockState: number
-            // If both flags are somehow set simultaneously, treat as Locked (fail-safe).
-            if (augustEvent.state.locked) {
-              lockState = matterApi.types.DoorLock.LockState.Locked
-            }
-            else if (augustEvent.state.unlocked) {
-              lockState = matterApi.types.DoorLock.LockState.Unlocked
-            }
-            else {
-              lockState = matterApi.types.DoorLock.LockState.NotFullyLocked
-            }
+            const lockState = this.mapLockState(augustEvent.state, matterApi)
             try {
               await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState })
               await this.debugLog(`Matter: Updated lockState to ${lockState} for ${device.LockName}`)
@@ -231,6 +246,27 @@ export class AugustMatterPlatform extends AugustPlatform {
   }
 
   /**
+   * Map an August lock state (from details() or a PubNub event) to a Matter
+   * DoorLock.LockState enum value.
+   *
+   * If both `locked` and `unlocked` are set simultaneously (unexpected), we
+   * treat the lock as Locked (fail-safe). If neither is set, we report
+   * NotFullyLocked, which is the correct Matter state for "position unknown".
+   */
+  private mapLockState(
+    state: { locked?: boolean, unlocked?: boolean },
+    matterApi: MatterAPI,
+  ): number {
+    if (state.locked) {
+      return matterApi.types.DoorLock.LockState.Locked
+    }
+    if (state.unlocked) {
+      return matterApi.types.DoorLock.LockState.Unlocked
+    }
+    return matterApi.types.DoorLock.LockState.NotFullyLocked
+  }
+
+  /**
    * Fetch the current lock status from the August API and update the Matter DoorLock state.
    * On failure, attempts a session refresh and retries once. The 5-minute cooldown in
    * refreshAugustSession() (added by PR #209 for the HAP path) prevents refresh spam
@@ -242,60 +278,52 @@ export class AugustMatterPlatform extends AugustPlatform {
     matterApi: MatterAPI,
   ): Promise<void> {
     try {
-      if (this.augustConfig?.details) {
-        const lockDetails: any = await this.augustConfig.details(device.lockId)
-        if (lockDetails?.LockStatus?.state) {
-          const state = lockDetails.LockStatus.state
-          let lockState: number
-          // If both flags are somehow set simultaneously, treat as Locked (fail-safe).
-          if (state.locked) {
-            lockState = matterApi.types.DoorLock.LockState.Locked
-          }
-          else if (state.unlocked) {
-            lockState = matterApi.types.DoorLock.LockState.Unlocked
-          }
-          else {
-            lockState = matterApi.types.DoorLock.LockState.NotFullyLocked
-          }
-          await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState })
-          await this.debugLog(`Matter: Poll updated lockState to ${lockState} for ${device.LockName}`)
-        }
-      }
+      await this.fetchAndApplyMatterLockState(device, uuid, matterApi, 'Poll')
     } catch (e: any) {
       await this.debugLog(`Matter: refreshStatus failed: ${e.message ?? e}`)
       // Attempt session refresh and retry once. The 5-minute cooldown in refreshAugustSession()
       // prevents spam when every poll fails during a prolonged network outage.
       try {
         await this.refreshAugustSession()
-        if (this.augustConfig?.details) {
-          const lockDetails: any = await this.augustConfig.details(device.lockId)
-          if (lockDetails?.LockStatus?.state) {
-            const state = lockDetails.LockStatus.state
-            let lockState: number
-            if (state.locked) {
-              lockState = matterApi.types.DoorLock.LockState.Locked
-            }
-            else if (state.unlocked) {
-              lockState = matterApi.types.DoorLock.LockState.Unlocked
-            }
-            else {
-              lockState = matterApi.types.DoorLock.LockState.NotFullyLocked
-            }
-            await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState })
-            await this.debugLog(`Matter: Poll (retry) updated lockState to ${lockState} for ${device.LockName}`)
-          }
-        }
-      }
-      catch (retryError: any) {
+        await this.fetchAndApplyMatterLockState(device, uuid, matterApi, 'Poll (retry)')
+      } catch (retryError: any) {
         await this.debugLog(`Matter: refreshStatus retry failed: ${retryError.message ?? retryError}`)
       }
     }
   }
 
   /**
+   * Single fetch-and-apply pass: read details from the August API and push the
+   * derived state into the Matter accessory. Throws on API/network errors so
+   * callers can decide whether to retry after a session refresh.
+   */
+  private async fetchAndApplyMatterLockState(
+    device: device & devicesConfig,
+    uuid: string,
+    matterApi: MatterAPI,
+    logLabel: string,
+  ): Promise<void> {
+    if (!this.augustConfig?.details) {
+      return
+    }
+    const lockDetails: any = await this.augustConfig.details(device.lockId)
+    if (!lockDetails?.LockStatus?.state) {
+      return
+    }
+    const lockState = this.mapLockState(lockDetails.LockStatus.state, matterApi)
+    await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState })
+    await this.debugLog(`Matter: ${logLabel} updated lockState to ${lockState} for ${device.LockName}`)
+  }
+
+  /**
    * Poll the August API for lock status at the configured refresh rate and update the Matter
    * DoorLock state. Uses `timer(0, ...)` for an immediate first fetch (accurate initial state)
    * and `exhaustMap` to prevent overlapping concurrent requests.
+   *
+   * Idempotent: disposes any previous polling subscription for the same UUID
+   * before starting a new one. The subscription is tracked in
+   * matterPollingSubscriptions so it can be disposed on lock removal — otherwise
+   * the timer keeps firing forever even after the accessory is gone.
    */
   private startMatterStatusPolling(
     device: device & devicesConfig,
@@ -307,10 +335,54 @@ export class AugustMatterPlatform extends AugustPlatform {
       return
     }
 
-    timer(0, refreshRate * 1000)
+    // Dispose any previous polling subscription for this UUID before starting a new one
+    const existing = this.matterPollingSubscriptions.get(uuid)
+    if (existing) {
+      existing.unsubscribe()
+      this.matterPollingSubscriptions.delete(uuid)
+    }
+
+    const subscription = timer(0, refreshRate * 1000)
       .pipe(
         exhaustMap(() => this.fetchAndUpdateMatterLockState(device, uuid, matterApi)),
       )
       .subscribe()
+    this.matterPollingSubscriptions.set(uuid, subscription)
+  }
+
+  /**
+   * Release all resources associated with a given Matter lock UUID:
+   * the registered Matter accessory, the PubNub subscription, and the
+   * RxJS polling subscription. Safe to call when some or all of these
+   * do not exist.
+   */
+  private async tearDownMatterLock(
+    uuid: string,
+    lockName: string,
+    matterApi: MatterAPI,
+  ): Promise<void> {
+    // Polling subscription — must be disposed or the timer keeps firing
+    const pollingSub = this.matterPollingSubscriptions.get(uuid)
+    if (pollingSub) {
+      pollingSub.unsubscribe()
+      this.matterPollingSubscriptions.delete(uuid)
+    }
+
+    // PubNub subscription — calls the unsubscribe function returned by August.subscribe()
+    const pubnubUnsubscribe = this.matterPubNubUnsubscribes.get(uuid)
+    if (pubnubUnsubscribe) {
+      try {
+        pubnubUnsubscribe()
+      } catch { /* best-effort */ }
+      this.matterPubNubUnsubscribes.delete(uuid)
+    }
+
+    // Registered Matter accessory
+    const staleAccessory = this.matterAccessories.get(uuid)
+    if (staleAccessory) {
+      await matterApi.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [staleAccessory])
+      this.matterAccessories.delete(uuid)
+      await this.warnLog(`Removing stale Matter accessory: ${lockName}`)
+    }
   }
 }

@@ -197,7 +197,7 @@ export class LockMechanism extends deviceBase {
     if (this.lockStatus) {
       if (this.lockStatus.state) {
       // Lock Mechanism
-        this.platform.augustConfig.addSimpleProps(this.lockStatus)
+        this.platform.augustConfig?.addSimpleProps(this.lockStatus)
         if (this.LockMechanism && (this.lockStatus.state.unlocking || this.lockStatus.state.locking)) {
           await this.warnLog(`LockCurrentState: ${this.LockMechanism.LockCurrentState}, locking/unlocking parseStatus`
             + ` lockStatus: ${JSON.stringify(this.lockStatus)}`)
@@ -270,7 +270,7 @@ export class LockMechanism extends deviceBase {
       if (this.lockEvent.state) {
         this.debugLog(`lockEvent: ${JSON.stringify(this.lockEvent)}`)
         // Lock Mechanism
-        this.platform.augustConfig.addSimpleProps(this.lockEvent)
+        this.platform.augustConfig?.addSimpleProps(this.lockEvent)
         if (this.LockMechanism && (this.lockEvent.state.unlocking || this.lockEvent.state.locking)) {
           await this.debugLog(`is  ${this.lockEvent.state.unlocking ? 'Unlocking' : this.lockEvent.state.locking ? 'Locking' : ''}, parseEventStatus`
             + ` lockEventState: ${JSON.stringify(this.lockEvent.state)}`)
@@ -377,9 +377,9 @@ export class LockMechanism extends deviceBase {
             await this.debugLog(`Making API call - Target: ${targetState}, Current: ${currentState}`)
 
             if (targetState === this.hap.Characteristic.LockTargetState.UNSECURED) {
-              await this.platform.augustConfig.unlock(this.device.lockId)
+              await this.platform.augustConfig!.unlock(this.device.lockId)
             } else {
-              await this.platform.augustConfig.lock(this.device.lockId)
+              await this.platform.augustConfig!.lock(this.device.lockId)
             }
             await this.successLog(`Sending request to August API: ${targetState === 1 ? 'Locked' : 'Unlocked'}`)
           } else {
@@ -409,9 +409,9 @@ export class LockMechanism extends deviceBase {
           // Retry the operation once
           if (this.LockMechanism && this.LockMechanism.LockTargetState !== this.LockMechanism.LockCurrentState) {
             if (this.LockMechanism.LockTargetState === this.hap.Characteristic.LockTargetState.UNSECURED) {
-              await this.platform.augustConfig.unlock(this.device.lockId)
+              await this.platform.augustConfig!.unlock(this.device.lockId)
             } else {
-              await this.platform.augustConfig.lock(this.device.lockId)
+              await this.platform.augustConfig!.lock(this.device.lockId)
             }
             await this.successLog(`Retry: Sending request to August API: ${this.LockMechanism.LockTargetState === 1 ? 'Locked' : 'Unlocked'}`)
             await this.updateHomeKitCharacteristics()

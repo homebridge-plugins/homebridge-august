@@ -16,7 +16,7 @@ class PluginUiServer extends HomebridgePluginUiServer {
     this.onRequest('getCachedAccessories', () => {
       try {
         const plugin = 'homebridge-august'
-        const devicesToReturn: any[] = []
+        const devicesToReturn: unknown[] = []
 
         // The path and file of the cached accessories
         const accFile = `${this.homebridgeStoragePath}/accessories/cachedAccessories`
@@ -24,13 +24,13 @@ class PluginUiServer extends HomebridgePluginUiServer {
         // Check the file exists
         if (fs.existsSync(accFile)) {
           // read the cached accessories file
-          const cachedAccessories: any[] = JSON.parse(fs.readFileSync(accFile, 'utf8'))
+          const cachedAccessories = JSON.parse(fs.readFileSync(accFile, 'utf8')) as Array<{ plugin?: string, accessory?: unknown }>
 
-          cachedAccessories.forEach((accessory: any) => {
+          cachedAccessories.forEach((accessory) => {
             // Check the accessory is from this plugin
             if (accessory.plugin === plugin) {
               // Add the cached accessory to the array
-              devicesToReturn.push(accessory.accessory as any)
+              devicesToReturn.push(accessory.accessory)
             }
           })
         }

@@ -67,11 +67,11 @@ export interface device {
   zWaveEnabled: boolean
   isGalileo: boolean
   Bridge: Bridge
-  parametersToSet: Record<any, undefined>
-  users: Record<any, undefined>
+  parametersToSet: Record<string, unknown>
+  users: Record<string, unknown>
   pubsubChannel: string
-  ruleHash: any
-  cameras: any[]
+  ruleHash: unknown
+  cameras: unknown[]
   lockId: string
 }
 

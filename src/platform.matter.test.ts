@@ -6,15 +6,16 @@ import type { API, Logging, MatterAccessory, PlatformAccessory } from 'homebridg
 
 import type { AugustPlatformConfig } from './settings.js'
 
-import { readFileSync, writeFileSync } from 'node:fs'
-
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
 
 import August from 'august-yale'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { AugustMatterPlatform } from './platform.matter.js'
 
 // Mock the august-yale module
 vi.mock('august-yale', () => {
+  // eslint-disable-next-line prefer-arrow-callback
   const MockAugust = vi.fn().mockImplementation(function () {
     return {
       end: vi.fn(),
@@ -451,7 +452,7 @@ describe('augustMatterPlatform', () => {
     })
   })
 
-  describe('PubNub subscription lifecycle (Matter path equivalent of PR #206)', () => {
+  describe('pubNub subscription lifecycle (Matter path equivalent of PR #206)', () => {
     it('should capture unsubscribe function from August.subscribe()', async () => {
       platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
 
@@ -505,6 +506,163 @@ describe('augustMatterPlatform', () => {
 
       expect(mockUnsubscribe).toHaveBeenCalledOnce()
       expect((platform as any).matterPubNubUnsubscribes.has(uuid)).toBe(false)
+    })
+  })
+
+  describe('polling subscription lifecycle', () => {
+    it('should track the polling subscription so it can be disposed', async () => {
+      platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
+
+      const device = {
+        lockId: 'lock-poll-track',
+        LockName: 'Tracked Lock',
+        SerialNumber: 'SN100',
+        hide_device: false,
+        homeKitEnabled: false,
+      } as any
+
+      await (platform as any).Lock(device)
+
+      const uuid = mockMatterApi.uuid.generate('lock-poll-track')
+      const stored = (platform as any).matterPollingSubscriptions.get(uuid)
+      expect(stored).toBeDefined()
+      expect(typeof stored.unsubscribe).toBe('function')
+    })
+
+    it('should dispose previous polling subscription before starting a new one (idempotent)', async () => {
+      platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
+
+      const device = {
+        lockId: 'lock-poll-idem',
+        LockName: 'Idempotent Lock',
+        SerialNumber: 'SN101',
+        hide_device: false,
+        homeKitEnabled: false,
+      } as any
+
+      await (platform as any).Lock(device)
+
+      const uuid = mockMatterApi.uuid.generate('lock-poll-idem')
+      const firstSub = (platform as any).matterPollingSubscriptions.get(uuid)
+      const firstUnsubSpy = vi.spyOn(firstSub, 'unsubscribe')
+
+      // Call polling again (simulating re-registration)
+      ;(platform as any).startMatterStatusPolling(device, uuid, mockMatterApi)
+
+      // Previous subscription should have been disposed
+      expect(firstUnsubSpy).toHaveBeenCalledOnce()
+      // A new subscription should be stored
+      const secondSub = (platform as any).matterPollingSubscriptions.get(uuid)
+      expect(secondSub).toBeDefined()
+      expect(secondSub).not.toBe(firstSub)
+    })
+
+    it('should dispose polling subscription when device is hidden', async () => {
+      platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
+
+      const uuid = 'matter-uuid-hidden-poll'
+      mockMatterApi.uuid.generate.mockReturnValueOnce(uuid)
+
+      const fakeSubscription = { unsubscribe: vi.fn() }
+      ;(platform as any).matterPollingSubscriptions.set(uuid, fakeSubscription)
+
+      const device = {
+        lockId: 'hidden-poll',
+        LockName: 'Hidden Poll Lock',
+        hide_device: true,
+        homeKitEnabled: false,
+      } as any
+
+      await (platform as any).Lock(device)
+
+      expect(fakeSubscription.unsubscribe).toHaveBeenCalledOnce()
+      expect((platform as any).matterPollingSubscriptions.has(uuid)).toBe(false)
+    })
+
+    it('should not start polling when refreshRate is 0', async () => {
+      platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
+      ;(platform as any).platformRefreshRate = 0
+
+      const device = {
+        lockId: 'lock-no-poll',
+        LockName: 'No Poll Lock',
+        SerialNumber: 'SN102',
+        hide_device: false,
+        homeKitEnabled: false,
+      } as any
+
+      await (platform as any).Lock(device)
+
+      const uuid = mockMatterApi.uuid.generate('lock-no-poll')
+      expect((platform as any).matterPollingSubscriptions.has(uuid)).toBe(false)
+    })
+  })
+
+  describe('pendingHapCleanup sweep after discovery', () => {
+    it('should unregister staged HAP accessories that were not handled during discovery', async () => {
+      platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
+
+      // Stage two HAP accessories from a previous session
+      const orphanedHap1 = { UUID: 'hap-orphan-1', displayName: 'Removed Lock 1' } as unknown as PlatformAccessory
+      const orphanedHap2 = { UUID: 'hap-orphan-2', displayName: 'Removed Lock 2' } as unknown as PlatformAccessory
+      await platform.configureAccessory(orphanedHap1)
+      await platform.configureAccessory(orphanedHap2)
+
+      // Stub super.discoverDevices so it's a no-op (doesn't touch pendingHapCleanup)
+      const baseProto = Object.getPrototypeOf(Object.getPrototypeOf(platform))
+      vi.spyOn(baseProto, 'discoverDevices').mockResolvedValue(undefined as never)
+
+      await platform.discoverDevices()
+
+      // Both staged HAP accessories should have been unregistered since neither
+      // had a matching Lock() call during discovery
+      expect(mockApi.unregisterPlatformAccessories).toHaveBeenCalledWith(
+        'homebridge-august',
+        'August',
+        expect.arrayContaining([orphanedHap1, orphanedHap2]),
+      )
+      // Map should be empty after the sweep
+      expect((platform as any).pendingHapCleanup.size).toBe(0)
+    })
+
+    it('should leave handled HAP accessories alone (those already removed by Lock())', async () => {
+      platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
+
+      // Simulate a successful Lock() having already cleaned its entry
+      // (pendingHapCleanup is empty)
+      const baseProto = Object.getPrototypeOf(Object.getPrototypeOf(platform))
+      vi.spyOn(baseProto, 'discoverDevices').mockResolvedValue(undefined as never)
+
+      await platform.discoverDevices()
+
+      // unregisterPlatformAccessories should not be called — nothing to sweep
+      expect(mockApi.unregisterPlatformAccessories).not.toHaveBeenCalled()
+    })
+
+    it('should only sweep the orphans, not the locks that were successfully migrated', async () => {
+      platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
+
+      // One lock that will be migrated (has matching active lock in account)
+      // and one orphan that no longer exists in the account
+      const migrated = { UUID: 'hap-migrated', displayName: 'Still Active' } as unknown as PlatformAccessory
+      const orphan = { UUID: 'hap-orphan', displayName: 'Deleted From Account' } as unknown as PlatformAccessory
+      await platform.configureAccessory(migrated)
+      await platform.configureAccessory(orphan)
+
+      // Simulate a successful Lock() call for the 'migrated' UUID by removing
+      // that entry from pendingHapCleanup directly (mimicking what Lock() does).
+      const baseProto = Object.getPrototypeOf(Object.getPrototypeOf(platform))
+      vi.spyOn(baseProto, 'discoverDevices').mockImplementation(async () => {
+        (platform as any).pendingHapCleanup.delete('hap-migrated')
+      })
+
+      await platform.discoverDevices()
+
+      // Only the orphan should have been unregistered in the sweep
+      expect(mockApi.unregisterPlatformAccessories).toHaveBeenCalledOnce()
+      const swept = (mockApi.unregisterPlatformAccessories as any).mock.calls[0][2]
+      expect(swept).toContain(orphan)
+      expect(swept).not.toContain(migrated)
     })
   })
 })

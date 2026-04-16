@@ -43,8 +43,8 @@
   },
   "scripts": {
     "check": "npm install && npm outdated",
-    "lint": "eslint src/**/*.ts --no-warn-ignored",
-    "lint:fix": "eslint src/**/*.ts --fix --no-warn-ignored",
+    "lint": "eslint src --no-warn-ignored",
+    "lint:fix": "eslint src --fix --no-warn-ignored",
     "watch": "npm run build && npm run plugin-ui && npm link && nodemon",
     "plugin-ui": "rsync ./src/homebridge-ui/public/index.html ./dist/homebridge-ui/public/",
     "build": "npm run clean && tsc && npm run plugin-ui && cp package.json dist/package.json || true",
@@ -72,11 +72,10 @@
     "eslint": "^10.2.0",
     "eslint-plugin-format": "^2.0.1",
     "eslint-plugin-perfectionist": "^5.8.0",
-    "eslint-plugin-unused-imports": "^3.1.0",
+    "eslint-plugin-unused-imports": "^4.4.1",
     "homebridge": "^2.0.0-beta.89",
     "nodemon": "^3.1.14",
     "shx": "^0.4.0",
-    "ts-node": "^10.9.2",
     "typedoc": "^0.28.19",
     "typescript": "^6.0.2",
     "vitest": "^4.1.4"
