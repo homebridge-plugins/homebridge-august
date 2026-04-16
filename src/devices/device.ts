@@ -75,7 +75,7 @@ export abstract class deviceBase {
   }
 
   async getDeviceConfigSettings(device: devicesConfig): Promise<void> {
-    const deviceConfig = {}
+    const deviceConfig: Record<string, unknown> = {}
     const properties = [
       'logging',
       'refreshRate',
@@ -83,10 +83,11 @@ export abstract class deviceBase {
       'pushRate',
       'overrideHomeKitEnabled',
       'external',
-    ]
+    ] as const
+    const rec = device as unknown as Record<string, unknown>
     properties.forEach((prop) => {
-      if (device[prop] !== undefined) {
-        deviceConfig[prop] = device[prop]
+      if (rec[prop] !== undefined) {
+        deviceConfig[prop] = rec[prop]
       }
     })
     if (Object.keys(deviceConfig).length !== 0) {
@@ -172,7 +173,7 @@ export abstract class deviceBase {
     }
 
     const statusCode = statusCodeString.slice(0, 3)
-    const logMap = {
+    const logMap: Record<string, string> = {
       100: `Command successfully sent, statusCode: ${statusCodeString}`,
       200: `Request successful, statusCode: ${statusCodeString}`,
       400: `Bad Request, statusCode: ${statusCodeString}`,

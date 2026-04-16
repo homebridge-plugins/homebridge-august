@@ -153,7 +153,7 @@ export class AugustMatterPlatform extends AugustPlatform {
           lockDoor: async () => {
             try {
               await this.augustCredentials()
-              await this.augustConfig.lock(device.lockId)
+              await this.augustConfig!.lock(device.lockId)
               await this.successLog(`Matter: Locked ${displayName}`)
               await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState: matterApi.types.DoorLock.LockState.Locked })
             } catch (e: any) {
@@ -163,7 +163,7 @@ export class AugustMatterPlatform extends AugustPlatform {
           unlockDoor: async () => {
             try {
               await this.augustCredentials()
-              await this.augustConfig.unlock(device.lockId)
+              await this.augustConfig!.unlock(device.lockId)
               await this.successLog(`Matter: Unlocked ${displayName}`)
               await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState: matterApi.types.DoorLock.LockState.Unlocked })
             } catch (e: any) {

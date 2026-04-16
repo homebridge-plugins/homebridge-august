@@ -35,7 +35,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   version!: string
 
   // August API
-  augustConfig!: August
+  augustConfig?: August
 
   // Session refresh: promise coalescing ensures concurrent 502s from
   // multiple locks share a single refresh instead of cascading.
@@ -344,7 +344,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       if (this.augustConfig) {
         await this.warnLog('Refreshing August session due to timeout error')
         this.augustConfig.end()
-        this.augustConfig = undefined as any
+        this.augustConfig = undefined
       }
       await this.augustCredentials()
       await this.warnLog('August session refreshed successfully')
