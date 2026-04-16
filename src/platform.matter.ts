@@ -202,17 +202,7 @@ export class AugustMatterPlatform extends AugustPlatform {
         const unsubscribe = await August.subscribe(normalizedCredentials, device.lockId, async (augustEvent: lockEvent, _timestamp: Date) => {
           await this.debugLog(`Matter AugustEvent: ${JSON.stringify(augustEvent)}`)
           if (augustEvent.state) {
-            let lockState: number
-            // If both flags are somehow set simultaneously, treat as Locked (fail-safe).
-            if (augustEvent.state.locked) {
-              lockState = matterApi.types.DoorLock.LockState.Locked
-            }
-            else if (augustEvent.state.unlocked) {
-              lockState = matterApi.types.DoorLock.LockState.Unlocked
-            }
-            else {
-              lockState = matterApi.types.DoorLock.LockState.NotFullyLocked
-            }
+            const lockState = this.mapLockState(augustEvent.state, matterApi)
             try {
               await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState })
               await this.debugLog(`Matter: Updated lockState to ${lockState} for ${device.LockName}`)
@@ -231,6 +221,27 @@ export class AugustMatterPlatform extends AugustPlatform {
   }
 
   /**
+   * Map an August lock state (from details() or a PubNub event) to a Matter
+   * DoorLock.LockState enum value.
+   *
+   * If both `locked` and `unlocked` are set simultaneously (unexpected), we
+   * treat the lock as Locked (fail-safe). If neither is set, we report
+   * NotFullyLocked, which is the correct Matter state for "position unknown".
+   */
+  private mapLockState(
+    state: { locked?: boolean, unlocked?: boolean },
+    matterApi: MatterAPI,
+  ): number {
+    if (state.locked) {
+      return matterApi.types.DoorLock.LockState.Locked
+    }
+    if (state.unlocked) {
+      return matterApi.types.DoorLock.LockState.Unlocked
+    }
+    return matterApi.types.DoorLock.LockState.NotFullyLocked
+  }
+
+  /**
    * Fetch the current lock status from the August API and update the Matter DoorLock state.
    * On failure, attempts a session refresh and retries once. The 5-minute cooldown in
    * refreshAugustSession() (added by PR #209 for the HAP path) prevents refresh spam
@@ -245,18 +256,7 @@ export class AugustMatterPlatform extends AugustPlatform {
       if (this.augustConfig?.details) {
         const lockDetails: any = await this.augustConfig.details(device.lockId)
         if (lockDetails?.LockStatus?.state) {
-          const state = lockDetails.LockStatus.state
-          let lockState: number
-          // If both flags are somehow set simultaneously, treat as Locked (fail-safe).
-          if (state.locked) {
-            lockState = matterApi.types.DoorLock.LockState.Locked
-          }
-          else if (state.unlocked) {
-            lockState = matterApi.types.DoorLock.LockState.Unlocked
-          }
-          else {
-            lockState = matterApi.types.DoorLock.LockState.NotFullyLocked
-          }
+          const lockState = this.mapLockState(lockDetails.LockStatus.state, matterApi)
           await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState })
           await this.debugLog(`Matter: Poll updated lockState to ${lockState} for ${device.LockName}`)
         }
@@ -270,17 +270,7 @@ export class AugustMatterPlatform extends AugustPlatform {
         if (this.augustConfig?.details) {
           const lockDetails: any = await this.augustConfig.details(device.lockId)
           if (lockDetails?.LockStatus?.state) {
-            const state = lockDetails.LockStatus.state
-            let lockState: number
-            if (state.locked) {
-              lockState = matterApi.types.DoorLock.LockState.Locked
-            }
-            else if (state.unlocked) {
-              lockState = matterApi.types.DoorLock.LockState.Unlocked
-            }
-            else {
-              lockState = matterApi.types.DoorLock.LockState.NotFullyLocked
-            }
+            const lockState = this.mapLockState(lockDetails.LockStatus.state, matterApi)
             await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState })
             await this.debugLog(`Matter: Poll (retry) updated lockState to ${lockState} for ${device.LockName}`)
           }
