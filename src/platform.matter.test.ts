@@ -49,6 +49,15 @@ describe('AugustMatterPlatform', () => {
     mockMatterApi = {
       uuid: { generate: vi.fn((id: string) => `matter-uuid-${id}`) },
       deviceTypes: { DoorLock: { deviceType: 11 } },
+      types: {
+        DoorLock: {
+          LockState: {
+            NotFullyLocked: 0,
+            Locked: 1,
+            Unlocked: 2,
+          },
+        },
+      },
       registerPlatformAccessories: vi.fn().mockResolvedValue(undefined),
       updatePlatformAccessories: vi.fn().mockResolvedValue(undefined),
       unregisterPlatformAccessories: vi.fn().mockResolvedValue(undefined),
@@ -106,7 +115,7 @@ describe('AugustMatterPlatform', () => {
   })
 
   describe('configureAccessory', () => {
-    it('should unregister cached HAP accessories (HAP → Matter migration cleanup)', async () => {
+    it('should stage (not immediately unregister) cached HAP accessories for deferred cleanup', async () => {
       platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
 
       const hapAccessory = {
@@ -116,6 +125,33 @@ describe('AugustMatterPlatform', () => {
 
       await platform.configureAccessory(hapAccessory)
 
+      // HAP accessory should NOT be unregistered immediately; deferred until Matter registration succeeds
+      expect(mockApi.unregisterPlatformAccessories).not.toHaveBeenCalled()
+    })
+
+    it('should unregister staged HAP accessory after successful Matter registration', async () => {
+      platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
+
+      const device = {
+        lockId: 'lock-abc',
+        LockName: 'Front Door',
+        SerialNumber: 'SN123',
+        skuNumber: 'AUG-SL05',
+        currentFirmwareVersion: '1.2.3',
+        hide_device: false,
+        homeKitEnabled: false,
+      } as any
+
+      // Stage a HAP accessory with UUID matching what matterApi.uuid.generate will return for this lockId
+      const hapAccessory = {
+        UUID: 'matter-uuid-lock-abc',
+        displayName: 'Front Door',
+      } as unknown as PlatformAccessory
+      await platform.configureAccessory(hapAccessory)
+
+      await (platform as any).Lock(device)
+
+      // After Matter registration succeeds, the staged HAP accessory should be unregistered
       expect(mockApi.unregisterPlatformAccessories).toHaveBeenCalledWith(
         'homebridge-august',
         'August',

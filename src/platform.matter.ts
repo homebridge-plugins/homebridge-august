@@ -23,15 +23,19 @@ export class AugustMatterPlatform extends AugustPlatform {
   // Track restored Matter cached accessories
   public readonly matterAccessories: Map<string, MatterAccessory> = new Map()
 
+  // HAP accessories staged for removal after Matter registration succeeds.
+  // Deferred to avoid leaving users with zero accessories if Matter init fails.
+  private readonly pendingHapCleanup: Map<string, PlatformAccessory> = new Map()
+
   /**
    * Called when homebridge restores cached HAP accessories from disk at startup.
-   * Since this platform now registers Matter accessories instead of HAP accessories,
-   * any restored cached HAP accessories must be unregistered to avoid orphaned
-   * or duplicate accessories after migration from HAP to Matter.
+   * HAP accessories are staged here and removed only after Matter registration
+   * succeeds for the same lock, so that if Matter init fails the user is not
+   * left with zero accessories.
    */
   override async configureAccessory(accessory: PlatformAccessory): Promise<void> {
-    this.log.debug(`Removing cached HAP accessory migrated to Matter: ${accessory.displayName}`)
-    this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
+    this.log.debug(`Staging cached HAP accessory for deferred cleanup: ${accessory.displayName}`)
+    this.pendingHapCleanup.set(accessory.UUID, accessory)
   }
 
   /**
@@ -92,9 +96,10 @@ export class AugustMatterPlatform extends AugustPlatform {
       },
       clusters: {
         doorLock: {
-          // LockState: 0 = NotFullyLocked (unknown until first poll), 1 = Locked, 2 = Unlocked.
+          // Use DoorLock.LockState enum for type safety and readability:
+          //   NotFullyLocked = 0 (unknown until first poll), Locked = 1, Unlocked = 2.
           // timer(0, ...) fires immediately so accurate state is pushed on the first poll tick.
-          lockState: 0,
+          lockState: matterApi.types.DoorLock.LockState.NotFullyLocked,
           lockType: 0, // 0 = DeadBolt
           actuatorEnabled: true,
           operatingMode: 0, // 0 = Normal
@@ -107,7 +112,7 @@ export class AugustMatterPlatform extends AugustPlatform {
               await this.augustCredentials()
               await this.augustConfig.lock(device.lockId)
               await this.successLog(`Matter: Locked ${displayName}`)
-              await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState: 1 })
+              await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState: matterApi.types.DoorLock.LockState.Locked })
             }
             catch (e: any) {
               await this.errorLog(`Matter: lockDoor failed: ${e.message ?? e}`)
@@ -118,7 +123,7 @@ export class AugustMatterPlatform extends AugustPlatform {
               await this.augustCredentials()
               await this.augustConfig.unlock(device.lockId)
               await this.successLog(`Matter: Unlocked ${displayName}`)
-              await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState: 2 })
+              await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState: matterApi.types.DoorLock.LockState.Unlocked })
             }
             catch (e: any) {
               await this.errorLog(`Matter: unlockDoor failed: ${e.message ?? e}`)
@@ -138,6 +143,16 @@ export class AugustMatterPlatform extends AugustPlatform {
     // Register (or re-register to update handlers/context) with Homebridge Matter
     await matterApi.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory])
     this.matterAccessories.set(uuid, accessory)
+
+    // After Matter registration succeeds, clean up any staged HAP accessory for this lock.
+    // This deferred removal ensures that if Matter registration had failed, the user would
+    // have kept the HAP accessory rather than being left with no accessory at all.
+    const stagedHapAccessory = this.pendingHapCleanup.get(uuid)
+    if (stagedHapAccessory) {
+      this.log.debug(`Removing migrated HAP accessory after successful Matter registration: ${stagedHapAccessory.displayName}`)
+      this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [stagedHapAccessory])
+      this.pendingHapCleanup.delete(uuid)
+    }
 
     // Subscribe to August real-time events for instant state updates
     await this.subscribeAugustMatter(device, uuid, matterApi)
@@ -164,13 +179,13 @@ export class AugustMatterPlatform extends AugustPlatform {
             let lockState: number
             // If both flags are somehow set simultaneously, treat as Locked (fail-safe).
             if (augustEvent.state.locked) {
-              lockState = 1 // Locked
+              lockState = matterApi.types.DoorLock.LockState.Locked
             }
             else if (augustEvent.state.unlocked) {
-              lockState = 2 // Unlocked
+              lockState = matterApi.types.DoorLock.LockState.Unlocked
             }
             else {
-              lockState = 0 // NotFullyLocked / unknown
+              lockState = matterApi.types.DoorLock.LockState.NotFullyLocked
             }
             try {
               await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState })
@@ -204,13 +219,13 @@ export class AugustMatterPlatform extends AugustPlatform {
           let lockState: number
           // If both flags are somehow set simultaneously, treat as Locked (fail-safe).
           if (state.locked) {
-            lockState = 1 // Locked
+            lockState = matterApi.types.DoorLock.LockState.Locked
           }
           else if (state.unlocked) {
-            lockState = 2 // Unlocked
+            lockState = matterApi.types.DoorLock.LockState.Unlocked
           }
           else {
-            lockState = 0 // NotFullyLocked / unknown
+            lockState = matterApi.types.DoorLock.LockState.NotFullyLocked
           }
           await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState })
           await this.debugLog(`Matter: Poll updated lockState to ${lockState} for ${device.LockName}`)
