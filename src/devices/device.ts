@@ -192,9 +192,10 @@ export abstract class deviceBase {
    * Check if error is a network timeout or session expiration that requires session refresh
    * Handles 502 Bad Gateway, 401 Unauthorized, 503 Service Unavailable, and network timeouts
    */
-  isTimeoutError(error: { message: string, statusCode?: number }): boolean {
-    // Check for network timeout errors
-    if (error.message && error.message.includes('ETIMEDOUT')) {
+  isTimeoutError(error: { message: string, name?: string, statusCode?: number }): boolean {
+    // Check for august-yale TimeoutError by name (stable contract — works regardless
+    // of message format changes) and Node.js network timeouts by message
+    if (error.name === 'TimeoutError' || error.message?.includes('ETIMEDOUT')) {
       return true
     }
 

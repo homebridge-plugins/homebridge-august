@@ -49,9 +49,10 @@ class MockDevice {
    * Check if error is a network timeout or session expiration that requires session refresh
    * Handles 502 Bad Gateway, 401 Unauthorized, 503 Service Unavailable, and network timeouts
    */
-  isTimeoutError(error: { message: string, statusCode?: number }): boolean {
-    // Check for network timeout errors
-    if (error.message && error.message.includes('ETIMEDOUT')) {
+  isTimeoutError(error: { message: string, name?: string, statusCode?: number }): boolean {
+    // Check for august-yale TimeoutError by name (stable contract — works regardless
+    // of message format changes) and Node.js network timeouts by message
+    if (error.name === 'TimeoutError' || error.message?.includes('ETIMEDOUT')) {
       return true
     }
 
@@ -113,6 +114,16 @@ describe('statusCode error handling', () => {
   })
 
   describe('isTimeoutError method', () => {
+    it('should detect august-yale TimeoutError by error.name', () => {
+      const error = { message: 'Request timed out after 30000ms', name: 'TimeoutError' }
+      expect(mockDevice.isTimeoutError(error)).toBe(true)
+    })
+
+    it('should detect august-yale TimeoutError regardless of message content', () => {
+      const error = { message: 'anything', name: 'TimeoutError' }
+      expect(mockDevice.isTimeoutError(error)).toBe(true)
+    })
+
     it('should detect ETIMEDOUT network errors', () => {
       const error = { message: 'ETIMEDOUT connection timed out' }
       expect(mockDevice.isTimeoutError(error)).toBe(true)
@@ -170,6 +181,11 @@ describe('statusCode error handling', () => {
 
     it('should return false for empty message', () => {
       const error = { message: '' }
+      expect(mockDevice.isTimeoutError(error)).toBe(false)
+    })
+
+    it('should return false for errors with non-timeout name', () => {
+      const error = { message: 'something failed', name: 'Error' }
       expect(mockDevice.isTimeoutError(error)).toBe(false)
     })
 
