@@ -38,7 +38,7 @@
   ],
   "main": "dist/index.js",
   "engines": {
-    "homebridge": "^2.0.0-beta.89",
+    "homebridge": "^1.8.0 || ^2.0.0-beta.0",
     "node": "^22 || ^24"
   },
   "scripts": {
