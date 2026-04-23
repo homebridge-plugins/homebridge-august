@@ -6,8 +6,8 @@
       "ES2022"
     ],
     "rootDir": "src",
-    "module": "ES2022",
-    "moduleResolution": "bundler",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "strict": true,
     "declaration": true,
     "declarationMap": true,
@@ -19,7 +19,8 @@
     "skipLibCheck": true
   },
   "include": [
-    "src"
+    "src",
+    "test"
   ],
   "exclude": [
     "**/*.test.ts"

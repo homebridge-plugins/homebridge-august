@@ -1,8 +1,8 @@
-import type { AugustPlatformConfig, credentials, device, options } from './settings'
+import type { AugustPlatformConfig, credentials, device, options } from '../src/settings.js'
 
 import { describe, expect, it } from 'vitest'
 
-import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
+import { PLATFORM_NAME, PLUGIN_NAME } from '../src/settings.js'
 
 describe('settings', () => {
   it('should have correct PLATFORM_NAME', () => {

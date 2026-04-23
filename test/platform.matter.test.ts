@@ -4,14 +4,14 @@
  */
 import type { API, Logging, MatterAccessory, PlatformAccessory } from 'homebridge'
 
-import type { AugustPlatformConfig } from './settings.js'
+import type { AugustPlatformConfig } from '../src/settings.js'
 
 import { readFileSync } from 'node:fs'
 
 import August from 'august-yale'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { AugustMatterPlatform } from './platform.matter.js'
+import { AugustMatterPlatform } from '../src/platform.matter.js'
 
 // Mock the august-yale module
 vi.mock('august-yale', () => {

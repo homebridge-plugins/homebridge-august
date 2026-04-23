@@ -1,16 +1,11 @@
 ## [3.1.2](https://github.com/homebridge-plugins/homebridge-august/compare/v3.1.1...v3.1.2) (2026-04-18)
 
-
 ### Bug Fixes
 
 * broaden engines.homebridge to support v1.x ([3d5cb8d](https://github.com/homebridge-plugins/homebridge-august/commit/3d5cb8d06b11e9a9b1e0d1111d372ef6e659d523))
 * detect august-yale TimeoutError by error.name instead of message string ([03587f1](https://github.com/homebridge-plugins/homebridge-august/commit/03587f1c8e06d8ad41dd8d82a6852f67fb9803df))
 
-
-
-# Changelog
-
-All notable changes to this project are documented in this file. This project follows Semantic Versioning.
+**Full Changelog**: https://github.com/homebridge-plugins/homebridge-august/compare/v3.1.1...v3.1.2
 
 ## [3.1.1](https://github.com/homebridge-plugins/homebridge-august/compare/v3.1.0...v3.1.1) (2026-04-16)
 
