@@ -8,8 +8,8 @@ import type { device, devicesConfig, lockDetails, lockEvent, lockStatus } from '
  * lock.ts: homebridge-august.
  */
 import August from 'august-yale'
-import { interval, Subject } from 'rxjs'
-import { debounceTime, filter, tap } from 'rxjs/operators'
+import { Subject } from 'rxjs'
+import { debounceTime, tap } from 'rxjs/operators'
 
 import { deviceBase } from './device.js'
 
@@ -159,12 +159,11 @@ export class LockMechanism extends deviceBase {
     // instance dedicated to PubNub, separate from platform.augustConfig.
     this.subscribeAugust()
 
-    // Start an update interval
-    interval(this.deviceRefreshRate * 1000)
-      .pipe(filter(() => !this.lockUpdateInProgress))
-      .subscribe(async () => {
-        await this.refreshStatus()
-      })
+    // Polling is now owned by the platform. AugustPlatform.startPolling()
+    // iterates registered locks serially and short-circuits on the first
+    // failure, so a network outage produces ONE timeout per cycle instead
+    // of N (one per lock). The previous per-lock rxjs interval that lived
+    // here was the source of the log-spam cascade after router restarts.
 
     // Watch for Lock change events
     // We put in a debounce of 100ms so we don't make duplicate calls
@@ -314,51 +313,51 @@ export class LockMechanism extends deviceBase {
   }
 
   /**
-   * Asks the August Home API for the latest device information
+   * Asks the August Home API for the latest device information.
+   *
+   * Used for the initial fetch in the constructor. Periodic polling is
+   * driven by AugustPlatform.startPolling(), which calls applyRefresh()
+   * directly with details fetched serially across all registered locks.
+   *
+   * On failure: returns silently. The ConnectivityManager has already
+   * classified the error and (if it's a network error) put itself into
+   * 'degraded' state — a probe is scheduled and the next poll cycle
+   * will skip until the probe confirms recovery.
    */
   async refreshStatus(): Promise<void> {
-    if (this.deviceRefreshRate !== 0) {
-      try {
-        // Update Lock Details
-        if (this.platform.augustConfig && this.platform.augustConfig.details) {
-          const lockDetails: any = await this.platform.augustConfig.details(this.device.lockId)
-          await this.debugSuccessLog(`(refreshStatus) lockDetails: ${JSON.stringify(lockDetails)}`)
-          // Update HomeKit
-          this.lockDetails = lockDetails
-          this.lockStatus = lockDetails.LockStatus
-          await this.parseStatus()
-          await this.updateHomeKitCharacteristics()
-        } else {
-          await this.errorLog('(refreshStatus) lockDetails: No details')
-        }
-      } catch (e: any) {
-        await this.statusCode('(refreshStatus) lockDetails', e)
-        await this.errorLog(`(refreshStatus) lockDetails: ${e.message ?? e}`)
-
-        // Check if this is a timeout error and retry once after session refresh
-        if (this.isTimeoutError(e)) {
-          try {
-            await this.debugLog('Timeout detected, refreshing August session and retrying...')
-            await this.platform.refreshAugustSession()
-
-            // Retry the operation once
-            if (this.platform.augustConfig && this.platform.augustConfig.details) {
-              const lockDetails: any = await this.platform.augustConfig.details(this.device.lockId)
-              await this.debugSuccessLog(`(refreshStatus retry) lockDetails: ${JSON.stringify(lockDetails)}`)
-              // Update HomeKit
-              this.lockDetails = lockDetails
-              this.lockStatus = lockDetails.LockStatus
-              await this.parseStatus()
-              await this.updateHomeKitCharacteristics()
-            }
-          } catch (retryError: any) {
-            await this.errorLog(`(refreshStatus retry) failed: ${retryError.message ?? retryError}`)
-          }
-        }
-      }
-    } else {
+    if (this.deviceRefreshRate === 0) {
       await this.debugLog(`(refreshStatus) deviceRefreshRate: ${this.deviceRefreshRate}`)
+      return
     }
+    if (!this.platform.connectivity) {
+      await this.debugLog('(refreshStatus) connectivity not initialized — skipping')
+      return
+    }
+    const lockDetails = await this.platform.connectivity.execute(
+      `refreshStatus ${this.accessory.displayName}`,
+      client => client.details(this.device.lockId),
+    )
+    if (lockDetails === undefined) {
+      // Either offline, or the call failed. ConnectivityManager has the
+      // state machine; nothing to do here.
+      return
+    }
+    await this.applyRefresh(lockDetails as unknown as lockDetails)
+  }
+
+  /**
+   * Apply a freshly-fetched lockDetails payload to HomeKit characteristics.
+   *
+   * Public so AugustPlatform.startPolling() can hand-off the result of
+   * its serial details() call without going through refreshStatus()
+   * (which would re-fetch).
+   */
+  async applyRefresh(lockDetails: lockDetails): Promise<void> {
+    await this.debugSuccessLog(`(applyRefresh) lockDetails: ${JSON.stringify(lockDetails)}`)
+    this.lockDetails = lockDetails
+    this.lockStatus = lockDetails.LockStatus
+    await this.parseStatus()
+    await this.updateHomeKitCharacteristics()
   }
 
   /**

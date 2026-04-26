@@ -63,6 +63,13 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   // down when the accessory is unregistered (releases PubNub subscriptions).
   private readonly lockMechanisms = new Map<string, LockMechanism>()
 
+  // Platform-level poll timer. Replaces the per-lock rxjs intervals that
+  // used to live on each LockMechanism. Iterating serially across all
+  // registered locks means one timeout per cycle on a bad network rather
+  // than N (one per lock) — and short-circuiting on the first failure
+  // avoids hammering the API while it's clearly unreachable.
+  private pollTimer?: NodeJS.Timeout
+
   // Cached normalized credentials for performance
   private normalizedCredentialsCache?: credentials
 
@@ -127,6 +134,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
         await this.debugWarnLog(`Config Credentials: ${JSON.stringify(this.config.credentials)}`)
         try {
           await this.discoverDevices()
+          this.startPolling()
         } catch (e: any) {
           await this.errorLog(`Validated, Discover Devices: ${e.message ?? e}`)
         }
@@ -389,6 +397,94 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       await this.warnLog('August session refreshed successfully')
     } catch (e: any) {
       await this.errorLog(`Failed to refresh August session: ${e.message ?? e}`)
+    }
+  }
+
+  /**
+   * Start the platform-level poll cycle. Iterates registered locks
+   * SERIALLY (not in parallel) and short-circuits on the first failure.
+   *
+   * Why serial:
+   *   - One outstanding request at a time on a healthy network is cheap
+   *     enough (most cycles complete in <1s for a handful of locks) and
+   *     avoids racing the August API.
+   *   - On a failing network, a parallel cycle would produce N timeouts
+   *     ~simultaneously, which is exactly the log-spam pattern the
+   *     ConnectivityManager exists to prevent. Serial means one timeout,
+   *     classified once, and the rest of the cycle aborts.
+   *
+   * Why short-circuit on first failure:
+   *   - If the first call fails with a network error, the manager has
+   *     already entered 'degraded' state and scheduled a probe. The
+   *     remaining N-1 calls would all hit the same dead network and
+   *     produce identical errors. Aborting the cycle is the correct
+   *     thing to do.
+   *
+   * Why skip when offline:
+   *   - The manager's state machine is already managing recovery via
+   *     scheduled probes. Polling on top of that just wastes API calls
+   *     and risks rate limiting.
+   */
+  startPolling(): void {
+    const refreshSeconds = this.platformRefreshRate ?? 30
+    if (refreshSeconds === 0) {
+      this.debugLog('Polling disabled (platformRefreshRate = 0)')
+      return
+    }
+    if (this.pollTimer) {
+      // Idempotent: if discovery re-runs (e.g. after re-auth), don't
+      // stack timers.
+      this.debugLog('Polling already started — not restarting')
+      return
+    }
+
+    const tick = async () => {
+      try {
+        if (!this.connectivity || this.connectivity.getState() === 'offline') {
+          // Skip this cycle. The manager's probe will signal recovery.
+          return
+        }
+        for (const lock of this.lockMechanisms.values()) {
+          // Skip locks currently mid-push so we don't race the user's
+          // explicit lock/unlock command with a stale poll result.
+          if ((lock as any).lockUpdateInProgress) {
+            continue
+          }
+          const lockId = (lock as any).device?.lockId
+          if (!lockId) {
+            continue
+          }
+          const details = await this.connectivity.execute(
+            `poll ${lockId}`,
+            client => client.details(lockId),
+          )
+          if (details === undefined) {
+            // execute() returned undefined because the call failed (or
+            // the manager went offline between iterations). The state
+            // machine has the situation; don't keep iterating.
+            break
+          }
+          await lock.applyRefresh(details as any)
+        }
+      } catch (e: any) {
+        // Belt-and-suspenders. execute() should never throw for
+        // network errors, but if anything leaks through we want the
+        // poll loop to stay alive.
+        await this.errorLog(`Polling tick failed: ${e?.message ?? e}`)
+      } finally {
+        this.pollTimer = setTimeout(tick, refreshSeconds * 1000)
+      }
+    }
+
+    this.infoLog(`Starting platform poll loop (refreshRate=${refreshSeconds}s)`)
+    this.pollTimer = setTimeout(tick, refreshSeconds * 1000)
+  }
+
+  /** Stop the platform poll cycle. Called from shutdown paths. */
+  stopPolling(): void {
+    if (this.pollTimer) {
+      clearTimeout(this.pollTimer)
+      this.pollTimer = undefined
     }
   }
 
