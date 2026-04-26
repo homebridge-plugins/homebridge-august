@@ -364,61 +364,57 @@ export class LockMechanism extends deviceBase {
    * Pushes the requested changes to the August API
    */
   async pushChanges(): Promise<void> {
+    if (!this.LockMechanism) {
+      await this.errorLog(`lockTargetState: ${JSON.stringify(this.LockMechanism)}`)
+      return
+    }
+    const targetState = this.LockMechanism.LockTargetState
+    const currentState = this.LockMechanism.LockCurrentState
+    if (targetState === currentState) {
+      await this.debugLog(`No changes, LockTargetState: ${targetState}, LockCurrentState: ${currentState}`)
+      this.LockMechanism.LockTargetState = currentState === this.hap.Characteristic.LockCurrentState.SECURED
+        ? this.hap.Characteristic.LockTargetState.SECURED
+        : this.hap.Characteristic.LockTargetState.UNSECURED
+      await this.updateHomeKitCharacteristics()
+      return
+    }
+
+    await this.debugLog(`Making API call - Target: ${targetState}, Current: ${currentState}`)
+
+    if (!this.platform.connectivity) {
+      await this.errorLog('pushChanges: connectivity not initialized')
+      return
+    }
+
     try {
-      // await this.platform.augustCredentials();
-      if (this.LockMechanism) {
-        if (this.LockMechanism.LockTargetState !== this.LockMechanism.LockCurrentState) {
-          // Double-check that we still need to make the API call
-          const targetState = this.LockMechanism.LockTargetState
-          const currentState = this.LockMechanism.LockCurrentState
-
-          if (targetState !== currentState) {
-            await this.debugLog(`Making API call - Target: ${targetState}, Current: ${currentState}`)
-
-            if (targetState === this.hap.Characteristic.LockTargetState.UNSECURED) {
-              await this.platform.augustConfig!.unlock(this.device.lockId)
-            } else {
-              await this.platform.augustConfig!.lock(this.device.lockId)
-            }
-            await this.successLog(`Sending request to August API: ${targetState === 1 ? 'Locked' : 'Unlocked'}`)
+      // throwOnOffline:true: user-initiated lock/unlock should fail
+      // visibly to HomeKit when the network is down rather than
+      // silently dropping the request. The ConnectivityManager
+      // classifies the error and updates state, but we re-raise so
+      // HomeKit sees a real failure.
+      //
+      // The manager handles auth/network failures internally
+      // (rebuilds the client on auth, schedules a probe on network),
+      // so the explicit retry block that used to live here is gone.
+      // If the user retries the action, the manager will either be
+      // recovered by then or still offline (and throw OfflineError
+      // again).
+      await this.platform.connectivity.execute(
+        `pushChanges ${this.device.lockId}`,
+        async (client) => {
+          if (targetState === this.hap.Characteristic.LockTargetState.UNSECURED) {
+            await client.unlock(this.device.lockId)
           } else {
-            await this.debugLog(`States synchronized before API call - Target: ${targetState}, Current: ${currentState}`)
+            await client.lock(this.device.lockId)
           }
-        } else {
-          await this.debugLog(`No changes, LockTargetState: ${this.LockMechanism.LockTargetState},`
-            + ` LockCurrentState: ${this.LockMechanism.LockCurrentState}`)
-          this.LockMechanism.LockTargetState = this.LockMechanism.LockCurrentState === this.hap.Characteristic.LockCurrentState.SECURED
-            ? this.hap.Characteristic.LockTargetState.SECURED
-            : this.hap.Characteristic.LockTargetState.UNSECURED
-        }
-        await this.updateHomeKitCharacteristics()
-      } else {
-        await this.errorLog(`lockTargetState: ${JSON.stringify(this.LockMechanism)}`)
-      }
+        },
+        { throwOnOffline: true },
+      )
+      await this.successLog(`Sending request to August API: ${targetState === 1 ? 'Locked' : 'Unlocked'}`)
+      await this.updateHomeKitCharacteristics()
     } catch (e: any) {
       await this.statusCode('pushChanges', e)
-      await this.debugLog(`pushChanges: ${e.message ?? e}`)
-
-      // Check if this is a timeout error and retry once after session refresh
-      if (this.isTimeoutError(e)) {
-        try {
-          await this.debugLog('Timeout detected in pushChanges, refreshing August session and retrying...')
-          await this.platform.refreshAugustSession()
-
-          // Retry the operation once
-          if (this.LockMechanism && this.LockMechanism.LockTargetState !== this.LockMechanism.LockCurrentState) {
-            if (this.LockMechanism.LockTargetState === this.hap.Characteristic.LockTargetState.UNSECURED) {
-              await this.platform.augustConfig!.unlock(this.device.lockId)
-            } else {
-              await this.platform.augustConfig!.lock(this.device.lockId)
-            }
-            await this.successLog(`Retry: Sending request to August API: ${this.LockMechanism.LockTargetState === 1 ? 'Locked' : 'Unlocked'}`)
-            await this.updateHomeKitCharacteristics()
-          }
-        } catch (retryError: any) {
-          await this.errorLog(`(pushChanges retry) failed: ${retryError.message ?? retryError}`)
-        }
-      }
+      await this.errorLog(`pushChanges: ${e.message ?? e}`)
     }
   }
 
