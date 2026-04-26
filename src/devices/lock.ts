@@ -456,6 +456,16 @@ export class LockMechanism extends deviceBase {
     }
   }
 
+  // Holds the PubNub status-listener unsubscribe alongside the channel
+  // unsubscribe (this.pubnubUnsubscribe). Both are owned by the same
+  // August instance underneath; both need to be torn down on lock
+  // removal.
+  private pubnubStatusUnsubscribe?: () => void
+  // The August instance that owns the PubNub WebSocket for THIS lock.
+  // Kept so we can register status listeners on it. Distinct from
+  // platform.connectivity's August (which is for HTTP only).
+  private pubnubAugust?: August
+
   async subscribeAugust(): Promise<void> {
     await this.debugLog('subscribeAugust')
     await this.platform.augustCredentials()
@@ -467,7 +477,31 @@ export class LockMechanism extends deviceBase {
       this.tearDownPubNubSubscription()
 
       const normalizedCredentials = await this.platform.getNormalizedCredentials()
-      this.pubnubUnsubscribe = await August.subscribe(normalizedCredentials, this.device.lockId, async (AugustEvent: lockEvent, timestamp: Date) => {
+
+      // Construct an August instance manually so we can register a
+      // PubNub status listener on the same instance that owns the
+      // channel subscription. The previous code used the static
+      // August.subscribe(), which hides the instance and made it
+      // impossible to register status listeners.
+      this.pubnubAugust = new August(normalizedCredentials)
+
+      // Status listener: feed PubNub reconnect events into the
+      // platform's ConnectivityManager. PubNub's WebSocket reconnects
+      // seconds before HTTP polling would notice the network is back,
+      // so this is the fastest signal connectivity has recovered.
+      // Defensive guard around connectivity in case this method is
+      // ever called before the manager is initialized.
+      this.pubnubStatusUnsubscribe = this.pubnubAugust.onPubNubStatus((status: any) => {
+        const category = status?.category
+        if (category === 'PNConnectedCategory' || category === 'PNReconnectedCategory') {
+          this.debugLog(`PubNub status: ${category} — signalling connectivity recovery`)
+          this.platform.connectivity?.onPubNubReconnect()
+        } else if (category === 'PNNetworkDownCategory' || category === 'PNDisconnectedCategory') {
+          this.debugLog(`PubNub status: ${category}`)
+        }
+      })
+
+      this.pubnubUnsubscribe = await this.pubnubAugust.subscribe(this.device.lockId, async (AugustEvent: lockEvent, timestamp: Date) => {
         await this.debugLog(`AugustEvent: ${JSON.stringify(AugustEvent)}, ${JSON.stringify(timestamp)}`)
         // Update HomeKit
         this.lockEvent = AugustEvent
@@ -485,6 +519,14 @@ export class LockMechanism extends deviceBase {
    * the PubNub instance, WebSocket connection, and listener.
    */
   tearDownPubNubSubscription(): void {
+    if (this.pubnubStatusUnsubscribe) {
+      try {
+        this.pubnubStatusUnsubscribe()
+      } catch (e: any) {
+        this.debugLog(`Error tearing down PubNub status listener: ${e.message || e}`)
+      }
+      this.pubnubStatusUnsubscribe = undefined
+    }
     if (this.pubnubUnsubscribe) {
       try {
         this.pubnubUnsubscribe()
@@ -492,6 +534,14 @@ export class LockMechanism extends deviceBase {
         this.debugLog(`Error tearing down PubNub subscription: ${e.message || e}`)
       }
       this.pubnubUnsubscribe = undefined
+    }
+    if (this.pubnubAugust) {
+      try {
+        this.pubnubAugust.destroy()
+      } catch (e: any) {
+        this.debugLog(`Error destroying PubNub August instance: ${e.message || e}`)
+      }
+      this.pubnubAugust = undefined
     }
   }
 }
