@@ -213,16 +213,6 @@ export class ConnectivityManager {
     this.listeners.clear()
   }
 
-  /**
-   * Force-rebuild the August client. Used by the legacy
-   * AugustPlatform.executeSessionRefresh() path during the transition
-   * period; new code should rely on execute()'s automatic rebuild on
-   * auth/network errors.
-   */
-  async forceRebuild(reason: string): Promise<void> {
-    return this.rebuildClient(reason)
-  }
-
   // --- internals ---
 
   private reportSuccess(): void {

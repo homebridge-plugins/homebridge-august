@@ -153,7 +153,14 @@ export class AugustMatterPlatform extends AugustPlatform {
           lockDoor: async () => {
             try {
               await this.augustCredentials()
-              await this.augustConfig!.lock(device.lockId)
+              if (!this.connectivity) {
+                throw new Error('Connectivity not initialized')
+              }
+              await this.connectivity.execute(
+                `Matter lockDoor ${device.lockId}`,
+                client => client.lock(device.lockId),
+                { throwOnOffline: true },
+              )
               await this.successLog(`Matter: Locked ${displayName}`)
               await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState: matterApi.types.DoorLock.LockState.Locked })
             } catch (e: any) {
@@ -163,7 +170,14 @@ export class AugustMatterPlatform extends AugustPlatform {
           unlockDoor: async () => {
             try {
               await this.augustCredentials()
-              await this.augustConfig!.unlock(device.lockId)
+              if (!this.connectivity) {
+                throw new Error('Connectivity not initialized')
+              }
+              await this.connectivity.execute(
+                `Matter unlockDoor ${device.lockId}`,
+                client => client.unlock(device.lockId),
+                { throwOnOffline: true },
+              )
               await this.successLog(`Matter: Unlocked ${displayName}`)
               await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState: matterApi.types.DoorLock.LockState.Unlocked })
             } catch (e: any) {
@@ -268,51 +282,38 @@ export class AugustMatterPlatform extends AugustPlatform {
 
   /**
    * Fetch the current lock status from the August API and update the Matter DoorLock state.
-   * On failure, attempts a session refresh and retries once. The 5-minute cooldown in
-   * refreshAugustSession() (added by PR #209 for the HAP path) prevents refresh spam
-   * during prolonged network outages.
+   *
+   * Routed through the platform's ConnectivityManager: failures are
+   * classified and the state machine handles retry/backoff/probe-driven
+   * recovery. No manual session-refresh-and-retry block is needed here
+   * — when the network is down, execute() returns undefined and the
+   * next poll cycle will skip until the manager confirms recovery.
    */
   async fetchAndUpdateMatterLockState(
     device: device & devicesConfig,
     uuid: string,
     matterApi: MatterAPI,
   ): Promise<void> {
-    try {
-      await this.fetchAndApplyMatterLockState(device, uuid, matterApi, 'Poll')
-    } catch (e: any) {
-      await this.debugLog(`Matter: refreshStatus failed: ${e.message ?? e}`)
-      // Attempt session refresh and retry once. The 5-minute cooldown in refreshAugustSession()
-      // prevents spam when every poll fails during a prolonged network outage.
-      try {
-        await this.refreshAugustSession()
-        await this.fetchAndApplyMatterLockState(device, uuid, matterApi, 'Poll (retry)')
-      } catch (retryError: any) {
-        await this.debugLog(`Matter: refreshStatus retry failed: ${retryError.message ?? retryError}`)
-      }
-    }
-  }
-
-  /**
-   * Single fetch-and-apply pass: read details from the August API and push the
-   * derived state into the Matter accessory. Throws on API/network errors so
-   * callers can decide whether to retry after a session refresh.
-   */
-  private async fetchAndApplyMatterLockState(
-    device: device & devicesConfig,
-    uuid: string,
-    matterApi: MatterAPI,
-    logLabel: string,
-  ): Promise<void> {
-    if (!this.augustConfig?.details) {
+    if (!this.connectivity) {
+      await this.debugLog('Matter: connectivity not initialized — skipping')
       return
     }
-    const lockDetails: any = await this.augustConfig.details(device.lockId)
-    if (!lockDetails?.LockStatus?.state) {
+    const lockDetails = await this.connectivity.execute(
+      `Matter poll ${device.lockId}`,
+      client => client.details(device.lockId),
+    )
+    if (lockDetails === undefined) {
+      // execute() returned undefined: either offline, or the call
+      // failed and the manager has already taken care of state.
       return
     }
-    const lockState = this.mapLockState(lockDetails.LockStatus.state, matterApi)
+    const details = lockDetails as any
+    if (!details?.LockStatus?.state) {
+      return
+    }
+    const lockState = this.mapLockState(details.LockStatus.state, matterApi)
     await matterApi.updateAccessoryState(uuid, 'doorLock', { lockState })
-    await this.debugLog(`Matter: ${logLabel} updated lockState to ${lockState} for ${device.LockName}`)
+    await this.debugLog(`Matter: Poll updated lockState to ${lockState} for ${device.LockName}`)
   }
 
   /**

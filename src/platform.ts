@@ -50,15 +50,6 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   // augustCredentials() — undefined until first use.
   connectivity?: ConnectivityManager
 
-  // Session refresh: promise coalescing ensures concurrent 502s from
-  // multiple locks share a single refresh instead of cascading.
-  private sessionRefreshPromise?: Promise<void>
-  // Cooldown prevents wasted sequential refreshes during prolonged
-  // network outages, where every poll cycle would otherwise trigger
-  // a new POST /session call (and risk rate limiting).
-  private lastSessionRefresh = 0
-  private static readonly SESSION_REFRESH_COOLDOWN_MS = 5 * 60 * 1000 // 5 minutes
-
   // Track LockMechanism instances by lockId so they can be properly torn
   // down when the accessory is unregistered (releases PubNub subscriptions).
   private readonly lockMechanisms = new Map<string, LockMechanism>()
@@ -331,73 +322,6 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     this.normalizedCredentialsCache = await this.normalizeCredentialsForApi(this.config.credentials)
     await this.debugLog('Generated and cached new normalized credentials')
     return this.normalizedCredentialsCache
-  }
-
-  /**
-   * Refresh the August session.
-   *
-   * Uses promise coalescing: if multiple locks hit 502 simultaneously,
-   * they all await the same refresh promise instead of each triggering
-   * their own. This prevents cascading refreshes where each lock destroys
-   * the instance the previous lock just created.
-   *
-   * Also enforces a cooldown period: refreshes within SESSION_REFRESH_COOLDOWN_MS
-   * of the last attempt are skipped. This prevents wasted sequential refreshes
-   * during prolonged network outages — without this, every poll cycle (default
-   * 30s) would trigger a new POST /session call to August, risking rate limiting
-   * and spamming logs.
-   *
-   * PubNub subscriptions are independent of the HTTP session (August.subscribe
-   * uses its own internal August instance), so they are NOT torn down or
-   * rebuilt during a session refresh. Only the HTTP client (augustConfig)
-   * is recreated.
-   */
-  async refreshAugustSession(): Promise<void> {
-    if (this.sessionRefreshPromise) {
-      return this.sessionRefreshPromise
-    }
-    const sinceLastRefresh = Date.now() - this.lastSessionRefresh
-    if (sinceLastRefresh < AugustPlatform.SESSION_REFRESH_COOLDOWN_MS) {
-      const remainingSeconds = Math.ceil((AugustPlatform.SESSION_REFRESH_COOLDOWN_MS - sinceLastRefresh) / 1000)
-      await this.debugLog(`Session refresh skipped: cooldown active (${remainingSeconds}s remaining)`)
-      return
-    }
-    this.sessionRefreshPromise = this.executeSessionRefresh()
-    try {
-      await this.sessionRefreshPromise
-      this.lastSessionRefresh = Date.now()
-    } finally {
-      this.sessionRefreshPromise = undefined
-    }
-  }
-
-  private async executeSessionRefresh(): Promise<void> {
-    try {
-      if (this.connectivity) {
-        await this.warnLog('Refreshing August session due to timeout error')
-        // Delegate to the ConnectivityManager. forceRebuild() destroys
-        // the old undici Agent, creates a fresh client with new
-        // credentials, coalesces concurrent rebuild requests, and
-        // notifies us via the onClientChanged callback so augustConfig
-        // is updated in lockstep.
-        await this.connectivity.forceRebuild('legacy session refresh')
-      } else {
-        // First call ever — manager not yet built. augustCredentials()
-        // initializes it and assigns augustConfig as a side effect.
-        if (this.augustConfig) {
-          // Defensive: should not happen because connectivity tracks the
-          // client, but if augustConfig was set externally (tests do
-          // this), tear it down to release the dispatcher before
-          // rebuilding.
-          this.augustConfig.destroy()
-          this.augustConfig = undefined
-        }
-        await this.augustCredentials()
-      }
-      await this.warnLog('August session refreshed successfully')
-    } catch (e: any) {
-      await this.errorLog(`Failed to refresh August session: ${e.message ?? e}`)
-    }
   }
 
   /**
