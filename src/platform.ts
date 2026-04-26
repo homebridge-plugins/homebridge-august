@@ -343,7 +343,12 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     try {
       if (this.augustConfig) {
         await this.warnLog('Refreshing August session due to timeout error')
-        this.augustConfig.end()
+        // destroy() — not end() — closes the undici Agent and its socket pool.
+        // end() only clears the auth token, so the old Agent (with stale
+        // half-open sockets from before the network blip) was being orphaned
+        // on every refresh. That contributed to the "dozens of timeouts that
+        // never recover" cascade users see after a router restart.
+        this.augustConfig.destroy()
         this.augustConfig = undefined
       }
       await this.augustCredentials()

@@ -215,14 +215,16 @@ describe('session refresh and PubNub subscription lifecycle', () => {
 
   // --- Session refresh lifecycle ---
 
-  it('should end the old instance before creating a new one', () => {
-    const endCall = executeBody.indexOf('.end()')
+  it('should destroy the old instance before creating a new one', () => {
+    const destroyCall = executeBody.indexOf('.destroy()')
     const nullAssign = executeBody.indexOf('this.augustConfig = undefined')
     const credentialsCall = executeBody.indexOf('this.augustCredentials()')
 
-    // Verify the order: end → null → create
-    expect(endCall).toBeGreaterThan(-1)
-    expect(nullAssign).toBeGreaterThan(endCall)
+    // Verify the order: destroy → null → create. destroy() releases the
+    // undici Agent + its socket pool; end() alone only clears the token
+    // and would leak the dispatcher across refreshes.
+    expect(destroyCall).toBeGreaterThan(-1)
+    expect(nullAssign).toBeGreaterThan(destroyCall)
     expect(credentialsCall).toBeGreaterThan(nullAssign)
   })
 
