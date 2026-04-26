@@ -11,6 +11,7 @@ import { argv } from 'node:process'
 
 import August from 'august-yale'
 
+import { ConnectivityManager } from './connectivity-manager.js'
 import { LockMechanism } from './devices/lock.js'
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 
@@ -35,7 +36,19 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   version!: string
 
   // August API
+  //
+  // augustConfig is the current August client. The ConnectivityManager
+  // owns the lifecycle and pushes new clients into this field via its
+  // onClientChanged callback (set up in augustCredentials()), so existing
+  // call sites that read this field directly continue to work. New code
+  // should prefer this.connectivity.execute() so failures are classified
+  // and the connectivity state machine stays in sync.
   augustConfig?: August
+
+  // Connectivity is the single source of truth for the August client,
+  // network health, and retry/backoff. Initialized lazily in
+  // augustCredentials() — undefined until first use.
+  connectivity?: ConnectivityManager
 
   // Session refresh: promise coalescing ensures concurrent 502s from
   // multiple locks share a single refresh instead of cascading.
@@ -217,9 +230,20 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     } else if (this.augustConfig) {
       await this.debugLog('August API instance already initialized, skipping')
     } else {
-      // Create normalized credentials for August API compatibility
-      const normalizedCredentials = await this.normalizeCredentialsForApi(this.config.credentials)
-      this.augustConfig = new August(normalizedCredentials)
+      // The ConnectivityManager owns the August client and rebuilds it
+      // automatically on auth failures and after probe-confirmed network
+      // recovery. We hand it a credentials factory rather than a one-shot
+      // value so rebuilds always pick up the latest normalized credentials,
+      // and a callback so the platform's public augustConfig field stays
+      // in sync with the manager's internal client.
+      if (!this.connectivity) {
+        this.connectivity = new ConnectivityManager(
+          this.log,
+          () => this.normalizeCredentialsForApi(this.config.credentials!),
+          (client) => { this.augustConfig = client },
+        )
+      }
+      await this.connectivity.init()
       await this.debugLog(`August Credentials: ${JSON.stringify(this.augustConfig)}`)
     }
   }
@@ -341,17 +365,27 @@ export class AugustPlatform implements DynamicPlatformPlugin {
 
   private async executeSessionRefresh(): Promise<void> {
     try {
-      if (this.augustConfig) {
+      if (this.connectivity) {
         await this.warnLog('Refreshing August session due to timeout error')
-        // destroy() — not end() — closes the undici Agent and its socket pool.
-        // end() only clears the auth token, so the old Agent (with stale
-        // half-open sockets from before the network blip) was being orphaned
-        // on every refresh. That contributed to the "dozens of timeouts that
-        // never recover" cascade users see after a router restart.
-        this.augustConfig.destroy()
-        this.augustConfig = undefined
+        // Delegate to the ConnectivityManager. forceRebuild() destroys
+        // the old undici Agent, creates a fresh client with new
+        // credentials, coalesces concurrent rebuild requests, and
+        // notifies us via the onClientChanged callback so augustConfig
+        // is updated in lockstep.
+        await this.connectivity.forceRebuild('legacy session refresh')
+      } else {
+        // First call ever — manager not yet built. augustCredentials()
+        // initializes it and assigns augustConfig as a side effect.
+        if (this.augustConfig) {
+          // Defensive: should not happen because connectivity tracks the
+          // client, but if augustConfig was set externally (tests do
+          // this), tear it down to release the dispatcher before
+          // rebuilding.
+          this.augustConfig.destroy()
+          this.augustConfig = undefined
+        }
+        await this.augustCredentials()
       }
-      await this.augustCredentials()
       await this.warnLog('August session refreshed successfully')
     } catch (e: any) {
       await this.errorLog(`Failed to refresh August session: ${e.message ?? e}`)

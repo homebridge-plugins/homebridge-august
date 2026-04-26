@@ -99,6 +99,14 @@ export class ConnectivityManager {
   constructor(
     private readonly log: Logging,
     private readonly credentialsFactory: () => Promise<credentials>,
+    /**
+     * Called whenever the manager builds or rebuilds the August client.
+     * The platform uses this to keep its public `augustConfig` field in
+     * sync, so existing call sites that read `platform.augustConfig`
+     * continue to see the current client without going through the
+     * manager's accessor.
+     */
+    private readonly onClientChanged: (client: August | undefined) => void = () => {},
   ) {}
 
   async init(): Promise<void> {
@@ -106,6 +114,7 @@ export class ConnectivityManager {
       return
     }
     this.client = new August(await this.credentialsFactory())
+    this.onClientChanged(this.client)
   }
 
   /**
@@ -200,7 +209,18 @@ export class ConnectivityManager {
     this.clearProbeTimer()
     this.client?.destroy()
     this.client = undefined
+    this.onClientChanged(undefined)
     this.listeners.clear()
+  }
+
+  /**
+   * Force-rebuild the August client. Used by the legacy
+   * AugustPlatform.executeSessionRefresh() path during the transition
+   * period; new code should rely on execute()'s automatic rebuild on
+   * auth/network errors.
+   */
+  async forceRebuild(reason: string): Promise<void> {
+    return this.rebuildClient(reason)
   }
 
   // --- internals ---
@@ -279,6 +299,7 @@ export class ConnectivityManager {
       this.log.info(`Connectivity: rebuilding August client (${reason})`)
       const old = this.client
       this.client = new August(await this.credentialsFactory())
+      this.onClientChanged(this.client)
       old?.destroy()
     })()
     try {
