@@ -336,13 +336,30 @@ describe('augustMatterPlatform', () => {
   })
 
   describe('fetchAndUpdateMatterLockState', () => {
+    // Helper: install a mock connectivity manager whose execute() runs
+    // the supplied fn against a mock August client. This mirrors the
+    // production path (platform.connectivity.execute(label, fn) ->
+    // fn(client)) without spinning up the real ConnectivityManager.
+    function installConnectivityMock(p: AugustMatterPlatform, client: any) {
+      ;(p as any).connectivity = {
+        getState: () => 'healthy',
+        execute: vi.fn(async (_label: string, fn: (c: any) => Promise<any>) => {
+          try {
+            return await fn(client)
+          } catch {
+            // execute() returns undefined on failure rather than
+            // rethrowing (unless throwOnOffline:true). Match that.
+            return undefined
+          }
+        }),
+      }
+    }
+
     it('should update lockState to 1 (Locked) when lock is locked', async () => {
       platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
 
       const mockDetailsResult = { LockStatus: { state: { locked: true, unlocked: false } } }
-      platform.augustConfig = {
-        details: vi.fn().mockResolvedValue(mockDetailsResult),
-      } as any
+      installConnectivityMock(platform, { details: vi.fn().mockResolvedValue(mockDetailsResult) })
 
       const device = { lockId: 'lock-test', LockName: 'Test Lock' } as any
 
@@ -355,9 +372,7 @@ describe('augustMatterPlatform', () => {
       platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
 
       const mockDetailsResult = { LockStatus: { state: { locked: false, unlocked: true } } }
-      platform.augustConfig = {
-        details: vi.fn().mockResolvedValue(mockDetailsResult),
-      } as any
+      installConnectivityMock(platform, { details: vi.fn().mockResolvedValue(mockDetailsResult) })
 
       const device = { lockId: 'lock-test', LockName: 'Test Lock' } as any
 
@@ -370,9 +385,7 @@ describe('augustMatterPlatform', () => {
       platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
 
       const mockDetailsResult = { LockStatus: { state: { locked: false, unlocked: false } } }
-      platform.augustConfig = {
-        details: vi.fn().mockResolvedValue(mockDetailsResult),
-      } as any
+      installConnectivityMock(platform, { details: vi.fn().mockResolvedValue(mockDetailsResult) })
 
       const device = { lockId: 'lock-test', LockName: 'Test Lock' } as any
 
@@ -384,12 +397,7 @@ describe('augustMatterPlatform', () => {
     it('should not throw when August API details call fails', async () => {
       platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
 
-      platform.augustConfig = {
-        details: vi.fn().mockRejectedValue(new Error('API error')),
-      } as any
-
-      // Mock refreshAugustSession to do nothing so retry also fails gracefully
-      vi.spyOn(platform as any, 'refreshAugustSession').mockResolvedValue(undefined)
+      installConnectivityMock(platform, { details: vi.fn().mockRejectedValue(new Error('API error')) })
 
       const device = { lockId: 'lock-test', LockName: 'Test Lock' } as any
 
@@ -400,9 +408,9 @@ describe('augustMatterPlatform', () => {
       expect(mockMatterApi.updateAccessoryState).not.toHaveBeenCalled()
     })
 
-    it('should not call updateAccessoryState when augustConfig is not initialized', async () => {
+    it('should not call updateAccessoryState when connectivity is not initialized', async () => {
       platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
-      // augustConfig is not set (undefined / no details method)
+      // connectivity is not set
 
       const device = { lockId: 'lock-test', LockName: 'Test Lock' } as any
 
@@ -413,34 +421,18 @@ describe('augustMatterPlatform', () => {
       expect(mockMatterApi.updateAccessoryState).not.toHaveBeenCalled()
     })
 
-    it('should retry with session refresh when details call fails', async () => {
+    it('should not throw when execute returns undefined (offline / failed)', async () => {
+      // The previous "retry with session refresh" test asserted that the
+      // matter path called refreshAugustSession() after a 502. That
+      // explicit retry layer is gone — ConnectivityManager handles
+      // retry/probe/rebuild internally. From the matter path's
+      // perspective, the only observable is: execute() either returned
+      // a result, or it returned undefined.
       platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
-
-      const mockDetailsResult = { LockStatus: { state: { locked: true, unlocked: false } } }
-      const mockDetails = vi.fn()
-        .mockRejectedValueOnce(new Error('502 Bad Gateway'))
-        .mockResolvedValueOnce(mockDetailsResult)
-
-      platform.augustConfig = { details: mockDetails } as any
-
-      const refreshSpy = vi.spyOn(platform as any, 'refreshAugustSession').mockResolvedValue(undefined)
-
-      const device = { lockId: 'lock-test', LockName: 'Test Lock' } as any
-
-      await platform.fetchAndUpdateMatterLockState(device, 'test-uuid', mockMatterApi)
-
-      expect(refreshSpy).toHaveBeenCalledOnce()
-      expect(mockMatterApi.updateAccessoryState).toHaveBeenCalledWith('test-uuid', 'doorLock', { lockState: 1 })
-    })
-
-    it('should not throw when both initial call and retry fail', async () => {
-      platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
-
-      platform.augustConfig = {
-        details: vi.fn().mockRejectedValue(new Error('ETIMEDOUT')),
-      } as any
-
-      vi.spyOn(platform as any, 'refreshAugustSession').mockResolvedValue(undefined)
+      ;(platform as any).connectivity = {
+        getState: () => 'offline',
+        execute: vi.fn().mockResolvedValue(undefined),
+      }
 
       const device = { lockId: 'lock-test', LockName: 'Test Lock' } as any
 
