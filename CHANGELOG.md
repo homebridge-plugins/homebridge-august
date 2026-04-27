@@ -1,3 +1,21 @@
+## [3.1.4](https://github.com/homebridge-plugins/homebridge-august/compare/v3.1.3...v3.1.4) (2026-04-27)
+
+
+### Bug Fixes
+
+* **platform:** destroy August client on session refresh instead of end() ([a12f2b3](https://github.com/homebridge-plugins/homebridge-august/commit/a12f2b328263523eef3b2549383f00ce6dfbf0a1))
+
+
+### Features
+
+* **lock:** wire PubNub reconnect signal into ConnectivityManager ([462b22c](https://github.com/homebridge-plugins/homebridge-august/commit/462b22c5b53e125d3ec31eceea538a74360f5760))
+* **platform:** add ConnectivityManager (unwired) ([6377ac4](https://github.com/homebridge-plugins/homebridge-august/commit/6377ac435320aa884e82b32f25f163b2bd9fde6a))
+* **platform:** platform-level serial poller, drop per-lock interval/retry ([aa973a4](https://github.com/homebridge-plugins/homebridge-august/commit/aa973a4e46cd4252f335a5c6988f94148cafefbf))
+* **platform:** route pushChanges through ConnectivityManager ([41080f4](https://github.com/homebridge-plugins/homebridge-august/commit/41080f490cd71b504e22f56a80ae6e1c8c9eb016))
+* **platform:** wire ConnectivityManager into AugustPlatform ([0ce28e3](https://github.com/homebridge-plugins/homebridge-august/commit/0ce28e359a68720ed278e17097f61262ea8705b4))
+
+
+
 ## [3.1.2](https://github.com/homebridge-plugins/homebridge-august/compare/v3.1.1...v3.1.2) (2026-04-18)
 
 ### Bug Fixes
