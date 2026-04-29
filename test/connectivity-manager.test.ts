@@ -17,12 +17,43 @@ import { ConnectivityManager, OfflineError } from '../src/connectivity-manager.j
 
 // Mock the august-yale module. We need:
 //   - August: a constructor we can instantiate, with details() and destroy()
-//   - TimeoutError: a real error class so `name === 'TimeoutError'` works
+//   - The full exception hierarchy that classify() now uses for routing:
+//     NetworkError, TimeoutError (subclass), AbortedError, InvalidAuth.
 vi.mock('august-yale', () => {
-  class TimeoutError extends Error {
-    constructor(message?: string) {
+  class YaleApiError extends Error {
+    public originalError?: Error
+    constructor(message?: string, originalError?: Error) {
       super(message)
+      this.name = 'YaleApiError'
+      this.originalError = originalError
+    }
+  }
+  class NetworkError extends YaleApiError {
+    public code?: string
+    constructor(message?: string, originalError?: Error, code?: string) {
+      super(message, originalError)
+      this.name = 'NetworkError'
+      this.code = code
+    }
+  }
+  class TimeoutError extends NetworkError {
+    constructor(message?: string, originalError?: Error, code?: string) {
+      super(message, originalError, code)
       this.name = 'TimeoutError'
+    }
+  }
+  class AbortedError extends YaleApiError {
+    public code?: string
+    constructor(message?: string, originalError?: Error, code?: string) {
+      super(message, originalError)
+      this.name = 'AbortedError'
+      this.code = code
+    }
+  }
+  class InvalidAuth extends YaleApiError {
+    constructor(message?: string, originalError?: Error) {
+      super(message, originalError)
+      this.name = 'InvalidAuth'
     }
   }
   // Each new August() returns a unique object so tests can assert which
@@ -43,7 +74,11 @@ vi.mock('august-yale', () => {
   })
   return {
     default: MockAugust,
+    YaleApiError,
+    NetworkError,
     TimeoutError,
+    AbortedError,
+    InvalidAuth,
   }
 })
 
@@ -188,23 +223,57 @@ describe('ConnectivityManager', () => {
       expect(m.getState()).toBe('degraded')
     })
 
-    it('treats 502/503/504 as network errors', async () => {
+    it('treats NetworkError as network and transitions to degraded', async () => {
+      // NetworkError covers all transport-level failures from august-yale —
+      // socket reset, DNS failure, malformed response, etc. — without us
+      // having to enumerate undici's 24 error classes.
+      const m = new ConnectivityManager(makeLog(), fakeCredentials)
+      await m.init()
+      const { NetworkError } = await import('august-yale')
+      const result = await m.execute('test', async () => { throw new NetworkError('socket hang up', undefined, 'ECONNRESET') })
+      expect(result).toBeUndefined()
+      expect(m.getState()).toBe('degraded')
+    })
+
+    it('treats InvalidAuth as auth and rebuilds without changing state', async () => {
+      const onClientChanged = vi.fn()
+      const m = new ConnectivityManager(makeLog(), fakeCredentials, onClientChanged)
+      await m.init()
+      expect(onClientChanged).toHaveBeenCalledTimes(1)
+      const { InvalidAuth } = await import('august-yale')
+      const result = await m.execute('test', async () => { throw new InvalidAuth('session expired') })
+      expect(result).toBeUndefined()
+      await vi.runAllTimersAsync()
+      expect(onClientChanged).toHaveBeenCalledTimes(2)
+      expect(m.getState()).toBe('healthy')
+    })
+
+    it('treats AbortedError as transient and does NOT change connectivity state', async () => {
+      // AbortedError reflects a request racing with our own teardown
+      // (e.g. inside rebuildClient). Treating it as 'network' would
+      // make the state machine fight itself: every rebuild produces
+      // ClientDestroyedError -> degraded -> probe -> rebuild ->
+      // ClientDestroyedError -> ...
+      const m = new ConnectivityManager(makeLog(), fakeCredentials)
+      await m.init()
+      const { AbortedError } = await import('august-yale')
+      const err = new AbortedError('client destroyed', undefined, 'UND_ERR_DESTROYED')
+      await expect(
+        m.execute('test', async () => { throw err }),
+      ).rejects.toBe(err)
+      // State stays healthy — no probe scheduled.
+      expect(m.getState()).toBe('healthy')
+    })
+
+    it('treats 502/503/504 as network errors (HTTP-level fallback)', async () => {
+      // Most transport failures are now wrapped upstream as NetworkError,
+      // but if august-yale ever surfaces a clean HTTP 5xx response, we
+      // still want to recognize 502/503/504 as network-class and probe.
       const m = new ConnectivityManager(makeLog(), fakeCredentials)
       await m.init()
       const err = Object.assign(new Error('Bad Gateway'), { statusCode: 502 })
       await m.execute('test', async () => { throw err })
       expect(m.getState()).toBe('degraded')
-    })
-
-    it('treats ECONNRESET / ENETUNREACH / ENOTFOUND as network errors', async () => {
-      for (const code of ['ECONNRESET', 'ENETUNREACH', 'ENOTFOUND', 'ECONNREFUSED']) {
-        const m = new ConnectivityManager(makeLog(), fakeCredentials)
-        await m.init()
-        const err = Object.assign(new Error(code), { code })
-        await m.execute('test', async () => { throw err })
-        expect(m.getState(), `code=${code}`).toBe('degraded')
-        m.shutdown()
-      }
     })
   })
 
