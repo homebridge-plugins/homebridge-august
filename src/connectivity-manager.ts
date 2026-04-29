@@ -45,7 +45,7 @@ import type { Logging } from 'homebridge'
 
 import type { credentials } from './settings.js'
 
-import August, { TimeoutError } from 'august-yale'
+import August, { AbortedError, InvalidAuth, NetworkError, TimeoutError } from 'august-yale'
 
 export type ConnectivityState = 'healthy' | 'degraded' | 'offline' | 'recovering'
 
@@ -58,17 +58,6 @@ const BACKOFF_SCHEDULE_MS = [5_000, 10_000, 20_000, 40_000, 80_000, 160_000, 300
 
 /** Probe timeout — short on purpose. A healthy August API responds in <1s. */
 const PROBE_TIMEOUT_MS = 8_000
-
-/** Network error codes that classify() treats as connectivity failures. */
-const NETWORK_ERROR_CODES = new Set([
-  'ECONNRESET',
-  'ENETUNREACH',
-  'EHOSTUNREACH',
-  'ENOTFOUND',
-  'ECONNREFUSED',
-  'EAI_AGAIN',
-  'ETIMEDOUT',
-])
 
 type ErrorKind = 'network' | 'auth' | 'transient'
 
@@ -300,21 +289,51 @@ export class ConnectivityManager {
   }
 
   private classify(e: unknown): ErrorKind {
-    const err = e as { name?: string, statusCode?: number, code?: string, message?: string }
-    if (err?.name === 'TimeoutError') {
+    // august-yale wraps every transport-level fetch failure into one of
+    // its typed exceptions before the error reaches us. We rely on those
+    // types here rather than re-implementing undici's 24-class taxonomy.
+    //
+    // - NetworkError (and its TimeoutError subclass) covers connect
+    //   timeouts, socket resets, headers/body timeouts, DNS failures,
+    //   TLS proxy failures, malformed responses, etc.
+    //
+    // - AbortedError reflects an in-flight request racing with our own
+    //   teardown (e.g. during rebuildClient). NOT 'network': the consumer
+    //   intent was to tear down, so we don't want this to drive the
+    //   state machine into degraded.
+    //
+    // - InvalidAuth is august-yale's auth-failure type. Maps to 'auth'.
+    //
+    // Anything else (including programmer errors and server-answered
+    // 4xx/5xx that august-yale leaves unwrapped) is 'transient' — bubble
+    // back to the caller, don't change connectivity state.
+    if (e instanceof NetworkError) {
       return 'network'
     }
-    if (err?.code && NETWORK_ERROR_CODES.has(err.code)) {
+    if (e instanceof AbortedError) {
+      return 'transient'
+    }
+    if (e instanceof TimeoutError) {
+      // Defensive: TimeoutError is also a NetworkError so the first
+      // check should match. Kept for clarity in case of future
+      // exception hierarchy changes upstream.
       return 'network'
     }
-    if (err?.message && /ETIMEDOUT|ECONNRESET|ENOTFOUND|ENETUNREACH/i.test(err.message)) {
-      return 'network'
+    if (e instanceof InvalidAuth) {
+      return 'auth'
     }
-    if (err?.statusCode === 502 || err?.statusCode === 503 || err?.statusCode === 504) {
-      return 'network'
-    }
+
+    // Fallback for HTTP-level errors that august-yale leaves unwrapped
+    // (e.g. server answered with a non-2xx without bare-401 semantics).
+    const err = e as { statusCode?: number }
     if (err?.statusCode === 401) {
       return 'auth'
+    }
+    if (err?.statusCode === 502 || err?.statusCode === 503 || err?.statusCode === 504) {
+      // 5xx responses where the server is reachable but reporting an
+      // upstream issue. Treat as network — these are recoverable by
+      // waiting and retrying (matches the state-machine semantic).
+      return 'network'
     }
     return 'transient'
   }
