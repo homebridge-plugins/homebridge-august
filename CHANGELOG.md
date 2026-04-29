@@ -1,3 +1,12 @@
+# [3.2.0](https://github.com/homebridge-plugins/homebridge-august/compare/v3.1.4...v3.2.0) (2026-04-29)
+
+
+### Bug Fixes
+
+* **platform:** use august-yale's typed exceptions for error classification ([93219ac](https://github.com/homebridge-plugins/homebridge-august/commit/93219accdf8571330b8f3fefa029d727ddf7a6c3))
+
+
+
 ## [3.1.4](https://github.com/homebridge-plugins/homebridge-august/compare/v3.1.3...v3.1.4) (2026-04-27)
 
 
