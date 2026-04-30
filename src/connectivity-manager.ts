@@ -59,6 +59,21 @@ const BACKOFF_SCHEDULE_MS = [5_000, 10_000, 20_000, 40_000, 80_000, 160_000, 300
 /** Probe timeout — short on purpose. A healthy August API responds in <1s. */
 const PROBE_TIMEOUT_MS = 8_000
 
+/**
+ * How often to emit a heartbeat log line while offline.
+ *
+ * Without it the log goes silent after the initial healthy → degraded →
+ * offline transition, making it impossible to distinguish "state machine
+ * is working hard, probes are failing every backoff slot" from "state
+ * machine is silently stuck". The heartbeat surfaces probe attempts and
+ * the most recent failure so future regressions are debuggable from the
+ * log alone.
+ *
+ * One hour matches the typical "I checked on it later" cadence; not so
+ * frequent it becomes log spam during a real ISP outage.
+ */
+const OFFLINE_HEARTBEAT_INTERVAL_MS = 60 * 60 * 1000
+
 type ErrorKind = 'network' | 'auth' | 'transient'
 
 interface ExecuteOptions {
@@ -81,9 +96,17 @@ export class ConnectivityManager {
   private state: ConnectivityState = 'healthy'
   private client?: August
   private probeTimer?: NodeJS.Timeout
+  private heartbeatTimer?: NodeJS.Timeout
   private backoffIndex = 0
   private rebuildInFlight?: Promise<void>
   private listeners = new Set<(next: ConnectivityState, prev: ConnectivityState) => void>()
+
+  // Diagnostic counters. Reset on transition out of offline. Used by the
+  // heartbeat log so an ongoing outage is visible in the log without
+  // having to trace per-probe details.
+  private offlineSinceMs?: number
+  private probeAttempts = 0
+  private lastFailureMessage?: string
 
   constructor(
     private readonly log: Logging,
@@ -165,7 +188,10 @@ export class ConnectivityManager {
     if (this.state === 'healthy') {
       return
     }
-    this.log.info('Connectivity: PubNub reconnect signal received — probing immediately')
+    const offlineFor = this.offlineSinceMs
+      ? ` (offline for ${Math.floor((Date.now() - this.offlineSinceMs) / 1000)}s)`
+      : ''
+    this.log.info(`Connectivity: PubNub reconnect signal received in ${this.state}${offlineFor} — probing immediately`)
     this.clearProbeTimer()
     void this.runProbe()
   }
@@ -196,6 +222,7 @@ export class ConnectivityManager {
 
   shutdown(): void {
     this.clearProbeTimer()
+    this.stopHeartbeat()
     this.client?.destroy()
     this.client = undefined
     this.onClientChanged(undefined)
@@ -241,26 +268,62 @@ export class ConnectivityManager {
   }
 
   private async runProbe(): Promise<void> {
-    if (!this.client) {
+    this.probeAttempts++
+
+    // Build a FRESH client just for the probe.
+    //
+    // The previous design probed against the existing client to "avoid
+    // an Agent born into a broken network". That logic was wrong for
+    // the case it was meant to protect against: when the network
+    // recovers but the existing Agent still holds stale half-open
+    // sockets from before the outage. Probes against the existing
+    // client kept failing on those stale sockets, so the system stayed
+    // offline indefinitely even after the network came back. The
+    // PubNub-triggered immediate probe didn't help either, because it
+    // used the same stale Agent.
+    //
+    // A fresh client per probe attempt avoids the trap. If the network
+    // is genuinely down, the fresh probe fails the same way the old
+    // probe would have (no false-positive recovery). If the network is
+    // back, the fresh probe gets a clean dispatcher and succeeds.
+    let probeClient: August
+    try {
+      probeClient = new August(await this.credentialsFactory())
+    } catch (e: any) {
+      this.lastFailureMessage = `probe-build: ${e?.message ?? e}`
+      this.log.warn(`Connectivity: probe attempt #${this.probeAttempts} couldn't build client: ${e?.message ?? e}`)
+      this.scheduleProbe()
       return
     }
+
+    this.log.info(`Connectivity: probe attempt #${this.probeAttempts} (state=${this.state})`)
+
     try {
-      // Cheap authenticated call against the EXISTING client. .locks()
-      // returns a small map and is the lightest endpoint. Race against a
-      // short timeout — the goal is "is the network working", not
-      // "is everything healthy".
       await Promise.race([
-        this.client.locks(),
+        probeClient.locks(),
         new Promise((_resolve, reject) =>
           setTimeout(() => reject(new TimeoutError('probe timed out')), PROBE_TIMEOUT_MS),
         ),
       ])
-      // Network is back. Rebuild the client to shed any half-open sockets
-      // accumulated before the outage, then mark healthy.
-      await this.rebuildClient('probe succeeded')
+      // Probe succeeded against the fresh client — adopt it as the
+      // current client. This is the rebuild path; no separate
+      // rebuildClient() call is needed afterward.
+      const old = this.client
+      this.client = probeClient
+      this.onClientChanged(this.client)
+      old?.destroy()
+      this.log.info(`Connectivity: probe attempt #${this.probeAttempts} succeeded — rebuilt client`)
       this.transitionTo('healthy')
       this.backoffIndex = 0
-    } catch {
+    } catch (e: any) {
+      // Probe failed — discard the temp client cleanly so we don't leak
+      // an Agent on every attempt.
+      try {
+        probeClient.destroy()
+      } catch {
+        // best-effort
+      }
+      this.lastFailureMessage = `${this.classify(e)}: ${e?.message ?? e}`
       if (this.state !== 'offline') {
         this.log.warn('Connectivity: probe failed — entering offline state')
         this.transitionTo('offline')
@@ -345,6 +408,20 @@ export class ConnectivityManager {
     }
     this.state = next
     this.log.info(`Connectivity: ${prev} -> ${next}`)
+
+    // Heartbeat lifecycle: start when entering offline, stop when leaving.
+    // offlineSinceMs is set on entry; probe-attempt count is NOT reset
+    // here because runProbe() already incremented it for the failure
+    // that triggered this transition.
+    if (next === 'offline') {
+      this.offlineSinceMs = Date.now()
+      this.startHeartbeat()
+    } else if (prev === 'offline') {
+      this.stopHeartbeat()
+      this.offlineSinceMs = undefined
+      this.probeAttempts = 0
+    }
+
     for (const l of this.listeners) {
       try {
         l(next, prev)
@@ -352,6 +429,36 @@ export class ConnectivityManager {
         this.log.error(`Connectivity listener threw: ${e?.message ?? e}`)
       }
     }
+  }
+
+  private startHeartbeat(): void {
+    this.stopHeartbeat()
+    this.heartbeatTimer = setInterval(() => this.emitHeartbeat(), OFFLINE_HEARTBEAT_INTERVAL_MS)
+    // Allow Node to exit if this is the only outstanding timer; we
+    // don't want the heartbeat to keep the process alive on shutdown.
+    if (typeof this.heartbeatTimer.unref === 'function') {
+      this.heartbeatTimer.unref()
+    }
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer)
+      this.heartbeatTimer = undefined
+    }
+  }
+
+  private emitHeartbeat(): void {
+    if (this.state !== 'offline' || this.offlineSinceMs === undefined) {
+      return
+    }
+    const minutes = Math.floor((Date.now() - this.offlineSinceMs) / 60000)
+    const lastFailure = this.lastFailureMessage ?? 'unknown'
+    this.log.warn(
+      `Connectivity: still offline after ${minutes} min — `
+      + `${this.probeAttempts} probe attempt${this.probeAttempts === 1 ? '' : 's'}, `
+      + `last failure: ${lastFailure}`,
+    )
   }
 
   private clearProbeTimer(): void {
