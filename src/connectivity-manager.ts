@@ -270,59 +270,62 @@ export class ConnectivityManager {
   private async runProbe(): Promise<void> {
     this.probeAttempts++
 
-    // Build a FRESH client just for the probe.
-    //
-    // The previous design probed against the existing client to "avoid
-    // an Agent born into a broken network". That logic was wrong for
-    // the case it was meant to protect against: when the network
-    // recovers but the existing Agent still holds stale half-open
-    // sockets from before the outage. Probes against the existing
-    // client kept failing on those stale sockets, so the system stayed
-    // offline indefinitely even after the network came back. The
-    // PubNub-triggered immediate probe didn't help either, because it
-    // used the same stale Agent.
-    //
-    // A fresh client per probe attempt avoids the trap. If the network
-    // is genuinely down, the fresh probe fails the same way the old
-    // probe would have (no false-positive recovery). If the network is
-    // back, the fresh probe gets a clean dispatcher and succeeds.
-    let probeClient: August
-    try {
-      probeClient = new August(await this.credentialsFactory())
-    } catch (e: any) {
-      this.lastFailureMessage = `probe-build: ${e?.message ?? e}`
-      this.log.warn(`Connectivity: probe attempt #${this.probeAttempts} couldn't build client: ${e?.message ?? e}`)
-      this.scheduleProbe()
-      return
+    let client = this.client
+    if (!client) {
+      // No client at all — rebuild from credentials. This branch is
+      // hit only at startup if init() hasn't completed; in steady
+      // state we always have a client.
+      this.log.warn(`Connectivity: probe attempt #${this.probeAttempts} — no client to probe; trying to (re)build`)
+      try {
+        await this.rebuildClient('probe with no client')
+      } catch (e: any) {
+        this.lastFailureMessage = `probe-build: ${e?.message ?? e}`
+        this.scheduleProbe()
+        return
+      }
+      client = this.client
+      if (!client) {
+        // rebuildClient resolved but didn't actually populate this.client.
+        // Defensive: don't proceed without a client; reschedule and try
+        // again on the next backoff slot.
+        this.lastFailureMessage = 'probe-build: rebuildClient produced no client'
+        this.scheduleProbe()
+        return
+      }
     }
+
+    // Reset the transport BEFORE probing.
+    //
+    // The previous implementation probed against the existing client's
+    // socket pool. That pool may hold stale half-open sockets from
+    // before the outage; probing against them just keeps failing on
+    // dead connections, so the system stayed offline even after the
+    // network had recovered. The PubNub-triggered immediate probe
+    // hit the same wall.
+    //
+    // resetTransport() throws away the dispatcher and creates a fresh
+    // one without losing auth state, the session token, or
+    // configuration. Distinct from destroy() + new August() — that
+    // would force a re-auth round-trip on the next call, which itself
+    // can fail on a still-flaky network and leave us stuck. With just
+    // a transport reset, the next request gets a clean connection
+    // pool and reuses the cached session token; if it succeeds, we're
+    // healthy in one round-trip.
+    client.resetTransport()
 
     this.log.info(`Connectivity: probe attempt #${this.probeAttempts} (state=${this.state})`)
 
     try {
       await Promise.race([
-        probeClient.locks(),
+        client.locks(),
         new Promise((_resolve, reject) =>
           setTimeout(() => reject(new TimeoutError('probe timed out')), PROBE_TIMEOUT_MS),
         ),
       ])
-      // Probe succeeded against the fresh client — adopt it as the
-      // current client. This is the rebuild path; no separate
-      // rebuildClient() call is needed afterward.
-      const old = this.client
-      this.client = probeClient
-      this.onClientChanged(this.client)
-      old?.destroy()
-      this.log.info(`Connectivity: probe attempt #${this.probeAttempts} succeeded — rebuilt client`)
+      this.log.info(`Connectivity: probe attempt #${this.probeAttempts} succeeded`)
       this.transitionTo('healthy')
       this.backoffIndex = 0
     } catch (e: any) {
-      // Probe failed — discard the temp client cleanly so we don't leak
-      // an Agent on every attempt.
-      try {
-        probeClient.destroy()
-      } catch {
-        // best-effort
-      }
       this.lastFailureMessage = `${this.classify(e)}: ${e?.message ?? e}`
       if (this.state !== 'offline') {
         this.log.warn('Connectivity: probe failed — entering offline state')

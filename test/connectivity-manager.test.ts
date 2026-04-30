@@ -64,26 +64,16 @@ vi.mock('august-yale', () => {
   // eslint-disable-next-line prefer-arrow-callback
   const MockAugust = vi.fn().mockImplementation(function () {
     const id = ++nextId
-    const base: any = {
+    return {
       _id: id,
       details: vi.fn().mockResolvedValue({ ok: true }),
       locks: vi.fn().mockResolvedValue({}),
       lock: vi.fn().mockResolvedValue(undefined),
       unlock: vi.fn().mockResolvedValue(undefined),
       destroy: vi.fn(),
+      resetTransport: vi.fn(),
       end: vi.fn(),
     }
-    const override = (globalThis as any).__nextClientOverride
-    if (override) {
-      Object.assign(base, override)
-      // Stickiness: if the override has __sticky set, preserve it across
-      // multiple new August() calls. Used by the heartbeat tests where
-      // every probe in a sequence should fail.
-      if (!override.__sticky) {
-        ;(globalThis as any).__nextClientOverride = undefined
-      }
-    }
-    return base
   })
   return {
     default: MockAugust,
@@ -121,9 +111,6 @@ describe('ConnectivityManager', () => {
   afterEach(() => {
     vi.useRealTimers()
     vi.clearAllMocks()
-    // Clean up any per-test mock-client override so it can't leak into
-    // the next test.
-    ;(globalThis as any).__nextClientOverride = undefined
   })
 
   describe('init / lifecycle', () => {
@@ -305,37 +292,36 @@ describe('ConnectivityManager', () => {
       await m.execute('test', async () => { throw new TimeoutError('boom') })
       expect(m.getState()).toBe('degraded')
 
-      // Probe builds a fresh August client. The default mock makes its
-      // .locks() resolve, so the probe will succeed without further setup.
+      // Probe calls resetTransport() on the existing client and then its
+      // .locks(). Default mock = locks resolves, so probe succeeds.
 
       // Advance time past the first backoff slot (~5s plus jitter).
       await vi.advanceTimersByTimeAsync(7_000)
 
-      // Probe success → adopt fresh client → healthy. onClientChanged fires
-      // a second time (initial build + post-probe adoption).
+      // Probe success → healthy. onClientChanged was called only once
+      // (at init). The resetTransport-based design does NOT swap the
+      // client instance on recovery; it just recycles its transport.
       expect(m.getState()).toBe('healthy')
-      expect(onClientChanged).toHaveBeenCalledTimes(2)
+      expect(onClientChanged).toHaveBeenCalledTimes(1)
     })
 
     it('escalates from degraded to offline when probe fails, with longer backoff', async () => {
       const m = new ConnectivityManager(makeLog(), fakeCredentials)
       await m.init()
+      const client = m.getClient() as any
 
       const { TimeoutError } = await import('august-yale')
+
+      // Make the existing client's .locks() always fail. With the
+      // resetTransport-based design, probes reuse this client, so a
+      // single mockImplementation is sufficient for every probe attempt.
+      client.locks = vi.fn().mockImplementation(() => new Promise((_resolve, reject) => {
+        setTimeout(() => reject(new TimeoutError('still down')), 100)
+      }))
+
+      // Trigger degraded.
       await m.execute('test', async () => { throw new TimeoutError('boom') })
       expect(m.getState()).toBe('degraded')
-
-      // Override the NEXT (and all subsequent) clients built during this
-      // test so their .locks() rejects. __sticky keeps the override active
-      // across multiple probe attempts; without it, only the first probe
-      // would fail and the next would succeed against a default-mock
-      // client, recovering before we observe offline.
-      ;(globalThis as any).__nextClientOverride = {
-        __sticky: true,
-        locks: vi.fn().mockImplementation(() => new Promise((_resolve, reject) => {
-          setTimeout(() => reject(new TimeoutError('still down')), 100)
-        })),
-      }
 
       // Advance past first backoff + probe timeout.
       await vi.advanceTimersByTimeAsync(15_000)
@@ -367,71 +353,72 @@ describe('ConnectivityManager', () => {
       expect(m.getState()).toBe('healthy')
     })
 
-    it('probes use a FRESH client, not the existing (possibly-stale) one', async () => {
-      // This is the regression test for the production bug: the previous
-      // implementation probed against `this.client`, which kept failing
-      // on stale sockets even after the network had recovered. The
-      // PubNub-triggered immediate probe couldn't help because it used
-      // the same stale Agent.
+    it('probes call resetTransport() on the existing client (sheds stale sockets)', async () => {
+      // Regression test for the production bug: the original
+      // implementation probed against the existing client without
+      // resetting its socket pool. The pool kept stale half-open sockets
+      // from before the outage, probes failed on those sockets, system
+      // stayed offline.
       //
-      // Verify: when the existing client's .locks() would fail but a
-      // freshly-built client's .locks() succeeds, the probe still
-      // recovers the system to healthy.
-      const onClientChanged = vi.fn()
-      const m = new ConnectivityManager(makeLog(), fakeCredentials, onClientChanged)
+      // The fix: probe still uses the existing client (so we keep auth
+      // state), but resetTransport() is called first to throw away the
+      // dispatcher and its stale connections. New transport, same auth.
+      const m = new ConnectivityManager(makeLog(), fakeCredentials)
       await m.init()
-      const initialClient = m.getClient() as any
+      const client = m.getClient() as any
 
-      // Make the EXISTING client's .locks() reject, simulating a stale
-      // Agent. If the probe were running against `this.client`, it
-      // would fail and the system would stay offline.
+      // Sanity: the mock client has a resetTransport method.
+      expect(typeof client.resetTransport).toBe('function')
+
+      // Trigger degraded.
       const { TimeoutError } = await import('august-yale')
-      initialClient.locks = vi.fn().mockImplementation(() =>
-        new Promise((_resolve, reject) => setTimeout(() => reject(new TimeoutError('stale')), 100)),
-      )
+      await m.execute('test', async () => { throw new TimeoutError('boom') })
+      expect(m.getState()).toBe('degraded')
+
+      // Advance past the first backoff: probe runs, default mock has
+      // .locks() resolving, recovery completes.
+      await vi.advanceTimersByTimeAsync(7_000)
+      expect(m.getState()).toBe('healthy')
+
+      // The probe must have called resetTransport on the existing
+      // client. This is the structural assertion that locks in the fix.
+      expect(client.resetTransport).toHaveBeenCalled()
+      // The same client instance is still in place (we did NOT
+      // construct a new client — this distinguishes the resetTransport
+      // approach from the previous fresh-client approach).
+      expect(m.getClient()).toBe(client)
+    })
+
+    it('failed probe leaves the existing client in place (no leak, no rotation)', async () => {
+      // With resetTransport(), failed probes don't construct a temp
+      // client, so there's nothing to leak. The existing client stays
+      // the current client throughout the offline period — only its
+      // transport gets recycled, not the August instance itself.
+      const m = new ConnectivityManager(makeLog(), fakeCredentials)
+      await m.init()
+      const client = m.getClient() as any
+
+      const { TimeoutError } = await import('august-yale')
+
+      // Make the client's .locks() always fail.
+      client.locks = vi.fn().mockImplementation(() => new Promise((_, reject) =>
+        setTimeout(() => reject(new TimeoutError('still down')), 100),
+      ))
 
       // Trigger degraded.
       await m.execute('test', async () => { throw new TimeoutError('boom') })
       expect(m.getState()).toBe('degraded')
 
-      // Advance: probe builds a NEW client (default mock = locks resolves)
-      // → succeeds → adopt → healthy. The initialClient.locks rejection
-      // is irrelevant because the probe never calls it.
-      await vi.advanceTimersByTimeAsync(7_000)
-      expect(m.getState()).toBe('healthy')
-
-      // The current client should be a different instance.
-      expect(m.getClient()).not.toBe(initialClient)
-      // The old client got destroyed.
-      expect(initialClient.destroy).toHaveBeenCalled()
-    })
-
-    it('failed probe destroys the temporary client (no Agent leak)', async () => {
-      const m = new ConnectivityManager(makeLog(), fakeCredentials)
-      await m.init()
-
-      const { TimeoutError } = await import('august-yale')
-      await m.execute('test', async () => { throw new TimeoutError('boom') })
-      expect(m.getState()).toBe('degraded')
-
-      // Override probe's fresh client so its .locks() rejects AND
-      // capture its destroy mock. __sticky so any retried probe also
-      // fails (we want to verify destroy is called on the failing
-      // probe's client, not test recovery).
-      const probeDestroy = vi.fn()
-      ;(globalThis as any).__nextClientOverride = {
-        __sticky: true,
-        destroy: probeDestroy,
-        locks: vi.fn().mockImplementation(() => new Promise((_, reject) =>
-          setTimeout(() => reject(new TimeoutError('still down')), 100),
-        )),
-      }
-
+      // Advance past first probe → offline.
       await vi.advanceTimersByTimeAsync(15_000)
       expect(m.getState()).toBe('offline')
-      // Probe's fresh client must be destroyed; otherwise we'd leak
-      // an Agent on every failed probe attempt.
-      expect(probeDestroy).toHaveBeenCalled()
+
+      // The existing client is still the current client; nothing got
+      // destroyed or replaced.
+      expect(m.getClient()).toBe(client)
+      expect(client.destroy).not.toHaveBeenCalled()
+      // resetTransport was called for each probe attempt.
+      expect(client.resetTransport).toHaveBeenCalled()
     })
   })
 
@@ -445,16 +432,18 @@ describe('ConnectivityManager', () => {
       await m.execute('test', async () => { throw new TimeoutError('boom') })
       expect(m.getState()).toBe('degraded')
 
-      // PubNub reconnect → immediate probe. Default mock has the fresh
-      // client's .locks() resolving, so the probe succeeds.
+      // PubNub reconnect → immediate probe. Default mock has .locks()
+      // resolving, so the probe (which calls resetTransport on the
+      // existing client and then locks()) succeeds.
       m.onPubNubReconnect()
 
       // Probe runs synchronously inside onPubNubReconnect's microtask;
       // need to flush promises but no timer advance required.
       await vi.runAllTimersAsync()
       expect(m.getState()).toBe('healthy')
-      // Initial build + adoption-of-fresh-client after successful probe.
-      expect(onClientChanged).toHaveBeenCalledTimes(2)
+      // onClientChanged was only called once (at init). Recovery via
+      // resetTransport does not swap the client instance.
+      expect(onClientChanged).toHaveBeenCalledTimes(1)
     })
 
     it('is a no-op when already healthy', async () => {
@@ -542,23 +531,24 @@ describe('ConnectivityManager', () => {
       const log = makeLog()
       const m = new ConnectivityManager(log, fakeCredentials)
       await m.init()
+      const client = m.getClient() as any
 
       const { TimeoutError } = await import('august-yale')
-      await m.execute('test', async () => { throw new TimeoutError('boom') })
 
-      // Make probes fail forever — every fresh client's .locks() rejects.
-      // __sticky keeps the override active across multiple probe attempts
-      // so we can stay in offline state long enough for the heartbeat.
-      ;(globalThis as any).__nextClientOverride = {
-        __sticky: true,
-        locks: vi.fn().mockImplementation(() => new Promise((_resolve, reject) =>
-          setTimeout(() => reject(new TimeoutError('still down')), 100),
-        )),
-      }
+      // Make every probe fail by making the existing client's .locks
+      // always reject. With the resetTransport-based design, probes
+      // reuse this client across attempts, so a single mockImplementation
+      // covers every probe in the offline period.
+      client.locks = vi.fn().mockImplementation(() => new Promise((_resolve, reject) =>
+        setTimeout(() => reject(new TimeoutError('still down')), 100),
+      ))
+
+      // Trigger degraded.
+      await m.execute('test', async () => { throw new TimeoutError('boom') })
 
       // Drive past first probe so we land in offline.
       await vi.advanceTimersByTimeAsync(15_000)
-      return { m, log }
+      return { m, log, client }
     }
 
     it('emits a heartbeat after one hour of being offline', async () => {
@@ -581,10 +571,10 @@ describe('ConnectivityManager', () => {
     })
 
     it('stops emitting heartbeats after recovery', async () => {
-      const { m, log } = await getOfflineWithLog()
+      const { m, log, client } = await getOfflineWithLog()
 
-      // Allow recovery on the next probe by clearing any pending override.
-      ;(globalThis as any).__nextClientOverride = undefined
+      // Allow recovery on the next probe by making .locks resolve again.
+      client.locks = vi.fn().mockResolvedValue({})
 
       // Skip ahead enough for a probe to fire and succeed.
       await vi.advanceTimersByTimeAsync(60 * 1000)
