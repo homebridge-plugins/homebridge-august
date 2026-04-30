@@ -1,3 +1,13 @@
+## [3.2.1](https://github.com/homebridge-plugins/homebridge-august/compare/v3.2.0...v3.2.1) (2026-04-30)
+
+
+### Bug Fixes
+
+* **platform:** probe with a fresh client; add offline heartbeat ([682c68b](https://github.com/homebridge-plugins/homebridge-august/commit/682c68bcbd7d86fb9df350ab0ccac9a07d3e1e2b))
+* **platform:** use August.resetTransport() for connectivity recovery ([6ea4f34](https://github.com/homebridge-plugins/homebridge-august/commit/6ea4f34cb710cbff333e71d84b048bb61d34ea64))
+
+
+
 # [3.2.0](https://github.com/homebridge-plugins/homebridge-august/compare/v3.1.4...v3.2.0) (2026-04-29)
 
 
