@@ -4,7 +4,7 @@
  */
 import type { API, Logging, PlatformConfig } from 'homebridge'
 
-import { AugustPlatform } from './platform.js'
+import { AugustPlatform } from './Platform.HAP.js'
 import { AugustMatterPlatform } from './platform.matter.js'
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 

@@ -33,7 +33,7 @@ import { readFileSync } from 'node:fs'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { AugustPlatform } from '../src/platform.js'
+import { AugustPlatform } from '../src/Platform.HAP.js'
 
 // Same mock conventions as the rest of the suite.
 vi.mock('august-yale', () => {

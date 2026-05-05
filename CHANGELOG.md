@@ -1,29 +1,41 @@
-## [3.2.1](https://github.com/homebridge-plugins/homebridge-august/compare/v3.2.0...v3.2.1) (2026-04-30)
+## [3.2.3](https://github.com/homebridge-plugins/homebridge-august/releases/tag/v3.2.3) (2026-05-04)
 
+### Bug Fixes
+
+* **platform:** align platform filename/import casing for ESM paths on case-sensitive systems ([974768a](https://github.com/homebridge-plugins/homebridge-august/commit/974768a6c2de6a5682b1d06e60f62bcbc7933841))
+
+**Full Changelog**: https://github.com/homebridge-plugins/homebridge-august/compare/v3.2.2...v3.2.3
+
+## [3.2.2](https://github.com/homebridge-plugins/homebridge-august/releases/tag/v3.2.2) (2026-05-03)
+
+### Bug Fixes
+
+* bump package.json deps ([60b5cf2](https://github.com/homebridge-plugins/homebridge-august/commit/60b5cf2032b9f5da9089019b8ca22b1fcdfd9e05))
+
+**Full Changelog**: https://github.com/homebridge-plugins/homebridge-august/compare/v3.2.1...v3.2.2
+
+## [3.2.1](https://github.com/homebridge-plugins/homebridge-august/releases/tag/v3.2.1) (2026-04-30)
 
 ### Bug Fixes
 
 * **platform:** probe with a fresh client; add offline heartbeat ([682c68b](https://github.com/homebridge-plugins/homebridge-august/commit/682c68bcbd7d86fb9df350ab0ccac9a07d3e1e2b))
 * **platform:** use August.resetTransport() for connectivity recovery ([6ea4f34](https://github.com/homebridge-plugins/homebridge-august/commit/6ea4f34cb710cbff333e71d84b048bb61d34ea64))
 
+**Full Changelog**: https://github.com/homebridge-plugins/homebridge-august/compare/v3.2.0...v3.2.1
 
-
-# [3.2.0](https://github.com/homebridge-plugins/homebridge-august/compare/v3.1.4...v3.2.0) (2026-04-29)
-
+# [3.2.0](https://github.com/homebridge-plugins/homebridge-august/releases/tag/v3.2.0) (2026-04-29)
 
 ### Bug Fixes
 
 * **platform:** use august-yale's typed exceptions for error classification ([93219ac](https://github.com/homebridge-plugins/homebridge-august/commit/93219accdf8571330b8f3fefa029d727ddf7a6c3))
 
+**Full Changelog**: https://github.com/homebridge-plugins/homebridge-august/compare/v3.1.4...v3.2.0
 
-
-## [3.1.4](https://github.com/homebridge-plugins/homebridge-august/compare/v3.1.3...v3.1.4) (2026-04-27)
-
+## [3.1.4](https://github.com/homebridge-plugins/homebridge-august/releases/tag/v3.1.4) (2026-04-27)
 
 ### Bug Fixes
 
 * **platform:** destroy August client on session refresh instead of end() ([a12f2b3](https://github.com/homebridge-plugins/homebridge-august/commit/a12f2b328263523eef3b2549383f00ce6dfbf0a1))
-
 
 ### Features
 
@@ -33,9 +45,17 @@
 * **platform:** route pushChanges through ConnectivityManager ([41080f4](https://github.com/homebridge-plugins/homebridge-august/commit/41080f490cd71b504e22f56a80ae6e1c8c9eb016))
 * **platform:** wire ConnectivityManager into AugustPlatform ([0ce28e3](https://github.com/homebridge-plugins/homebridge-august/commit/0ce28e359a68720ed278e17097f61262ea8705b4))
 
+**Full Changelog**: https://github.com/homebridge-plugins/homebridge-august/compare/v3.1.3...v3.1.4
 
+## [3.1.3](https://github.com/homebridge-plugins/homebridge-august/releases/tag/v3.1.3) (2026-04-18)
 
-## [3.1.2](https://github.com/homebridge-plugins/homebridge-august/compare/v3.1.1...v3.1.2) (2026-04-18)
+### Bug Fixes
+
+* update dependencies ([ed90943](https://github.com/homebridge-plugins/homebridge-august/commit/ed9094358ab9ec6f724df58c1d98d38cee7db751))
+
+**Full Changelog**: https://github.com/homebridge-plugins/homebridge-august/compare/v3.1.2...v3.1.3
+
+## [3.1.2](https://github.com/homebridge-plugins/homebridge-august/releases/tag/v3.1.2) (2026-04-18)
 
 ### Bug Fixes
 
@@ -44,7 +64,7 @@
 
 **Full Changelog**: https://github.com/homebridge-plugins/homebridge-august/compare/v3.1.1...v3.1.2
 
-## [3.1.1](https://github.com/homebridge-plugins/homebridge-august/compare/v3.1.0...v3.1.1) (2026-04-16)
+## [3.1.1](https://github.com/homebridge-plugins/homebridge-august/releases/tag/v3.1.1) (2026-04-16)
 
 ### Bug Fixes
 

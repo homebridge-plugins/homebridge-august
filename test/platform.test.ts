@@ -10,7 +10,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { AugustPlatform } from '../src/platform.js'
+import { AugustPlatform } from '../src/Platform.HAP.js'
 
 // Mock the august-yale module
 vi.mock('august-yale', () => {

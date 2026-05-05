@@ -2,7 +2,7 @@
   "name": "@homebridge-plugins/homebridge-august",
   "displayName": "August",
   "type": "module",
-  "version": "3.2.1",
+  "version": "3.2.2",
   "description": "The August plugin allows you to access your August & Yale device(s) from HomeKit.",
   "author": {
     "name": "donavanbecker",
@@ -38,7 +38,7 @@
   ],
   "main": "dist/index.js",
   "engines": {
-    "homebridge": "^1.11.4 || ^2.0.0-beta.89",
+    "homebridge": "^2.0.0",
     "node": "^22 || ^24"
   },
   "scripts": {
@@ -71,9 +71,10 @@
     "@vitest/coverage-v8": "^4.1.5",
     "eslint": "^10.3.0",
     "eslint-plugin-format": "^2.0.1",
-    "eslint-plugin-perfectionist": "^5.9.0",
+    "eslint-plugin-html": "^8.1.4",
+    "eslint-plugin-perfectionist": "^5.8.0",
     "eslint-plugin-unused-imports": "^4.4.1",
-    "homebridge": "^2.0.0-beta.101",
+    "homebridge": "^2.0.0",
     "nodemon": "^3.1.14",
     "shx": "^0.4.0",
     "typedoc": "^0.28.19",

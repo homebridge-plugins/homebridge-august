@@ -1,6 +1,6 @@
 /* Copyright(C) 2021-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
  *
- * platform.ts: homebridge-august.
+ * Platform.HAP.ts: homebridge-august.
  */
 import type { API, DynamicPlatformPlugin, Logging, PlatformAccessory } from 'homebridge'
 

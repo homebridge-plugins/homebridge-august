@@ -1,6 +1,6 @@
 import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge'
 
-import type { AugustPlatform } from '../platform.js'
+import type { AugustPlatform } from '../Platform.HAP.js'
 import type { device, devicesConfig, lockDetails, lockEvent, lockStatus } from '../settings.js'
 
 /* Copyright(C) 2021-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.

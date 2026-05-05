@@ -4,7 +4,7 @@ import type { API, CharacteristicValue, HAP, Logging, PlatformAccessory, Service
  *
  * device.ts: homebridge-august.
  */
-import type { AugustPlatform } from '../platform.js'
+import type { AugustPlatform } from '../Platform.HAP.js'
 import type { AugustPlatformConfig, device, devicesConfig } from '../settings.js'
 
 export abstract class deviceBase {

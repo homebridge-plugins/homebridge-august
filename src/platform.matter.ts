@@ -1,6 +1,6 @@
 /* Copyright(C) 2021-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
  *
- * platform.matter.ts: homebridge-august Matter platform.
+ * Platform.Matter.ts: homebridge-august Matter platform.
  */
 import type { MatterAccessory, MatterAPI, PlatformAccessory } from 'homebridge'
 import type { Subscription } from 'rxjs'
@@ -11,7 +11,7 @@ import August from 'august-yale'
 import { timer } from 'rxjs'
 import { exhaustMap } from 'rxjs/operators'
 
-import { AugustPlatform } from './platform.js'
+import { AugustPlatform } from './Platform.HAP.js'
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 
 /**
@@ -96,7 +96,7 @@ export class AugustMatterPlatform extends AugustPlatform {
    * Overrides the HAP-based Lock() method from AugustPlatform.
    */
   protected override async Lock(device: device & devicesConfig): Promise<void> {
-    const matterApi: MatterAPI = this.api.matter
+    const matterApi = this.api.matter
     if (!matterApi) {
       await this.errorLog('Matter API is not available. Cannot register Matter accessory.')
       return
