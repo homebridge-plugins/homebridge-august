@@ -1,9 +1,19 @@
-## v3.2.3 (Pending Release)
+## v3.3.0 (Pending Release)
 
 ### Changed
 
 - chore(deps): update dependencies
 - chore: add .idea to .gitignore
+- chore(github): align workflows, funding and issue templates with the other org plugins
+- chore: align npm publishing files with the other org plugins
+- chore: standardise the eslint setup with the other org plugins
+- style: apply the standardised lint rules
+- chore: standardise the package scripts and publishing config
+- chore: sync the package version with the released v3.2.3
+- chore: update the plugin metadata for the new maintainer
+- docs: refresh the readme
+- docs: add claude and copilot instructions files
+- docs: use the standard org readme banner
 
 ## [3.2.3](https://github.com/homebridge-plugins/homebridge-august/releases/tag/v3.2.3) (2026-05-04)
 

@@ -1,45 +1,57 @@
+<p align="center">
+   <a href="https://github.com/homebridge-plugins/homebridge-august"><img alt="homebridge-august" src="https://raw.githubusercontent.com/homebridge-plugins/homebridge-august/latest/branding/Homebridge_x_August.png" width="600px"></a>
+</p>
 <span align="center">
 
-<a href="https://github.com/homebridge/verified/blob/master/verified-plugins.json"><img alt="homebridge-verified" src="https://raw.githubusercontent.com/homebridge-plugins/homebridge-august/latest/branding/Homebridge_x_August.svg?sanitize=true" width="350px"></a>
+## homebridge-august
 
-# Homebridge August
+Homebridge plugin to integrate August and Yale locks into HomeKit
 
-<a href="https://www.npmjs.com/package/homebridge-august"><img alt="badge" title="npm version" src="https://badgen.net/npm/v/homebridge-august?icon=npm&label" ></a>
-<a href="https://www.npmjs.com/package/homebridge-august"><img alt="badge" title="npm downloads" src="https://badgen.net/npm/dt/homebridge-august?label=downloads" ></a>
-<a href="https://discord.gg/8fpZA4S"><img alt="badge" title="discord-august" src="https://badgen.net/discord/online-members/8fpZA4S?icon=discord&label=discord" ></a>
-<a href="https://paypal.me/donavanbecker"><img alt="badge" title="donate" src="https://badgen.net/badge/donate/paypal/yellow" ></a>
-
-<p>The Homebridge <a href="https://august.com">August</a>
-plugin allows you to access your <a href="https://august.com">August</a> & <a href="https://shopyalehome.com">Yale</a>  Lock(s) from HomeKit with
-  <a href="https://homebridge.io">Homebridge</a>.
-</p>
+[![npm](https://img.shields.io/npm/v/@homebridge-plugins/homebridge-august/latest?label=latest)](https://www.npmjs.com/package/@homebridge-plugins/homebridge-august)
+[![npm](https://img.shields.io/npm/v/@homebridge-plugins/homebridge-august/beta?label=beta)](https://github.com/homebridge/homebridge/wiki/How-to-Install-Alternate-Plugin-Versions)<br>
+[![verified-by-homebridge](https://img.shields.io/badge/homebridge-verified-blueviolet?color=%23491F59&style=flat)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)<br>
+[![npm](https://img.shields.io/npm/dt/@homebridge-plugins/homebridge-august)](https://www.npmjs.com/package/@homebridge-plugins/homebridge-august)
+[![Discord](https://img.shields.io/discord/432663330281226270?color=728ED5&logo=discord&label=hb-discord)](https://discord.gg/bHjKNkN)
 
 </span>
 
-## Installation
+### Plugin Information
 
-1. Search for "August" on the plugin screen of [Homebridge Config UI X](https://github.com/oznu/homebridge-config-ui-x).
-2. Click **Install**.
+- This plugin allows you to view and control your [August](https://august.com) and [Yale](https://shopyalehome.com) locks within HomeKit. The plugin:
+  - requires your August account credentials to work
+  - connects to the August cloud to discover and control your locks
 
-## Configuration
+### Setup
 
-1. Input your August E-mail/Phone Number into the August Account Info.
+- Installation
+  - Search for "August" on the plugin screen of the [Homebridge UI](https://github.com/homebridge/homebridge-config-ui-x) and click **Install**.
+- Configuration
+  1. Enter your August account e-mail or phone number in the plugin settings and restart Homebridge.
+  2. August will send you a verification code - enter this code in the plugin settings.
+  3. Restart Homebridge once more and your locks will appear.
 
-2. August Validate code will be sent after restarting Homebridge.
+### Supported Devices
 
-3. Input your Validate Code into the August Account Info.
-
-4. Finally Restart Homebridge.
-
-## Supported August Devices
-
-- August Smart lock (AUG-SL04-C03-N04)
-- August Smart Lock Pro 3rd Gee (AUG-SL03-C02-G03-C)
+- August Smart Lock (AUG-SL04-C03-N04)
+- August Smart Lock Pro 3rd Gen (AUG-SL03-C02-G03-C)
 - August WiFi Smart Lock (Gen 4)
 - Yale Assure Lock (AUG-MD01)
 - Yale Assure Lock 2 (YDR410)
 - Yale Assure Lock SL (YDR256)
 
-## Thanks
+### Help/About
 
-Thank you to [hufftheweevil](https://github.com/hufftheweevil) for the [august-api](https://github.com/hufftheweevil/august-api) module.
+- [Support Request](https://github.com/homebridge-plugins/homebridge-august/issues/new/choose)
+- [Changelog](https://github.com/homebridge-plugins/homebridge-august/blob/latest/CHANGELOG.md)
+- [About Me](https://github.com/sponsors/bwp91)
+
+### Credits
+
+- To [@donavanbecker](https://github.com/donavanbecker): the original creator and maintainer of this plugin.
+- To [@hufftheweevil](https://github.com/hufftheweevil): the author of the [august-api](https://github.com/hufftheweevil/august-api) module this plugin builds on.
+- To the creators/contributors of [Homebridge](https://homebridge.io) who make this plugin possible.
+
+### Disclaimer
+
+- I am in no way affiliated with August or Yale and this plugin is a personal project that I maintain in my free time.
+- Use this plugin entirely at your own risk - please see licence for more information.
