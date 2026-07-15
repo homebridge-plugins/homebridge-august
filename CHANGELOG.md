@@ -14,6 +14,7 @@
 - docs: refresh the readme
 - docs: add claude and copilot instructions files
 - docs: use the standard org readme banner
+- fix: keep matter display names within the 32 character limit
 
 ## [3.2.3](https://github.com/homebridge-plugins/homebridge-august/releases/tag/v3.2.3) (2026-05-04)
 

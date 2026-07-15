@@ -21,6 +21,20 @@ import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
  * enabled, and not disabled by the `disableMatter` config option.
  */
 export class AugustMatterPlatform extends AugustPlatform {
+  /**
+   * Matter's BridgedDeviceBasicInformation.NodeLabel is constrained to 32 characters.
+   * Homebridge sets the nodeLabel from the accessory displayName, so longer names make
+   * the whole endpoint fail to register with "Behaviors have errors".
+   */
+  private clampMatterDisplayName(displayName: string): string {
+    if (displayName.length <= 32) {
+      return displayName
+    }
+    const clamped = displayName.slice(0, 32).trim()
+    this.log.debug(`Display name "${displayName}" exceeds Matter's 32 character limit, using "${clamped}"`)
+    return clamped
+  }
+
   // Track restored Matter cached accessories
   public readonly matterAccessories: Map<string, MatterAccessory> = new Map()
 
@@ -119,9 +133,9 @@ export class AugustMatterPlatform extends AugustPlatform {
       return
     }
 
-    const displayName = device.configLockName
+    const displayName = this.clampMatterDisplayName(device.configLockName
       ? await this.validateAndCleanDisplayName(device.configLockName, 'configLockName', device.configLockName)
-      : await this.validateAndCleanDisplayName(device.LockName, 'LockName', device.LockName)
+      : await this.validateAndCleanDisplayName(device.LockName, 'LockName', device.LockName))
 
     const existingAccessory = this.matterAccessories.get(uuid)
 
