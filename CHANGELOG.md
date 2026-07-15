@@ -3,6 +3,7 @@
 ### Changed
 
 - chore(deps): update dependencies
+- chore: add .idea to .gitignore
 
 ## [3.2.3](https://github.com/homebridge-plugins/homebridge-august/releases/tag/v3.2.3) (2026-05-04)
 
