@@ -39,7 +39,7 @@
   "main": "dist/index.js",
   "engines": {
     "homebridge": "^2.0.0",
-    "node": "^22 || ^24"
+    "node": "^22.12.0 || ^24.0.0"
   },
   "scripts": {
     "check": "npm install && npm outdated",
@@ -61,24 +61,27 @@
     "access": "public"
   },
   "dependencies": {
-    "@homebridge/plugin-ui-utils": "^2.2.3",
+    "@homebridge/plugin-ui-utils": "^2.2.5",
     "august-yale": "^1.2.2",
     "rxjs": "^7.8.2"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^8.2.0",
-    "@types/node": "^25.6.0",
-    "@vitest/coverage-v8": "^4.1.5",
-    "eslint": "^10.3.0",
+    "@antfu/eslint-config": "^9.1.0",
+    "@types/node": "^26.1.1",
+    "@vitest/coverage-v8": "^4.1.10",
+    "eslint": "^10.7.0",
     "eslint-plugin-format": "^2.0.1",
     "eslint-plugin-html": "^8.1.4",
-    "eslint-plugin-perfectionist": "^5.8.0",
+    "eslint-plugin-perfectionist": "^5.10.0",
     "eslint-plugin-unused-imports": "^4.4.1",
-    "homebridge": "^2.0.0",
+    "homebridge": "^2.1.1",
     "nodemon": "^3.1.14",
     "shx": "^0.4.0",
-    "typedoc": "^0.28.19",
+    "typedoc": "^0.28.20",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.5"
+    "vitest": "^4.1.10"
+  },
+  "allowScripts": {
+    "fsevents@2.3.3": true
   }
 }

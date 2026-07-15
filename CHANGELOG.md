@@ -1,3 +1,9 @@
+## v3.2.3 (Pending Release)
+
+### Changed
+
+- chore(deps): update dependencies
+
 ## [3.2.3](https://github.com/homebridge-plugins/homebridge-august/releases/tag/v3.2.3) (2026-05-04)
 
 ### Bug Fixes
