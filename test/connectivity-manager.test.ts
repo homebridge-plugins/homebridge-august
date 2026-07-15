@@ -88,7 +88,7 @@ vi.mock('august-yale', () => {
 // Helper: build a stub Logging object that records calls.
 function makeLog(): Logging & { _calls: { level: string, msg: string }[] } {
   const calls: { level: string, msg: string }[] = []
-  const stub = ((..._args: any[]) => {}) as any
+  const stub = (() => {}) as any
   stub._calls = calls
   for (const level of ['info', 'warn', 'error', 'debug', 'success'] as const) {
     stub[level] = (msg: string) => calls.push({ level, msg })
@@ -101,7 +101,7 @@ async function fakeCredentials(): Promise<credentials> {
   return { installId: 'test-install', apiKey: 'test-key' } as unknown as credentials
 }
 
-describe('ConnectivityManager', () => {
+describe('connectivityManager', () => {
   beforeEach(() => {
     // Use fake timers so probes can be advanced deterministically without
     // waiting for real backoff windows (5s..5min).
@@ -187,7 +187,7 @@ describe('ConnectivityManager', () => {
       await m.init()
       const transientErr = Object.assign(new Error('Unprocessable Entity'), { statusCode: 422 })
       await expect(
-        m.execute('test', async () => { throw transientErr }),
+        m.execute('test', async () => Promise.reject(transientErr)),
       ).rejects.toBe(transientErr)
       expect(m.getState()).toBe('healthy')
     })
@@ -209,7 +209,7 @@ describe('ConnectivityManager', () => {
       await m.init()
       expect(onClientChanged).toHaveBeenCalledTimes(1)
       const authErr = Object.assign(new Error('Unauthorized'), { statusCode: 401 })
-      const result = await m.execute('test', async () => { throw authErr })
+      const result = await m.execute('test', async () => Promise.reject(authErr))
       expect(result).toBeUndefined()
       // Allow the rebuild promise to resolve.
       await vi.runAllTimersAsync()
@@ -221,7 +221,7 @@ describe('ConnectivityManager', () => {
       const m = new ConnectivityManager(makeLog(), fakeCredentials)
       await m.init()
       const { TimeoutError } = await import('august-yale')
-      const result = await m.execute('test', async () => { throw new TimeoutError('timed out') })
+      const result = await m.execute('test', async () => Promise.reject(new TimeoutError('timed out')))
       expect(result).toBeUndefined()
       expect(m.getState()).toBe('degraded')
     })
@@ -233,7 +233,7 @@ describe('ConnectivityManager', () => {
       const m = new ConnectivityManager(makeLog(), fakeCredentials)
       await m.init()
       const { NetworkError } = await import('august-yale')
-      const result = await m.execute('test', async () => { throw new NetworkError('socket hang up', undefined, 'ECONNRESET') })
+      const result = await m.execute('test', async () => Promise.reject(new NetworkError('socket hang up', undefined, 'ECONNRESET')))
       expect(result).toBeUndefined()
       expect(m.getState()).toBe('degraded')
     })
@@ -244,7 +244,7 @@ describe('ConnectivityManager', () => {
       await m.init()
       expect(onClientChanged).toHaveBeenCalledTimes(1)
       const { InvalidAuth } = await import('august-yale')
-      const result = await m.execute('test', async () => { throw new InvalidAuth('session expired') })
+      const result = await m.execute('test', async () => Promise.reject(new InvalidAuth('session expired')))
       expect(result).toBeUndefined()
       await vi.runAllTimersAsync()
       expect(onClientChanged).toHaveBeenCalledTimes(2)
@@ -262,7 +262,7 @@ describe('ConnectivityManager', () => {
       const { AbortedError } = await import('august-yale')
       const err = new AbortedError('client destroyed', undefined, 'UND_ERR_DESTROYED')
       await expect(
-        m.execute('test', async () => { throw err }),
+        m.execute('test', async () => Promise.reject(err)),
       ).rejects.toBe(err)
       // State stays healthy — no probe scheduled.
       expect(m.getState()).toBe('healthy')
@@ -275,7 +275,7 @@ describe('ConnectivityManager', () => {
       const m = new ConnectivityManager(makeLog(), fakeCredentials)
       await m.init()
       const err = Object.assign(new Error('Bad Gateway'), { statusCode: 502 })
-      await m.execute('test', async () => { throw err })
+      await m.execute('test', async () => Promise.reject(err))
       expect(m.getState()).toBe('degraded')
     })
   })
@@ -289,7 +289,7 @@ describe('ConnectivityManager', () => {
 
       // Network failure: degrades and schedules probe.
       const { TimeoutError } = await import('august-yale')
-      await m.execute('test', async () => { throw new TimeoutError('boom') })
+      await m.execute('test', async () => Promise.reject(new TimeoutError('boom')))
       expect(m.getState()).toBe('degraded')
 
       // Probe calls resetTransport() on the existing client and then its
@@ -320,7 +320,7 @@ describe('ConnectivityManager', () => {
       }))
 
       // Trigger degraded.
-      await m.execute('test', async () => { throw new TimeoutError('boom') })
+      await m.execute('test', async () => Promise.reject(new TimeoutError('boom')))
       expect(m.getState()).toBe('degraded')
 
       // Advance past first backoff + probe timeout.
@@ -345,7 +345,7 @@ describe('ConnectivityManager', () => {
       const m = new ConnectivityManager(makeLog(), fakeCredentials)
       await m.init()
       const { TimeoutError } = await import('august-yale')
-      await m.execute('test', async () => { throw new TimeoutError('blip') })
+      await m.execute('test', async () => Promise.reject(new TimeoutError('blip')))
       expect(m.getState()).toBe('degraded')
       // Next call succeeds.
       const result = await m.execute('test', async () => 'recovered')
@@ -372,7 +372,7 @@ describe('ConnectivityManager', () => {
 
       // Trigger degraded.
       const { TimeoutError } = await import('august-yale')
-      await m.execute('test', async () => { throw new TimeoutError('boom') })
+      await m.execute('test', async () => Promise.reject(new TimeoutError('boom')))
       expect(m.getState()).toBe('degraded')
 
       // Advance past the first backoff: probe runs, default mock has
@@ -406,7 +406,7 @@ describe('ConnectivityManager', () => {
       ))
 
       // Trigger degraded.
-      await m.execute('test', async () => { throw new TimeoutError('boom') })
+      await m.execute('test', async () => Promise.reject(new TimeoutError('boom')))
       expect(m.getState()).toBe('degraded')
 
       // Advance past first probe → offline.
@@ -429,7 +429,7 @@ describe('ConnectivityManager', () => {
       await m.init()
 
       const { TimeoutError } = await import('august-yale')
-      await m.execute('test', async () => { throw new TimeoutError('boom') })
+      await m.execute('test', async () => Promise.reject(new TimeoutError('boom')))
       expect(m.getState()).toBe('degraded')
 
       // PubNub reconnect → immediate probe. Default mock has .locks()
@@ -471,8 +471,8 @@ describe('ConnectivityManager', () => {
       // Fire two execute()s concurrently — each will see a 401, each will
       // request a rebuild. The manager must coalesce these into one rebuild.
       await Promise.all([
-        m.execute('a', async () => { throw authErr }),
-        m.execute('b', async () => { throw authErr }),
+        m.execute('a', async () => Promise.reject(authErr)),
+        m.execute('b', async () => Promise.reject(authErr)),
       ])
       await vi.runAllTimersAsync()
 
@@ -489,14 +489,14 @@ describe('ConnectivityManager', () => {
       m.onStateChange(listener)
 
       const { TimeoutError } = await import('august-yale')
-      await m.execute('test', async () => { throw new TimeoutError('boom') })
+      await m.execute('test', async () => Promise.reject(new TimeoutError('boom')))
       // healthy -> degraded fires once.
       expect(listener).toHaveBeenCalledWith('degraded', 'healthy')
       expect(listener).toHaveBeenCalledTimes(1)
 
       // A second network error while already degraded should NOT fire
       // again (no transition).
-      await m.execute('test', async () => { throw new TimeoutError('boom') })
+      await m.execute('test', async () => Promise.reject(new TimeoutError('boom')))
       expect(listener).toHaveBeenCalledTimes(1)
     })
 
@@ -508,7 +508,7 @@ describe('ConnectivityManager', () => {
       unsubscribe()
 
       const { TimeoutError } = await import('august-yale')
-      await m.execute('test', async () => { throw new TimeoutError('boom') })
+      await m.execute('test', async () => Promise.reject(new TimeoutError('boom')))
       expect(listener).not.toHaveBeenCalled()
     })
 
@@ -516,11 +516,13 @@ describe('ConnectivityManager', () => {
       const m = new ConnectivityManager(makeLog(), fakeCredentials)
       await m.init()
       const good = vi.fn()
-      m.onStateChange(() => { throw new Error('listener bug') })
+      m.onStateChange(() => {
+        throw new Error('listener bug')
+      })
       m.onStateChange(good)
 
       const { TimeoutError } = await import('august-yale')
-      await m.execute('test', async () => { throw new TimeoutError('boom') })
+      await m.execute('test', async () => Promise.reject(new TimeoutError('boom')))
       expect(good).toHaveBeenCalledTimes(1)
     })
   })
@@ -544,7 +546,7 @@ describe('ConnectivityManager', () => {
       ))
 
       // Trigger degraded.
-      await m.execute('test', async () => { throw new TimeoutError('boom') })
+      await m.execute('test', async () => Promise.reject(new TimeoutError('boom')))
 
       // Drive past first probe so we land in offline.
       await vi.advanceTimersByTimeAsync(15_000)

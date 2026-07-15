@@ -4,10 +4,10 @@
 
 # Homebridge August
 
-<a href="https://www.npmjs.com/package/homebridge-august"><img title="npm version" src="https://badgen.net/npm/v/homebridge-august?icon=npm&label" ></a>
-<a href="https://www.npmjs.com/package/homebridge-august"><img title="npm downloads" src="https://badgen.net/npm/dt/homebridge-august?label=downloads" ></a>
-<a href="https://discord.gg/8fpZA4S"><img title="discord-august" src="https://badgen.net/discord/online-members/8fpZA4S?icon=discord&label=discord" ></a>
-<a href="https://paypal.me/donavanbecker"><img title="donate" src="https://badgen.net/badge/donate/paypal/yellow" ></a>
+<a href="https://www.npmjs.com/package/homebridge-august"><img alt="badge" title="npm version" src="https://badgen.net/npm/v/homebridge-august?icon=npm&label" ></a>
+<a href="https://www.npmjs.com/package/homebridge-august"><img alt="badge" title="npm downloads" src="https://badgen.net/npm/dt/homebridge-august?label=downloads" ></a>
+<a href="https://discord.gg/8fpZA4S"><img alt="badge" title="discord-august" src="https://badgen.net/discord/online-members/8fpZA4S?icon=discord&label=discord" ></a>
+<a href="https://paypal.me/donavanbecker"><img alt="badge" title="donate" src="https://badgen.net/badge/donate/paypal/yellow" ></a>
 
 <p>The Homebridge <a href="https://august.com">August</a>
 plugin allows you to access your <a href="https://august.com">August</a> & <a href="https://shopyalehome.com">Yale</a>  Lock(s) from HomeKit with

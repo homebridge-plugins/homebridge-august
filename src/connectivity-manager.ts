@@ -95,8 +95,8 @@ export class OfflineError extends Error {
 export class ConnectivityManager {
   private state: ConnectivityState = 'healthy'
   private client?: August
-  private probeTimer?: NodeJS.Timeout
-  private heartbeatTimer?: NodeJS.Timeout
+  private probeTimer?: ReturnType<typeof setTimeout>
+  private heartbeatTimer?: ReturnType<typeof setInterval>
   private backoffIndex = 0
   private rebuildInFlight?: Promise<void>
   private listeners = new Set<(next: ConnectivityState, prev: ConnectivityState) => void>()

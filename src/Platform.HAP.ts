@@ -59,7 +59,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   // registered locks means one timeout per cycle on a bad network rather
   // than N (one per lock) — and short-circuiting on the first failure
   // avoids hammering the API while it's clearly unreachable.
-  private pollTimer?: NodeJS.Timeout
+  private pollTimer?: ReturnType<typeof setTimeout>
 
   // Cached normalized credentials for performance
   private normalizedCredentialsCache?: credentials
@@ -274,7 +274,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
 
     if (originalCountryCode && normalizedCountryCode && !normalizationDisabled) {
       await this.debugWarnLog(`Country code normalization: ${originalCountryCode} -> ${normalizedCountryCode} for API compatibility. `
-        + `To disable this behavior, set 'disableCountryCodeNormalization: true' in options.`)
+        + 'To disable this behavior, set \'disableCountryCodeNormalization: true\' in options.')
       normalizedCredentials.countryCode = normalizedCountryCode
     } else if (originalCountryCode && normalizedCountryCode && normalizationDisabled) {
       await this.debugLog(`Country code normalization disabled by config. Using original country code: ${originalCountryCode}`)
@@ -579,7 +579,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       }
     } else if (await this.registerDevice(device)) {
       // create a new accessory
-      // eslint-disable-next-line new-cap
+
       const accessory = new this.api.platformAccessory(device.configLockName ?? device.LockName, uuid)
 
       // store a copy of the device object in the `accessory.context`
