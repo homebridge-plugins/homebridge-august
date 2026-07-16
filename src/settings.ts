@@ -26,6 +26,7 @@ export interface credentials {
   augustId: string // Phone must be formatted +[countrycode][number]
   password: string
   countryCode: string
+  brand?: string // august | yale_access | yale_home | yale_global | yale_august
   validateCode?: string
   isValidated?: boolean
 }

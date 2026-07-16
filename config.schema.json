@@ -125,6 +125,50 @@
               "type": "select"
             }
           },
+          "brand": {
+            "title": "Account Brand",
+            "type": "string",
+            "default": "august",
+            "description": "The app your account belongs to. Pick 'Yale Home' if you use the Yale Home app (common outside North America).",
+            "condition": {
+              "functionBody": "return (model.credentials && model.credentials.augustId && model.credentials.password);"
+            },
+            "oneOf": [
+              {
+                "title": "August",
+                "enum": [
+                  "august"
+                ]
+              },
+              {
+                "title": "Yale Access",
+                "enum": [
+                  "yale_access"
+                ]
+              },
+              {
+                "title": "Yale Home",
+                "enum": [
+                  "yale_home"
+                ]
+              },
+              {
+                "title": "Yale Global",
+                "enum": [
+                  "yale_global"
+                ]
+              },
+              {
+                "title": "Yale August",
+                "enum": [
+                  "yale_august"
+                ]
+              }
+            ],
+            "x-schema-form": {
+              "type": "select"
+            }
+          },
           "apiKey": {
             "type": "string",
             "title": "apiKey",

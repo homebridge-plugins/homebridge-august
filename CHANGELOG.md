@@ -16,6 +16,7 @@
 - docs: use the standard org readme banner
 - fix: keep matter display names within the 32 character limit
 - chore(github): update the setup-node action to v7
+- feat: add an account brand option so yale home and yale access accounts can sign in (#236) (@phattrance)
 
 ## [3.2.3](https://github.com/homebridge-plugins/homebridge-august/releases/tag/v3.2.3) (2026-05-04)
 
