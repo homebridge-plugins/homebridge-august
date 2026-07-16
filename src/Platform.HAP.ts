@@ -218,8 +218,12 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       // A 6-digit code will be sent to your email or phone (depending on what you used for your augustId).
       // Need some way to get this code from the user.
       const normalizedCredentials = await this.normalizeCredentialsForApi(this.config.credentials!)
-      August.authorize(normalizedCredentials)
-      await this.warnLog('Input Your August email verification code into the validateCode config and restart Homebridge.')
+      try {
+        await August.authorize(normalizedCredentials)
+        await this.warnLog('A verification code has been requested and should arrive by email or text shortly. Input the code into the validateCode config and restart Homebridge.')
+      } catch (e: any) {
+        await this.errorLog(`Failed to request a verification code: ${e.message ?? e}. No code is on its way — resolve the error above and restart Homebridge to try again.`)
+      }
     }
   }
 
