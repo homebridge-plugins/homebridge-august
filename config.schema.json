@@ -483,6 +483,7 @@
       "items": [
         "credentials.augustId",
         "credentials.password",
+        "credentials.brand",
         "credentials.validateCode",
         {
           "type": "fieldset",
