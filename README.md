@@ -21,6 +21,9 @@ Homebridge plugin to integrate August and Yale locks into HomeKit
   - requires your August account credentials to work
   - connects to the August cloud to discover and control your locks
 
+> [!IMPORTANT]
+> **Yale Home accounts (common outside North America) can no longer sign in through this plugin.** Yale has switched off password-based login on its servers (verified July 2026) and now requires an OAuth sign-in that is only available to officially registered partners. If you have a Yale Home account: check whether your lock supports **native HomeKit** (many Yale Home locks do — look for a HomeKit option in the Yale Home app), or use Home Assistant's official Yale integration with its HomeKit Bridge.
+
 ### Setup
 
 - Installation

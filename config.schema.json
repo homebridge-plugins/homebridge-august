@@ -129,7 +129,7 @@
             "title": "Account Brand",
             "type": "string",
             "default": "august",
-            "description": "The app your account belongs to. Pick 'Yale Home' if you use the Yale Home app (common outside North America).",
+            "description": "The app your account belongs to. Note: Yale Home accounts (common outside North America) can no longer sign in — Yale has switched off password login on its servers and requires a partner-only OAuth sign-in. Check if your lock supports native HomeKit instead.",
             "condition": {
               "functionBody": "return (model.credentials && model.credentials.augustId && model.credentials.password);"
             },
