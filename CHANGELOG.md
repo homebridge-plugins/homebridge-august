@@ -17,6 +17,12 @@
 - fix: keep matter display names within the 32 character limit
 - chore(github): update the setup-node action to v7
 - feat: add an account brand option so yale home and yale access accounts can sign in (#236) (@phattrance)
+- fix: show the account brand option in the settings form layout (#236)
+- fix: send the account brand's branding header during sign in (#236)
+- fix: surface verification code request failures instead of silently swallowing them (#236)
+- fix: use the yale home api key for yale home accounts (#236)
+- docs: note that yale home accounts can no longer sign in with a password (#236)
+- chore(deps): dependency updates
 
 ## [3.2.3](https://github.com/homebridge-plugins/homebridge-august/releases/tag/v3.2.3) (2026-05-04)
 
