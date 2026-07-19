@@ -24,14 +24,18 @@ Homebridge plugin to integrate August and Yale locks into HomeKit
 > [!IMPORTANT]
 > **Yale Home accounts (common outside North America) can no longer sign in through this plugin.** Yale has switched off password-based login on its servers (verified July 2026) and now requires an OAuth sign-in that is only available to officially registered partners. If you have a Yale Home account: check whether your lock supports **native HomeKit** (many Yale Home locks do — look for a HomeKit option in the Yale Home app), or use Home Assistant's official Yale integration with its HomeKit Bridge.
 
+### Prerequisites
+
+- To use this plugin, you will need to already have:
+  - [Node](https://nodejs.org): latest version of `v22` or `v24` - any other major version is not supported.
+  - [Homebridge](https://homebridge.io): `v2` - refer to link for more information and installation instructions.
+
 ### Setup
 
-- Installation
-  - Search for "August" on the plugin screen of the [Homebridge UI](https://github.com/homebridge/homebridge-config-ui-x) and click **Install**.
-- Configuration
-  1. Enter your August account e-mail or phone number in the plugin settings and restart Homebridge.
-  2. August will send you a verification code - enter this code in the plugin settings.
-  3. Restart Homebridge once more and your locks will appear.
+- [Installation](https://github.com/homebridge-plugins/homebridge-august/wiki/Installation)
+- [Configuration](https://github.com/homebridge-plugins/homebridge-august/wiki/Configuration)
+- [Beta Version](https://github.com/homebridge-plugins/homebridge-august/wiki/Beta-Version)
+- [Node Version](https://github.com/homebridge-plugins/homebridge-august/wiki/Node-Version)
 
 ### Supported Devices
 
@@ -44,6 +48,7 @@ Homebridge plugin to integrate August and Yale locks into HomeKit
 
 ### Help/About
 
+- [Common Errors](https://github.com/homebridge-plugins/homebridge-august/wiki/Common-Errors)
 - [Support Request](https://github.com/homebridge-plugins/homebridge-august/issues/new/choose)
 - [Changelog](https://github.com/homebridge-plugins/homebridge-august/blob/latest/CHANGELOG.md)
 - [About Me](https://github.com/sponsors/bwp91)
