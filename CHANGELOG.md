@@ -1,3 +1,10 @@
+## v3.3.1 (2026-07-20)
+
+### Changed
+
+- fix(schema): give the logging levels clear, distinct names
+- chore(deps): dependency updates
+
 ## v3.3.0 (2026-07-18)
 
 ### Changed
