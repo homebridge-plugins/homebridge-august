@@ -657,4 +657,87 @@ describe('augustMatterPlatform', () => {
       expect(swept).not.toContain(migrated)
     })
   })
+
+  describe('fetchAndUpdateMatterLockState (battery → PowerSource)', () => {
+    // Install a stub connectivity manager whose execute() runs the poll fn
+    // against a fake august client, matching the suite's conventions.
+    function withDetails(p: any, detail: any) {
+      const client = { details: vi.fn().mockResolvedValue(detail) }
+      p.connectivity = { execute: vi.fn(async (_label: string, fn: (c: any) => Promise<any>) => fn(client)) }
+      return client
+    }
+
+    it('pushes the battery level to the PowerSource cluster on poll', async () => {
+      platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
+      withDetails(platform, { battery: 0.53 })
+
+      await (platform as any).fetchAndUpdateMatterLockState(
+        { lockId: 'lock-1', LockName: 'Front Door' } as any,
+        'matter-uuid-lock-1',
+        mockMatterApi,
+      )
+
+      expect(mockMatterApi.updateAccessoryState).toHaveBeenCalledWith(
+        'matter-uuid-lock-1',
+        'powerSource',
+        expect.objectContaining({
+          batPercentRemaining: 106, // round(0.53 * 200)
+          batChargeLevel: 0, // OK
+          batReplacementNeeded: false,
+        }),
+      )
+    })
+
+    it('pushes the battery even when the detail carries no lock state, and flags a low battery', async () => {
+      platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
+      withDetails(platform, { battery: 0.08 }) // low, and no LockStatus.state at all
+
+      await (platform as any).fetchAndUpdateMatterLockState(
+        { lockId: 'lock-2', LockName: 'Kitchen Door' } as any,
+        'matter-uuid-lock-2',
+        mockMatterApi,
+      )
+
+      // Regression guard: a stateless detail response — the norm for this
+      // endpoint — must not drop the battery update.
+      expect(mockMatterApi.updateAccessoryState).toHaveBeenCalledWith(
+        'matter-uuid-lock-2',
+        'powerSource',
+        expect.objectContaining({
+          batPercentRemaining: 16, // round(0.08 * 200)
+          batChargeLevel: 2, // Critical (<10%)
+          batReplacementNeeded: true, // <15%
+        }),
+      )
+      // ...and it must not push a doorLock state it doesn't have.
+      expect(mockMatterApi.updateAccessoryState).not.toHaveBeenCalledWith(
+        'matter-uuid-lock-2',
+        'doorLock',
+        expect.anything(),
+      )
+    })
+
+    it('leaves PowerSource untouched when the detail has no battery field', async () => {
+      platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
+      withDetails(platform, { LockStatus: { state: { locked: true } } }) // no battery
+
+      await (platform as any).fetchAndUpdateMatterLockState(
+        { lockId: 'lock-3', LockName: 'Guest Door' } as any,
+        'matter-uuid-lock-3',
+        mockMatterApi,
+      )
+
+      expect(mockMatterApi.updateAccessoryState).not.toHaveBeenCalledWith(
+        'matter-uuid-lock-3',
+        'powerSource',
+        expect.anything(),
+      )
+      // lock state is present, so the doorLock update still happens as before.
+      expect(mockMatterApi.updateAccessoryState).toHaveBeenCalledWith(
+        'matter-uuid-lock-3',
+        'doorLock',
+        expect.objectContaining({ lockState: 1 }),
+      )
+    })
+  })
 })

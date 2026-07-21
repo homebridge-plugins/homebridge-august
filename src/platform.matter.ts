@@ -161,6 +161,21 @@ export class AugustMatterPlatform extends AugustPlatform {
           actuatorEnabled: true,
           operatingMode: 0, // 0 = Normal
         },
+        // PowerSource (Battery feature) so the lock battery reaches Matter
+        // controllers (e.g. Home Assistant), matching what the HAP Battery
+        // service already exposes. Homebridge composes PowerSourceServer
+        // .with('Battery') when batPercentRemaining/batChargeLevel are present.
+        // Placeholder values until the first poll pushes real ones (below);
+        // batPercentRemaining is Matter half-percent (0..200).
+        powerSource: {
+          status: 1, // PowerSourceStatus.Active
+          order: 0,
+          description: 'Battery',
+          batReplaceability: 2, // UserReplaceable (AA cells)
+          batReplacementNeeded: false,
+          batChargeLevel: 0, // BatChargeLevel.Ok
+          batPercentRemaining: 200, // 100% until first poll
+        },
       },
       handlers: {
         doorLock: {
@@ -322,6 +337,25 @@ export class AugustMatterPlatform extends AugustPlatform {
       return
     }
     const details = lockDetails as any
+
+    // Battery -> PowerSource. August reports `battery` as a 0..1 fraction;
+    // Matter batPercentRemaining is half-percent (0..200). Mirror the HAP
+    // Battery service's <15% low threshold. The /locks/{id} detail carries
+    // `battery` even when it has no LockStatus.state (lock state is driven by
+    // PubNub events / a separate status call), so push the battery BEFORE the
+    // lock-state guard below — otherwise a stateless detail response, which is
+    // the norm for this endpoint, drops the battery update entirely.
+    if (typeof details.battery === 'number') {
+      const pct = Math.min(Math.max(details.battery, 0), 1)
+      const low = pct < 0.15
+      await matterApi.updateAccessoryState(uuid, 'powerSource', {
+        batPercentRemaining: Math.round(pct * 200),
+        batChargeLevel: pct < 0.10 ? 2 : low ? 1 : 0, // Critical / Warning / Ok
+        batReplacementNeeded: low,
+      })
+      await this.debugLog(`Matter: Poll updated battery to ${Math.round(pct * 100)}% for ${device.LockName}`)
+    }
+
     if (!details?.LockStatus?.state) {
       return
     }
