@@ -1,3 +1,9 @@
+## v3.3.2 (Pending Release)
+
+### Changed
+
+- fix(deps): bump august-yale to 1.2.5 so US August accounts use the correct api key again instead of getting "API key is not valid" (#238)
+
 ## v3.3.1 (2026-07-20)
 
 ### Changed
