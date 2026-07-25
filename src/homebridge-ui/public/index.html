@@ -32,8 +32,8 @@
   </div>
 </div>
 <div id="menuWrapper" class="btn-group w-100 mb-0" role="group" aria-label="UI Menu" style="display: none">
-  <button type="button" class="btn btn-primary" id="menuDevices">Devices</button>
   <button type="button" class="btn btn-primary" id="menuSettings">Settings</button>
+  <button type="button" class="btn btn-primary" id="menuDevices">My Devices</button>
   <button type="button" class="btn btn-primary mr-0" id="menuHome">Support</button>
 </div>
 <div id="pageDevices" class="mt-4" style="display: none">
@@ -105,43 +105,58 @@
 </div>
 <div id="pageSupport" class="mt-4" style="display: none">
   <p class="text-center lead">Thank you for using <strong>homebridge-august</strong></p>
-  <p class="text-center">The links below will take you to our GitHub wiki</p>
+  <h5>Plugin Information</h5>
+<ul>
+  <li>This plugin allows you to view and control your <a href="https://august.com" target="_blank">August</a> and <a href="https://shopyalehome.com" target="_blank">Yale</a> locks within HomeKit. The plugin:</li>
+  <ul>
+    <li>requires your August account credentials to work</li>
+    <li>connects to the August cloud to discover and control your locks</li>
+  </ul>
+</ul>
+  <p>&gt; [!IMPORTANT]</p>
+  <p>&gt; <strong>Yale Home accounts (common outside North America) can no longer sign in through this plugin.</strong> Yale has switched off password-based login on its servers (verified July 2026) and now requires an OAuth sign-in that is only available to officially registered partners. If you have a Yale Home account: check whether your lock supports <strong>native HomeKit</strong> (many Yale Home locks do — look for a HomeKit option in the Yale Home app), or use Home Assistant's official Yale integration with its HomeKit Bridge.</p>
+  <h5>Prerequisites</h5>
+<ul>
+  <li>To use this plugin, you will need to already have:</li>
+  <ul>
+    <li><a href="https://nodejs.org" target="_blank">Node</a>: latest version of <code>v22</code> or <code>v24</code> - any other major version is not supported.</li>
+    <li><a href="https://homebridge.io" target="_blank">Homebridge</a>: <code>v2</code> - refer to link for more information and installation instructions.</li>
+  </ul>
+</ul>
   <h5>Setup</h5>
-  <ul>
-    <li>
-      <a href="https://github.com/homebridge-plugins/homebridge-august/wiki" target="_blank">Wiki Home</a>
-    </li>
-    <li>
-      <a href="https://github.com/homebridge-plugins/homebridge-august/wiki/Configuration" target="_blank">Configuration</a>
-    </li>
-    <li>
-      <a href="https://github.com/homebridge-plugins/homebridge-august/wiki/Beta-Version" target="_blank">Beta Version</a>
-    </li>
-    <li>
-      <a href="https://github.com/homebridge-plugins/homebridge-august/wiki/Node-Version" target="_blank">Node Version</a>
-    </li>
-    <li>
-      <a href="https://github.com/homebridge-plugins/homebridge-august/wiki/Uninstallation"
-        target="_blank">Uninstallation</a>
-    </li>
-  </ul>
-  <h5>Features</h5>
-  <ul>
-    <li>
-      <a href="https://github.com/homebridge-plugins/homebridge-august/wiki/Supported-Devices" target="_blank">Supported
-        Devices</a>
-    </li>
-  </ul>
+<ul>
+  <li><a href="https://github.com/homebridge-plugins/homebridge-august/wiki/Installation" target="_blank">Installation</a></li>
+  <li><a href="https://github.com/homebridge-plugins/homebridge-august/wiki/Configuration" target="_blank">Configuration</a></li>
+  <li><a href="https://github.com/homebridge-plugins/homebridge-august/wiki/Beta-Version" target="_blank">Beta Version</a></li>
+  <li><a href="https://github.com/homebridge-plugins/homebridge-august/wiki/Node-Version" target="_blank">Node Version</a></li>
+</ul>
+  <h5>Supported Devices</h5>
+<ul>
+  <li>August Smart Lock (AUG-SL04-C03-N04)</li>
+  <li>August Smart Lock Pro 3rd Gen (AUG-SL03-C02-G03-C)</li>
+  <li>August WiFi Smart Lock (Gen 4)</li>
+  <li>Yale Assure Lock (AUG-MD01)</li>
+  <li>Yale Assure Lock 2 (YDR410)</li>
+  <li>Yale Assure Lock SL (YDR256)</li>
+</ul>
   <h5>Help/About</h5>
-  <ul>
-    <li>
-      <a href="https://github.com/homebridge-plugins/homebridge-august/issues/new/choose" target="_blank">Support Request</a>
-    </li>
-    <li>
-      <a href="https://github.com/homebridge-plugins/homebridge-august/blob/latest/CHANGELOG.md"
-        target="_blank">Changelog</a>
-    </li>
-  </ul>
+<ul>
+  <li><a href="https://github.com/homebridge-plugins/homebridge-august/wiki/Common-Errors" target="_blank">Common Errors</a></li>
+  <li><a href="https://github.com/homebridge-plugins/homebridge-august/issues/new/choose" target="_blank">Support Request</a></li>
+  <li><a href="https://github.com/homebridge-plugins/homebridge-august/blob/latest/CHANGELOG.md" target="_blank">Changelog</a></li>
+  <li><a href="https://github.com/sponsors/bwp91" target="_blank">About Me</a></li>
+</ul>
+  <h5>Credits</h5>
+<ul>
+  <li>To <a href="https://github.com/donavanbecker" target="_blank">@donavanbecker</a>: the original creator and maintainer of this plugin.</li>
+  <li>To <a href="https://github.com/hufftheweevil" target="_blank">@hufftheweevil</a>: the author of the <a href="https://github.com/hufftheweevil/august-api" target="_blank">august-api</a> module this plugin builds on.</li>
+  <li>To the creators/contributors of <a href="https://homebridge.io" target="_blank">Homebridge</a> who make this plugin possible.</li>
+</ul>
+  <h5>Disclaimer</h5>
+<ul>
+  <li>I am in no way affiliated with August or Yale and this plugin is a personal project that I maintain in my free time.</li>
+  <li>Use this plugin entirely at your own risk - please see licence for more information.</li>
+</ul>
 </div>
 <script>
   (async () => {
