@@ -13,6 +13,7 @@ import August from 'august-yale'
 
 import { ConnectivityManager } from './connectivity-manager.js'
 import { LockMechanism } from './devices/lock.js'
+import { redactConfig } from './redact.js'
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 
 /**
@@ -115,14 +116,14 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       // run the method to discover / register your devices as accessories
 
       if (this.config.credentials?.isValidated === false || this.config.credentials?.isValidated === undefined) {
-        await this.debugWarnLog(`Config Credentials: ${JSON.stringify(this.config.credentials)}`)
+        await this.debugWarnLog(`Config Credentials: ${JSON.stringify(redactConfig(this.config.credentials))}`)
         try {
           await this.validated()
         } catch (e: any) {
           this.errorLog(`Validate: ${e.message ?? e}`)
         }
       } else {
-        await this.debugWarnLog(`Config Credentials: ${JSON.stringify(this.config.credentials)}`)
+        await this.debugWarnLog(`Config Credentials: ${JSON.stringify(redactConfig(this.config.credentials))}`)
         try {
           await this.discoverDevices()
           this.startPolling()
