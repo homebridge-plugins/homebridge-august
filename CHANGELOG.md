@@ -3,6 +3,7 @@
 ### Changed
 
 - fix: mask credentials in debug logs so shared logs cannot leak them
+- chore(deps): dependency updates
 
 ## v3.4.0 (2026-07-27)
 
