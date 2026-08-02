@@ -51,7 +51,6 @@ Homebridge plugin to integrate August and Yale locks into HomeKit
 - [Common Errors](https://github.com/homebridge-plugins/homebridge-august/wiki/Common-Errors)
 - [Support Request](https://github.com/homebridge-plugins/homebridge-august/issues/new/choose)
 - [Changelog](https://github.com/homebridge-plugins/homebridge-august/blob/latest/CHANGELOG.md)
-- [About Me](https://github.com/sponsors/bwp91)
 
 ### Credits
 

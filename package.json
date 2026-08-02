@@ -5,8 +5,8 @@
   "version": "3.4.1",
   "description": "The August plugin allows you to access your August & Yale device(s) from HomeKit.",
   "author": {
-    "name": "bwp91",
-    "email": "bwp91@icloud.com"
+    "name": "donavanbecker",
+    "url": "https://github.com/donavanbecker"
   },
   "contributors": [
     {
@@ -15,20 +15,6 @@
     }
   ],
   "license": "ISC",
-  "funding": [
-    {
-      "type": "github",
-      "url": "https://github.com/sponsors/bwp91"
-    },
-    {
-      "type": "kofi",
-      "url": "https://ko-fi.com/bwp91"
-    },
-    {
-      "type": "paypal",
-      "url": "https://www.paypal.me/BenPotter"
-    }
-  ],
   "homepage": "https://github.com/homebridge-plugins/homebridge-august",
   "maintainers": [
     "donavanbecker"
