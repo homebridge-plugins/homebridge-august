@@ -34,6 +34,9 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   registeringDevice!: boolean
   version!: string
 
+  // Set by discoverDevices() when a lock list actually came back from August
+  protected discoveryReturnedDevices = false
+
   // August API
   //
   // augustConfig is the current August client. The ConnectivityManager
@@ -439,6 +442,12 @@ export class AugustPlatform implements DynamicPlatformPlugin {
    * This method is used to discover the your location and devices.
    */
   async discoverDevices() {
+    // Whether this pass actually got a lock list back. The Matter platform uses
+    // it to decide if it is safe to sweep cached accessories: a run that fell
+    // into the re-authentication path returns normally having discovered
+    // nothing, and that must not be read as "the account has no locks".
+    this.discoveryReturnedDevices = false
+
     // August Locks
     try {
       // Ensure the August API instance is initialized before processing
@@ -483,6 +492,8 @@ export class AugustPlatform implements DynamicPlatformPlugin {
           }
         }
       }
+
+      this.discoveryReturnedDevices = deviceLists.length > 0
 
       if (!this.config.options?.devices) {
         await this.debugWarnLog(`August Platform Config Not Set: ${JSON.stringify(this.config.options?.devices)}`)

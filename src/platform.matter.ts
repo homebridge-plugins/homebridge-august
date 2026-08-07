@@ -97,6 +97,16 @@ export class AugustMatterPlatform extends AugustPlatform {
     if (this.pendingHapCleanup.size === 0) {
       return
     }
+
+    // Only a run that actually got a lock list back is evidence about what is on
+    // the account. discoverDevices() also returns normally when it got a 401 and
+    // asked August for a fresh verification code, having registered nothing - and
+    // sweeping on the back of that removed every one of the owner's locks from
+    // HomeKit, taking their rooms, scenes and automations with them.
+    if (!this.discoveryReturnedDevices) {
+      this.log.debug('Leaving the cached HAP accessories alone: no locks were returned this time')
+      return
+    }
     const accessories = Array.from(this.pendingHapCleanup.values())
     this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, accessories)
     for (const accessory of accessories) {

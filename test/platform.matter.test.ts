@@ -601,8 +601,12 @@ describe('augustMatterPlatform', () => {
       await platform.configureAccessory(orphanedHap2)
 
       // Stub super.discoverDevices so it's a no-op (doesn't touch pendingHapCleanup)
+      // A real discovery that got a lock list back - which is what makes the
+      // sweep safe in the first place
       const baseProto = Object.getPrototypeOf(Object.getPrototypeOf(platform))
-      vi.spyOn(baseProto, 'discoverDevices').mockResolvedValue(undefined as never)
+      vi.spyOn(baseProto, 'discoverDevices').mockImplementation(async () => {
+        (platform as any).discoveryReturnedDevices = true
+      })
 
       await platform.discoverDevices()
 
@@ -631,6 +635,24 @@ describe('augustMatterPlatform', () => {
       expect(mockApi.unregisterPlatformAccessories).not.toHaveBeenCalled()
     })
 
+    it('should leave every cached accessory alone when discovery returned no locks', async () => {
+      // A restart that needs a fresh verification code returns from
+      // discoverDevices() normally, having discovered nothing. Sweeping on that
+      // basis used to remove every one of the owner's locks from HomeKit.
+      platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
+
+      const staged = { UUID: 'hap-staged', displayName: 'My Front Door' } as unknown as PlatformAccessory
+      await platform.configureAccessory(staged)
+
+      const baseProto = Object.getPrototypeOf(Object.getPrototypeOf(platform))
+      vi.spyOn(baseProto, 'discoverDevices').mockResolvedValue(undefined as never)
+
+      await platform.discoverDevices()
+
+      expect(mockApi.unregisterPlatformAccessories).not.toHaveBeenCalled()
+      expect((platform as any).pendingHapCleanup.size).toBe(1)
+    })
+
     it('should only sweep the orphans, not the locks that were successfully migrated', async () => {
       platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
 
@@ -645,6 +667,7 @@ describe('augustMatterPlatform', () => {
       // that entry from pendingHapCleanup directly (mimicking what Lock() does).
       const baseProto = Object.getPrototypeOf(Object.getPrototypeOf(platform))
       vi.spyOn(baseProto, 'discoverDevices').mockImplementation(async () => {
+        (platform as any).discoveryReturnedDevices = true;
         (platform as any).pendingHapCleanup.delete('hap-migrated')
       })
 
