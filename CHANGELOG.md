@@ -17,6 +17,7 @@
 - fix: keep the locks in matter mode when a restart needs a new verification code
 - fix: recover from a failed matter poll instead of crashing the bridge and stopping for good
 - fix: actually remove the lock and contact sensor tiles when they are set to be hidden
+- fix: report a failed first refresh or event subscription rather than ending the process
 
 ## v3.4.1 (2026-07-27)
 

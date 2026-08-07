@@ -156,14 +156,21 @@ export class LockMechanism extends deviceBase {
         return this.Battery.StatusLowBattery
       })
 
-    // Initial Device Refresh
-    this.refreshStatus()
+    // Initial Device Refresh. Both of these are started and not awaited, so
+    // without a catch a rejection - a 429 while August is rate-limiting several
+    // locks during startup, or missing credentials - becomes an unhandled
+    // rejection and node ends the process.
+    this.refreshStatus().catch(async (e: any) => {
+      await this.debugWarnLog(`Initial refresh failed: ${e?.message ?? e}`)
+    })
 
     // Subscribe to august changes. PubNub subscriptions are independent of
     // the HTTP session and survive refreshAugustSession() — no resubscribe
     // needed. The August.subscribe() call uses its own internal August
     // instance dedicated to PubNub, separate from platform.augustConfig.
-    this.subscribeAugust()
+    this.subscribeAugust().catch(async (e: any) => {
+      await this.debugWarnLog(`Could not subscribe to lock events: ${e?.message ?? e}`)
+    })
 
     // Polling is now owned by the platform. AugustPlatform.startPolling()
     // iterates registered locks serially and short-circuits on the first
