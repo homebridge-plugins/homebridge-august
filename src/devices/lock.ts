@@ -68,10 +68,14 @@ export class LockMechanism extends deviceBase {
 
     // Initialize Lock Mechanism Service
     if (device.lock?.hide_lock) {
-      if (this.LockMechanism?.Service) {
+      // Look the service up on the accessory. This used to test `this.LockMechanism`,
+      // a field nothing has assigned yet at this point in the constructor, so the
+      // branch never ran: a previously added Lock Mechanism stayed in HomeKit for
+      // good, frozen at its last value, and the option looked as though it worked.
+      const existingService = accessory.getService(this.hap.Service.LockMechanism)
+      if (existingService) {
         this.debugLog('Removing Lock Mechanism Service')
-        this.LockMechanism.Service = accessory.getService(this.hap.Service.LockMechanism) as Service
-        accessory.removeService(this.LockMechanism.Service)
+        accessory.removeService(existingService)
         accessory.context.LockMechanism = {}
       }
     } else {
@@ -97,10 +101,12 @@ export class LockMechanism extends deviceBase {
     }
     // Initialize Contact Sensor Service
     if (device.lock?.hide_contactsensor) {
-      if (this.ContactSensor?.Service) {
-        this.debugLog('Removing Conact Sensor Service')
-        this.ContactSensor.Service = accessory.getService(this.hap.Service.ContactSensor) as Service
-        accessory.removeService(this.ContactSensor.Service)
+      // Same as the Lock Mechanism above: check the accessory, not a field that
+      // has not been populated yet
+      const existingService = accessory.getService(this.hap.Service.ContactSensor)
+      if (existingService) {
+        this.debugLog('Removing Contact Sensor Service')
+        accessory.removeService(existingService)
         accessory.context.ContactSensor = {}
       }
     } else {
