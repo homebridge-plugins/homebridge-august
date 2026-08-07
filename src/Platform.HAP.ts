@@ -7,7 +7,6 @@ import type { API, DynamicPlatformPlugin, Logging, PlatformAccessory } from 'hom
 import type { AugustPlatformConfig, credentials, device, devicesConfig, options } from './settings.js'
 
 import { readFileSync, writeFileSync } from 'node:fs'
-import { argv } from 'node:process'
 
 import August from 'august-yale'
 
@@ -33,7 +32,6 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   platformPushRate!: options['pushRate']
   platformUpdateRate!: options['updateRate']
   registeringDevice!: boolean
-  debugMode!: boolean
   version!: string
 
   // August API
@@ -668,12 +666,20 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   }
 
   async getPlatformLogSettings() {
-    this.debugMode = argv.includes('-D') ?? argv.includes('--debug')
+    // `debugMode` was worked out here by looking for `-D` in the plugin's own
+    // process arguments. That is right in the main Homebridge process and wrong
+    // in a child bridge, which only receives `-D` when that bridge has its own
+    // debug setting turned on - so with debug enabled globally the plugin
+    // decided debug was off and printed nothing.
+    //
+    // Nothing needs deciding: 'debugMode' routes debug lines to Homebridge's
+    // own debug logger, which prints them only when debug is actually on, in
+    // either kind of process. An explicit `logging` in the config still wins.
     this.platformLogging = (this.config.options?.logging === 'debug' || this.config.options?.logging === 'standard'
       || this.config.options?.logging === 'none')
       ? this.config.options.logging
-      : this.debugMode ? 'debugMode' : 'standard'
-    const logging = this.config.options?.logging ? 'Platform Config' : this.debugMode ? 'debugMode' : 'Default'
+      : 'debugMode'
+    const logging = this.config.options?.logging ? 'Platform Config' : 'Default'
     await this.debugLog(`Using ${logging} Logging: ${this.platformLogging}`)
   }
 
