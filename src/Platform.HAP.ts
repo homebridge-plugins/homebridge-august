@@ -115,6 +115,12 @@ export class AugustPlatform implements DynamicPlatformPlugin {
     // Dynamic Platform plugins should only register new accessories after this event was fired,
     // in order to ensure they weren't added to homebridge already. This event can also be used
     // to start discovery of new accessories.
+    // Stop the poll loop, the connectivity heartbeat and every lock's PubNub
+    // subscription on the way out. ConnectivityManager has always had a
+    // shutdown() for this and nothing ever called it, so its heartbeat and probe
+    // timers kept running while the bridge was tearing down.
+    this.api.on('shutdown', () => this.shutdownPlatform())
+
     this.api.on('didFinishLaunching', async () => {
       await this.debugLog('Executed didFinishLaunching callback')
       // run the method to discover / register your devices as accessories
@@ -686,6 +692,18 @@ export class AugustPlatform implements DynamicPlatformPlugin {
    * subscription. Called when an accessory is unregistered (either via
    * explicit removal or excludeLockIds config).
    */
+  /** Stop everything this platform started. The Matter platform extends this. */
+  protected shutdownPlatform(): void {
+    if (this.pollTimer) {
+      clearTimeout(this.pollTimer)
+      this.pollTimer = undefined
+    }
+    this.connectivity?.shutdown()
+    for (const lockId of [...this.lockMechanisms.keys()]) {
+      this.tearDownLockMechanism(lockId)
+    }
+  }
+
   private tearDownLockMechanism(lockId: string): void {
     const lockMechanism = this.lockMechanisms.get(lockId)
     if (lockMechanism) {

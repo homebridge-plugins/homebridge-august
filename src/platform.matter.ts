@@ -21,6 +21,14 @@ import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
  * enabled, and not disabled by the `disableMatter` config option.
  */
 export class AugustMatterPlatform extends AugustPlatform {
+  protected override shutdownPlatform(): void {
+    super.shutdownPlatform()
+    this.matterPollingSubscriptions.forEach(sub => sub.unsubscribe())
+    this.matterPollingSubscriptions.clear()
+    this.matterPubNubUnsubscribes.forEach(stop => stop())
+    this.matterPubNubUnsubscribes.clear()
+  }
+
   /**
    * Matter's BridgedDeviceBasicInformation.NodeLabel is constrained to 32 characters.
    * Homebridge sets the nodeLabel from the accessory displayName, so longer names make

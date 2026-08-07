@@ -19,6 +19,7 @@
 - fix: actually remove the lock and contact sensor tiles when they are set to be hidden
 - fix: report a failed first refresh or event subscription rather than ending the process
 - fix: honour a lock's own refresh rate, including setting it to zero to stop polling it
+- fix: stop the poll loop, heartbeat and lock subscriptions when homebridge shuts down
 
 ## v3.4.1 (2026-07-27)
 
