@@ -405,7 +405,17 @@ export class AugustMatterPlatform extends AugustPlatform {
       .pipe(
         exhaustMap(() => this.fetchAndUpdateMatterLockState(device, uuid, matterApi)),
       )
-      .subscribe()
+      // An error here would otherwise reach RxJS's default handler, which rethrows
+      // it outside any try/catch - taking the bridge down and ending this lock's
+      // polling for good. August rate-limits, so a 429 during startup with several
+      // locks is enough to trigger it. Report it and let the next tick try again.
+      .subscribe({
+        error: (error: any) => {
+          this.log.warn(`Polling failed for ${device.LockName ?? uuid}: ${error?.message ?? error}`)
+          this.matterPollingSubscriptions.delete(uuid)
+          this.startMatterStatusPolling(device, uuid, matterApi)
+        },
+      })
     this.matterPollingSubscriptions.set(uuid, subscription)
   }
 
