@@ -37,6 +37,9 @@ export class AugustPlatform implements DynamicPlatformPlugin {
   // Set by discoverDevices() when a lock list actually came back from August
   protected discoveryReturnedDevices = false
 
+  // When each lock was last polled, so a per-lock refresh rate can be honoured
+  private readonly lastPolledAt = new Map<string, number>()
+
   // August API
   //
   // augustConfig is the current August client. The ConnectivityManager
@@ -374,6 +377,7 @@ export class AugustPlatform implements DynamicPlatformPlugin {
           // Skip this cycle. The manager's probe will signal recovery.
           return
         }
+        const now = Date.now()
         for (const lock of this.lockMechanisms.values()) {
           // Skip locks currently mid-push so we don't race the user's
           // explicit lock/unlock command with a stale poll result.
@@ -384,6 +388,20 @@ export class AugustPlatform implements DynamicPlatformPlugin {
           if (!lockId) {
             continue
           }
+
+          // Honour the lock's own refresh rate. It is offered per lock in the
+          // settings, but this loop used to poll every lock at the platform rate
+          // regardless - so setting a slower rate on one lock, or 0 to stop
+          // polling a flaky one altogether, made no difference at all.
+          const lockRefreshRate = (lock as any).deviceRefreshRate ?? refreshSeconds
+          if (lockRefreshRate === 0) {
+            continue
+          }
+          if (now - (this.lastPolledAt.get(lockId) ?? 0) < lockRefreshRate * 1000) {
+            continue
+          }
+          this.lastPolledAt.set(lockId, now)
+
           const details = await this.connectivity.execute(
             `poll ${lockId}`,
             client => client.details(lockId),
