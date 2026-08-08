@@ -202,3 +202,27 @@ export interface info {
   lockID: string
   bridgeID: string
 }
+
+/**
+ * The largest delay a Node timer can hold, because it is stored in a signed
+ * 32-bit integer. Roughly 24.85 days.
+ */
+export const MAX_TIMER_MS = 2147483647
+
+/**
+ * Keep a computed delay inside the range a Node timer can represent.
+ *
+ * Going over the limit does not throw. Node prints a TimeoutOverflowWarning and
+ * quietly sets the delay to 1 ms, so a timer meant to fire in weeks fires a
+ * thousand times a second instead - which for a polling loop means hammering
+ * the service it polls.
+ *
+ * Clamping means a delay longer than 24.85 days simply fires at 24.85 days,
+ * which for every setting here is early rather than wrong.
+ */
+export function safeTimerMs(ms: number): number {
+  if (!Number.isFinite(ms) || ms <= 0) {
+    return 1
+  }
+  return Math.min(Math.floor(ms), MAX_TIMER_MS)
+}

@@ -20,6 +20,7 @@
 - fix: report a failed first refresh or event subscription rather than ending the process
 - fix: honour a lock's own refresh rate, including setting it to zero to stop polling it
 - fix: stop the poll loop, heartbeat and lock subscriptions when homebridge shuts down
+- fix: clamp the poll interval, so a very large refresh rate cannot make it poll every millisecond
 
 ## v3.4.1 (2026-07-27)
 

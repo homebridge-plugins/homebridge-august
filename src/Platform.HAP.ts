@@ -13,7 +13,7 @@ import August from 'august-yale'
 import { ConnectivityManager } from './connectivity-manager.js'
 import { LockMechanism } from './devices/lock.js'
 import { redactConfig } from './redact.js'
-import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
+import { MAX_TIMER_MS, PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 
 /**
  * HomebridgePlatform
@@ -365,7 +365,11 @@ export class AugustPlatform implements DynamicPlatformPlugin {
    *     and risks rate limiting.
    */
   startPolling(): void {
-    const refreshSeconds = this.platformRefreshRate ?? 30
+    // Clamped in seconds, so the `refreshSeconds * 1000` below stays inside what
+    // a Node timer can hold. Past the limit a timer does not throw - it quietly
+    // drops to 1 ms, turning a slow poll into a flood of calls at the August API,
+    // which is exactly what gets an account rate limited.
+    const refreshSeconds = Math.min(this.platformRefreshRate ?? 30, MAX_TIMER_MS / 1000)
     if (refreshSeconds === 0) {
       this.debugLog('Polling disabled (platformRefreshRate = 0)')
       return
