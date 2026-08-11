@@ -205,7 +205,9 @@ export abstract class deviceBase {
 
   async debugSuccessLog(...log: any[]): Promise<void> {
     if (await this.enablingDeviceLogging()) {
-      if (await this.loggingIsDebug()) {
+      if (this.deviceLogging === 'debugMode') {
+        this.log.debug(`Lock: ${this.accessory.displayName}`, String(...log))
+      } else if (this.deviceLogging === 'debug') {
         this.log.success(`[DEBUG] Lock: ${this.accessory.displayName}`, String(...log))
       }
     }
@@ -219,7 +221,9 @@ export abstract class deviceBase {
 
   async debugWarnLog(...log: any[]): Promise<void> {
     if (await this.enablingDeviceLogging()) {
-      if (await this.loggingIsDebug()) {
+      if (this.deviceLogging === 'debugMode') {
+        this.log.debug(`Lock: ${this.accessory.displayName}`, String(...log))
+      } else if (this.deviceLogging === 'debug') {
         this.log.warn(`[DEBUG] Lock: ${this.accessory.displayName}`, String(...log))
       }
     }
@@ -233,7 +237,9 @@ export abstract class deviceBase {
 
   async debugErrorLog(...log: any[]): Promise<void> {
     if (await this.enablingDeviceLogging()) {
-      if (await this.loggingIsDebug()) {
+      if (this.deviceLogging === 'debugMode') {
+        this.log.debug(`Lock: ${this.accessory.displayName}`, String(...log))
+      } else if (this.deviceLogging === 'debug') {
         this.log.error(`[DEBUG] Lock: ${this.accessory.displayName}`, String(...log))
       }
     }
@@ -249,6 +255,14 @@ export abstract class deviceBase {
     }
   }
 
+  /**
+   * ⚠️ True in a normal install, because 'debugMode' means "let Homebridge
+   * decide" rather than "debug is on". Only ever gate 'log.debug' on this.
+   *
+   * Gating 'log.warn', 'log.error' or 'log.success' on it prints those lines to
+   * everyone, since Homebridge shows those levels whatever its debug setting -
+   * which is exactly what happened to three of the helpers above (#243).
+   */
   async loggingIsDebug(): Promise<boolean> {
     return this.deviceLogging === 'debugMode' || this.deviceLogging === 'debug'
   }
