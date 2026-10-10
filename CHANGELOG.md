@@ -3,6 +3,7 @@
 ### Changed
 
 - fix: send a lock or unlock to august after 0.1s by default, not 1s (@DaveHarrington)
+- fix: show a lock's new state as soon as august confirms a lock or unlock (@DaveHarrington)
 
 ## v3.4.4 (2026-10-18)
 
