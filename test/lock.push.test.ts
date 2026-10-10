@@ -70,3 +70,61 @@ describe('pushChanges() with the operation reply', () => {
     expect(lock.errorLog).not.toHaveBeenCalled()
   })
 })
+
+describe('setLockTargetState() waits for the lock', () => {
+  // A lock whose doLockUpdate runs `push` when next() is called, standing in
+  // for the debounced subscription set up in the constructor.
+  function makeSettable(push: () => Promise<void>) {
+    const lock = Object.create(LockMechanism.prototype) as any
+    Object.assign(lock, {
+      accessory: { context: {} },
+      LockMechanism: { LockTargetState: 1, LockCurrentState: 1 },
+      pendingLockUpdates: [],
+      debugLog: vi.fn(),
+    })
+    lock.doLockUpdate = {
+      next: () => {
+        void push().then(() => {
+          for (const resolve of lock.pendingLockUpdates.splice(0)) {
+            resolve()
+          }
+        })
+      },
+    }
+    return lock
+  }
+
+  it('answers HomeKit once pushChanges() has finished', async () => {
+    let finish!: () => void
+    const lock = makeSettable(() => new Promise<void>((resolve) => {
+      finish = resolve
+    }))
+    let answered = false
+    const set = lock.setLockTargetState(0).then(() => {
+      answered = true
+    })
+    await Promise.resolve()
+    expect(answered).toBe(false)
+    finish()
+    await set
+    expect(answered).toBe(true)
+  })
+
+  it('stops waiting after 8 seconds', async () => {
+    vi.useFakeTimers()
+    try {
+      const lock = makeSettable(() => new Promise<void>(() => {}))
+      let answered = false
+      const set = lock.setLockTargetState(0).then(() => {
+        answered = true
+      })
+      await vi.advanceTimersByTimeAsync(7_999)
+      expect(answered).toBe(false)
+      await vi.advanceTimersByTimeAsync(1)
+      await set
+      expect(answered).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
