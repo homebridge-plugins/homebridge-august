@@ -33,8 +33,11 @@ function makeLock(target: number, current: number, reply: unknown) {
       },
     },
     debugLog: vi.fn(),
+    infoLog: vi.fn(),
+    warnLog: vi.fn(),
     successLog: vi.fn(),
     errorLog: vi.fn(),
+    scheduleConfirmCheck: vi.fn(),
     statusCode: vi.fn(),
     updateHomeKitCharacteristics: vi.fn(),
   })
@@ -63,6 +66,20 @@ describe('pushChanges() with the operation reply', () => {
     expect(lock.LockMechanism.LockCurrentState).toBe(Characteristic.LockCurrentState.SECURED)
   })
 
+  it('logs the timing of a completed command', async () => {
+    const { lock } = makeLock(0, 1, { status: 'kAugLockState_Unlocked', state: { locked: false, unlocked: true }, info: { duration: 3158 }, retryCount: 0 })
+    lock.commandStartedAt = Date.now()
+    await lock.pushChanges()
+    expect(lock.successLog).toHaveBeenCalledWith(expect.stringMatching(/^HomeKit Unlock: Unlocked \+\d+\.\ds \(sent \+\d+\.\ds, August replied after \d+\.\ds, bridge 3\.2s\)$/))
+  })
+
+  it('warns when the command is dropped because the lock already reports that state', async () => {
+    const { lock, client } = makeLock(0, 0, undefined)
+    await lock.pushChanges()
+    expect(client.unlock).not.toHaveBeenCalled()
+    expect(lock.warnLog).toHaveBeenCalledWith(expect.stringContaining('HomeKit Unlock: lock already reports Unlocked, nothing sent to August'))
+  })
+
   it('leaves the state alone when the reply has no state', async () => {
     const { lock } = makeLock(0, 1, undefined)
     await lock.pushChanges()
@@ -77,10 +94,13 @@ describe('setLockTargetState() waits for the lock', () => {
   function makeSettable(push: () => Promise<void>) {
     const lock = Object.create(LockMechanism.prototype) as any
     Object.assign(lock, {
+      hap: { Characteristic },
       accessory: { context: {} },
       LockMechanism: { LockTargetState: 1, LockCurrentState: 1 },
       pendingLockUpdates: [],
       debugLog: vi.fn(),
+      infoLog: vi.fn(),
+      warnLog: vi.fn(),
     })
     lock.doLockUpdate = {
       next: () => {
@@ -103,7 +123,7 @@ describe('setLockTargetState() waits for the lock', () => {
     const set = lock.setLockTargetState(0).then(() => {
       answered = true
     })
-    await Promise.resolve()
+    await vi.waitFor(() => expect(finish).toBeTypeOf('function'))
     expect(answered).toBe(false)
     finish()
     await set
@@ -123,6 +143,7 @@ describe('setLockTargetState() waits for the lock', () => {
       await vi.advanceTimersByTimeAsync(1)
       await set
       expect(answered).toBe(true)
+      expect(lock.warnLog).toHaveBeenCalledWith(expect.stringContaining('no answer from August after 8.0s'))
     } finally {
       vi.useRealTimers()
     }
