@@ -13,6 +13,9 @@ import { debounceTime, tap } from 'rxjs/operators'
 
 import { deviceBase } from './device.js'
 
+/** How long setLockTargetState() waits for August before answering HomeKit. */
+const SET_WAIT_MS = 8_000
+
 /**
  * Platform Accessory
  * An instance of this class is created for each accessory your platform registers
@@ -49,6 +52,8 @@ export class LockMechanism extends deviceBase {
   // Lock Updates
   lockUpdateInProgress: boolean
   doLockUpdate: any
+  // Resolvers for setLockTargetState() calls waiting on the next pushChanges()
+  private pendingLockUpdates: Array<() => void> = []
 
   // PubNub subscription cleanup function. Captured from August.subscribe()
   // so the subscription can be properly torn down (both when the lock is
@@ -196,6 +201,9 @@ export class LockMechanism extends deviceBase {
             await this.errorLog(`doLockUpdate pushChanges: ${e.message ?? e}`)
           }
           this.lockUpdateInProgress = false
+          for (const resolve of this.pendingLockUpdates.splice(0)) {
+            resolve()
+          }
         })
     }
   }
@@ -485,7 +493,19 @@ export class LockMechanism extends deviceBase {
       }
 
       this.accessory.context.LockMechanismLockTargetState = this.LockMechanism.LockTargetState = value
+
+      // Hold the HomeKit write open until August has answered, so Siri sees
+      // LockCurrentState change and says "Unlocked" rather than "Request
+      // Sent". HomeKit gives up on a write after about 10s, so stop waiting
+      // after SET_WAIT_MS and let the request finish in the background.
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const done = new Promise<void>(resolve => this.pendingLockUpdates.push(resolve))
+      const timeout = new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, SET_WAIT_MS)
+      })
       this.doLockUpdate.next()
+      await Promise.race([done, timeout])
+      clearTimeout(timer)
     }
   }
 
