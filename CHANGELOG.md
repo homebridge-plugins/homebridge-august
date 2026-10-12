@@ -6,6 +6,7 @@
 - fix: show a lock's new state as soon as august confirms a lock or unlock
 - fix: let siri confirm a lock or unlock instead of saying request sent
 - feat: log how long each homekit lock and unlock takes, and warn when one is dropped, slow or never confirmed
+- fix: always send a homekit lock or unlock, and show no response while the bridge is offline
 
 ## v3.4.3 (2026-08-13)
 
