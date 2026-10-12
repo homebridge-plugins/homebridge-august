@@ -412,23 +412,43 @@ export class LockMechanism extends deviceBase {
       // If the user retries the action, the manager will either be
       // recovered by then or still offline (and throw OfflineError
       // again).
-      await this.platform.connectivity.execute(
+      const result = await this.platform.connectivity.execute(
         `pushChanges ${this.device.lockId}`,
         async (client) => {
           if (targetState === this.hap.Characteristic.LockTargetState.UNSECURED) {
-            await client.unlock(this.device.lockId)
+            return client.unlock(this.device.lockId)
           } else {
-            await client.lock(this.device.lockId)
+            return client.lock(this.device.lockId)
           }
         },
         { throwOnOffline: true },
       )
       await this.successLog(`Sending request to August API: ${targetState === 1 ? 'Locked' : 'Unlocked'}`)
+      await this.applyOperationResult(result)
       await this.updateHomeKitCharacteristics()
     } catch (e: any) {
       await this.statusCode('pushChanges', e)
       await this.errorLog(`pushChanges: ${e.message ?? e}`)
     }
+  }
+
+  /**
+   * Sets LockCurrentState from the reply to a lock or unlock request.
+   *
+   * August only replies once the bridge has finished the operation, a few
+   * seconds before the PubNub event arrives, so this lets HomeKit show the
+   * new state sooner. A reply that isn't a settled locked/unlocked state
+   * is ignored and the PubNub event updates the state as before.
+   */
+  async applyOperationResult(result: { state?: { locked?: boolean, unlocked?: boolean } } | undefined): Promise<void> {
+    if (!this.LockMechanism || !result?.state || result.state.locked === result.state.unlocked) {
+      await this.debugLog(`Operation result has no settled lock state: ${JSON.stringify(result?.state)}`)
+      return
+    }
+    this.LockMechanism.LockCurrentState = result.state.locked
+      ? this.hap.Characteristic.LockCurrentState.SECURED
+      : this.hap.Characteristic.LockCurrentState.UNSECURED
+    await this.debugLog(`LockCurrentState from operation result: ${this.LockMechanism.LockCurrentState}`)
   }
 
   /**
