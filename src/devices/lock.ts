@@ -13,6 +13,16 @@ import { debounceTime, tap } from 'rxjs/operators'
 
 import { deviceBase } from './device.js'
 
+/** How long setLockTargetState() waits for August before answering HomeKit. */
+const SET_WAIT_MS = 8_000
+
+/** How long after a HomeKit command to check that the lock reached the requested state. */
+const CONFIRM_CHECK_MS = 30_000
+
+function seconds(ms: number): string {
+  return `${(ms / 1000).toFixed(1)}s`
+}
+
 /**
  * Platform Accessory
  * An instance of this class is created for each accessory your platform registers
@@ -49,6 +59,11 @@ export class LockMechanism extends deviceBase {
   // Lock Updates
   lockUpdateInProgress: boolean
   doLockUpdate: any
+  // Resolvers for setLockTargetState() calls waiting on the next pushChanges()
+  private pendingLockUpdates: Array<() => void> = []
+  // When the current HomeKit lock/unlock command arrived, for timing logs
+  private commandStartedAt?: number
+  private confirmTimer?: ReturnType<typeof setTimeout>
 
   // PubNub subscription cleanup function. Captured from August.subscribe()
   // so the subscription can be properly torn down (both when the lock is
@@ -196,6 +211,9 @@ export class LockMechanism extends deviceBase {
             await this.errorLog(`doLockUpdate pushChanges: ${e.message ?? e}`)
           }
           this.lockUpdateInProgress = false
+          for (const resolve of this.pendingLockUpdates.splice(0)) {
+            resolve()
+          }
         })
     }
   }
@@ -385,6 +403,8 @@ export class LockMechanism extends deviceBase {
     const currentState = this.LockMechanism.LockCurrentState
     if (targetState === currentState) {
       await this.debugLog(`No changes, LockTargetState: ${targetState}, LockCurrentState: ${currentState}`)
+      await this.warnLog(`HomeKit ${this.actionName(targetState)}: lock already reports ${this.stateName(currentState)},`
+        + ` nothing sent to August (${this.sinceCommand()})`)
       this.LockMechanism.LockTargetState = currentState === this.hap.Characteristic.LockCurrentState.SECURED
         ? this.hap.Characteristic.LockTargetState.SECURED
         : this.hap.Characteristic.LockTargetState.UNSECURED
@@ -399,6 +419,7 @@ export class LockMechanism extends deviceBase {
       return
     }
 
+    const sentAt = Date.now()
     try {
       // throwOnOffline:true: user-initiated lock/unlock should fail
       // visibly to HomeKit when the network is down rather than
@@ -412,23 +433,84 @@ export class LockMechanism extends deviceBase {
       // If the user retries the action, the manager will either be
       // recovered by then or still offline (and throw OfflineError
       // again).
-      await this.platform.connectivity.execute(
+      const result = await this.platform.connectivity.execute(
         `pushChanges ${this.device.lockId}`,
         async (client) => {
           if (targetState === this.hap.Characteristic.LockTargetState.UNSECURED) {
-            await client.unlock(this.device.lockId)
+            return client.unlock(this.device.lockId)
           } else {
-            await client.lock(this.device.lockId)
+            return client.lock(this.device.lockId)
           }
         },
         { throwOnOffline: true },
       )
-      await this.successLog(`Sending request to August API: ${targetState === 1 ? 'Locked' : 'Unlocked'}`)
+      const settled = await this.applyOperationResult(result)
+      const info = result as { info?: { duration?: number }, retryCount?: number } | undefined
+      const bridge = info?.info?.duration !== undefined ? `, bridge ${seconds(info.info.duration)}` : ''
+      const retries = info?.retryCount ? `, ${info.retryCount} retries` : ''
+      const timing = `(sent ${this.sinceCommand(sentAt)}, August replied after ${seconds(Date.now() - sentAt)}${bridge}${retries})`
+      if (settled) {
+        await this.successLog(`HomeKit ${this.actionName(targetState)}: ${this.stateName(this.LockMechanism.LockCurrentState)}`
+          + ` ${this.sinceCommand()} ${timing}`)
+      } else {
+        await this.warnLog(`HomeKit ${this.actionName(targetState)}: August's reply had no lock state`
+          + ` (${JSON.stringify((result as { status?: string } | undefined)?.status)}), waiting for its event ${timing}`)
+      }
       await this.updateHomeKitCharacteristics()
     } catch (e: any) {
       await this.statusCode('pushChanges', e)
-      await this.errorLog(`pushChanges: ${e.message ?? e}`)
+      await this.errorLog(`HomeKit ${this.actionName(targetState)} failed ${this.sinceCommand()}`
+        + ` (August call took ${seconds(Date.now() - sentAt)}): ${e.message ?? e}`)
     }
+    this.scheduleConfirmCheck(targetState)
+  }
+
+  /**
+   * Warns if the lock still isn't in the requested state CONFIRM_CHECK_MS
+   * after a HomeKit command, which is how a missed or failed command shows up.
+   */
+  private scheduleConfirmCheck(targetState: CharacteristicValue): void {
+    clearTimeout(this.confirmTimer)
+    this.confirmTimer = setTimeout(() => {
+      if (this.LockMechanism && this.LockMechanism.LockCurrentState !== targetState) {
+        void this.warnLog(`HomeKit ${this.actionName(targetState)}: lock still reports`
+          + ` ${this.stateName(this.LockMechanism.LockCurrentState)} ${seconds(CONFIRM_CHECK_MS)} after the request`)
+      }
+    }, CONFIRM_CHECK_MS)
+  }
+
+  private actionName(targetState: CharacteristicValue): string {
+    return targetState === this.hap.Characteristic.LockTargetState.UNSECURED ? 'Unlock' : 'Lock'
+  }
+
+  private stateName(currentState: CharacteristicValue): string {
+    const { SECURED, UNSECURED, JAMMED } = this.hap.Characteristic.LockCurrentState
+    return currentState === SECURED ? 'Locked' : currentState === UNSECURED ? 'Unlocked' : currentState === JAMMED ? 'Jammed' : 'Unknown'
+  }
+
+  /** Time since the HomeKit command arrived, e.g. "+5.2s". */
+  private sinceCommand(at = Date.now()): string {
+    return `+${seconds(at - (this.commandStartedAt ?? at))}`
+  }
+
+  /**
+   * Sets LockCurrentState from the reply to a lock or unlock request.
+   *
+   * August only replies once the bridge has finished the operation, a few
+   * seconds before the PubNub event arrives, so this lets HomeKit show the
+   * new state sooner. A reply that isn't a settled locked/unlocked state
+   * is ignored and the PubNub event updates the state as before.
+   */
+  async applyOperationResult(result: { state?: { locked?: boolean, unlocked?: boolean } } | undefined): Promise<boolean> {
+    if (!this.LockMechanism || !result?.state || result.state.locked === result.state.unlocked) {
+      await this.debugLog(`Operation result has no settled lock state: ${JSON.stringify(result?.state)}`)
+      return false
+    }
+    this.LockMechanism.LockCurrentState = result.state.locked
+      ? this.hap.Characteristic.LockCurrentState.SECURED
+      : this.hap.Characteristic.LockCurrentState.UNSECURED
+    await this.debugLog(`LockCurrentState from operation result: ${this.LockMechanism.LockCurrentState}`)
+    return true
   }
 
   /**
@@ -464,8 +546,26 @@ export class LockMechanism extends deviceBase {
           + ` LockCurrentState: ${this.LockMechanism.LockCurrentState}`)
       }
 
+      this.commandStartedAt = Date.now()
+      await this.infoLog(`HomeKit ${this.actionName(value)} requested, lock reports ${this.stateName(this.LockMechanism.LockCurrentState)}`)
       this.accessory.context.LockMechanismLockTargetState = this.LockMechanism.LockTargetState = value
+
+      // Hold the HomeKit write open until August has answered, so Siri sees
+      // LockCurrentState change and says "Unlocked" rather than "Request
+      // Sent". HomeKit gives up on a write after about 10s, so stop waiting
+      // after SET_WAIT_MS and let the request finish in the background.
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const done = new Promise<void>(resolve => this.pendingLockUpdates.push(resolve))
+      const timeout = new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, SET_WAIT_MS)
+      })
       this.doLockUpdate.next()
+      const answered = await Promise.race([done.then(() => true), timeout.then(() => false)])
+      clearTimeout(timer)
+      if (!answered) {
+        await this.warnLog(`HomeKit ${this.actionName(value)}: no answer from August after ${seconds(SET_WAIT_MS)},`
+          + ' answered HomeKit anyway and the request carries on in the background')
+      }
     }
   }
 

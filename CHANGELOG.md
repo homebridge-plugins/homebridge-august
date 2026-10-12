@@ -1,3 +1,12 @@
+## v3.4.4 (Pending Release)
+
+### Changed
+
+- fix: send a lock or unlock to august after 0.1s by default, not 1s
+- fix: show a lock's new state as soon as august confirms a lock or unlock
+- fix: let siri confirm a lock or unlock instead of saying request sent
+- feat: log how long each homekit lock and unlock takes, and warn when one is dropped, slow or never confirmed
+
 ## v3.4.3 (2026-08-13)
 
 ### Changed
