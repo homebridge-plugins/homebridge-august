@@ -13,6 +13,9 @@ import { debounceTime, tap } from 'rxjs/operators'
 
 import { deviceBase } from './device.js'
 
+/** How long setLockTargetState() waits for August before answering HomeKit. */
+const SET_WAIT_MS = 8_000
+
 /**
  * Platform Accessory
  * An instance of this class is created for each accessory your platform registers
@@ -49,6 +52,8 @@ export class LockMechanism extends deviceBase {
   // Lock Updates
   lockUpdateInProgress: boolean
   doLockUpdate: any
+  // Resolvers for setLockTargetState() calls waiting on the next pushChanges()
+  private pendingLockUpdates: Array<() => void> = []
 
   // PubNub subscription cleanup function. Captured from August.subscribe()
   // so the subscription can be properly torn down (both when the lock is
@@ -196,6 +201,9 @@ export class LockMechanism extends deviceBase {
             await this.errorLog(`doLockUpdate pushChanges: ${e.message ?? e}`)
           }
           this.lockUpdateInProgress = false
+          for (const resolve of this.pendingLockUpdates.splice(0)) {
+            resolve()
+          }
         })
     }
   }
@@ -412,23 +420,43 @@ export class LockMechanism extends deviceBase {
       // If the user retries the action, the manager will either be
       // recovered by then or still offline (and throw OfflineError
       // again).
-      await this.platform.connectivity.execute(
+      const result = await this.platform.connectivity.execute(
         `pushChanges ${this.device.lockId}`,
         async (client) => {
           if (targetState === this.hap.Characteristic.LockTargetState.UNSECURED) {
-            await client.unlock(this.device.lockId)
+            return client.unlock(this.device.lockId)
           } else {
-            await client.lock(this.device.lockId)
+            return client.lock(this.device.lockId)
           }
         },
         { throwOnOffline: true },
       )
       await this.successLog(`Sending request to August API: ${targetState === 1 ? 'Locked' : 'Unlocked'}`)
+      await this.applyOperationResult(result)
       await this.updateHomeKitCharacteristics()
     } catch (e: any) {
       await this.statusCode('pushChanges', e)
       await this.errorLog(`pushChanges: ${e.message ?? e}`)
     }
+  }
+
+  /**
+   * Sets LockCurrentState from the reply to a lock or unlock request.
+   *
+   * August only replies once the bridge has finished the operation, a few
+   * seconds before the PubNub event arrives, so this lets HomeKit show the
+   * new state sooner. A reply that isn't a settled locked/unlocked state
+   * is ignored and the PubNub event updates the state as before.
+   */
+  async applyOperationResult(result: { state?: { locked?: boolean, unlocked?: boolean } } | undefined): Promise<void> {
+    if (!this.LockMechanism || !result?.state || result.state.locked === result.state.unlocked) {
+      await this.debugLog(`Operation result has no settled lock state: ${JSON.stringify(result?.state)}`)
+      return
+    }
+    this.LockMechanism.LockCurrentState = result.state.locked
+      ? this.hap.Characteristic.LockCurrentState.SECURED
+      : this.hap.Characteristic.LockCurrentState.UNSECURED
+    await this.debugLog(`LockCurrentState from operation result: ${this.LockMechanism.LockCurrentState}`)
   }
 
   /**
@@ -465,7 +493,19 @@ export class LockMechanism extends deviceBase {
       }
 
       this.accessory.context.LockMechanismLockTargetState = this.LockMechanism.LockTargetState = value
+
+      // Hold the HomeKit write open until August has answered, so Siri sees
+      // LockCurrentState change and says "Unlocked" rather than "Request
+      // Sent". HomeKit gives up on a write after about 10s, so stop waiting
+      // after SET_WAIT_MS and let the request finish in the background.
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const done = new Promise<void>(resolve => this.pendingLockUpdates.push(resolve))
+      const timeout = new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, SET_WAIT_MS)
+      })
       this.doLockUpdate.next()
+      await Promise.race([done, timeout])
+      clearTimeout(timer)
     }
   }
 
