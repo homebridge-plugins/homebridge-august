@@ -339,8 +339,8 @@
                 "pushRate": {
                   "title": "Device Push Rate",
                   "type": "number",
-                  "placeholder": 1,
-                  "description": "Indicates the number of seconds between pushes to August API.",
+                  "placeholder": 0.1,
+                  "description": "Seconds to wait after a lock or unlock before sending it to the August API, so changes made in quick succession are sent once. Defaults to 0.1.",
                   "condition": {
                     "functionBody": "return (model.options && model.options.devices && model.options.devices[arrayIndices].lockId && !model.options.devices[arrayIndices].hide_device);"
                   }
@@ -416,8 +416,8 @@
           "pushRate": {
             "title": "Push Rate",
             "type": "number",
-            "placeholder": 1,
-            "description": "Indicates the number of seconds between pushes to August API."
+            "placeholder": 0.1,
+            "description": "Seconds to wait after a lock or unlock before sending it to the August API, so changes made in quick succession are sent once. Defaults to 0.1."
           },
           "logging": {
             "title": "Plugin Logging Level",
