@@ -13,6 +13,16 @@ import { debounceTime, tap } from 'rxjs/operators'
 
 import { deviceBase } from './device.js'
 
+/** How long setLockTargetState() waits for August before answering HomeKit. */
+const SET_WAIT_MS = 8_000
+
+/** How long after a HomeKit command to check that the lock reached the requested state. */
+const CONFIRM_CHECK_MS = 30_000
+
+function seconds(ms: number): string {
+  return `${(ms / 1000).toFixed(1)}s`
+}
+
 /**
  * Platform Accessory
  * An instance of this class is created for each accessory your platform registers
@@ -49,6 +59,15 @@ export class LockMechanism extends deviceBase {
   // Lock Updates
   lockUpdateInProgress: boolean
   doLockUpdate: any
+  // Resolvers for setLockTargetState() calls waiting on the next pushChanges()
+  private pendingLockUpdates: Array<() => void> = []
+  // When the current HomeKit lock/unlock command arrived, for timing logs
+  private commandStartedAt?: number
+  private confirmTimer?: ReturnType<typeof setTimeout>
+  // Set while August reports the lock's bridge offline. The lock and door
+  // state then show as No Response in HomeKit, because August only has the
+  // last state the bridge sent and it may be long out of date.
+  bridgeOffline = false
 
   // PubNub subscription cleanup function. Captured from August.subscribe()
   // so the subscription can be properly torn down (both when the lock is
@@ -95,9 +114,16 @@ export class LockMechanism extends deviceBase {
         .setCharacteristic(this.hap.Characteristic.Name, this.LockMechanism.Name)
         .getCharacteristic(this.hap.Characteristic.LockTargetState)
         .onGet(() => {
+          this.throwIfBridgeOffline()
           return this.LockMechanism!.LockTargetState
         })
         .onSet(this.setLockTargetState.bind(this))
+      this.LockMechanism.Service
+        .getCharacteristic(this.hap.Characteristic.LockCurrentState)
+        .onGet(() => {
+          this.throwIfBridgeOffline()
+          return this.LockMechanism!.LockCurrentState
+        })
     }
     // Initialize Contact Sensor Service
     if (device.lock?.hide_contactsensor) {
@@ -124,6 +150,7 @@ export class LockMechanism extends deviceBase {
         .setCharacteristic(this.hap.Characteristic.Name, this.ContactSensor.Name)
         .getCharacteristic(this.hap.Characteristic.ContactSensorState)
         .onGet(() => {
+          this.throwIfBridgeOffline()
           return this.ContactSensor!.ContactSensorState
         })
     }
@@ -196,6 +223,9 @@ export class LockMechanism extends deviceBase {
             await this.errorLog(`doLockUpdate pushChanges: ${e.message ?? e}`)
           }
           this.lockUpdateInProgress = false
+          for (const resolve of this.pendingLockUpdates.splice(0)) {
+            resolve()
+          }
         })
     }
   }
@@ -281,6 +311,8 @@ export class LockMechanism extends deviceBase {
     if (this.lockEvent) {
       if (this.lockEvent.state) {
         this.debugLog(`lockEvent: ${JSON.stringify(this.lockEvent)}`)
+        // Only the bridge can have sent a lock event, so it is back online
+        await this.setBridgeOffline(false, 'lock event received')
         // Lock Mechanism
         this.platform.augustConfig?.addSimpleProps(this.lockEvent)
         if (this.LockMechanism && (this.lockEvent.state.unlocking || this.lockEvent.state.locking)) {
@@ -369,6 +401,10 @@ export class LockMechanism extends deviceBase {
     await this.debugSuccessLog(`(applyRefresh) lockDetails: ${JSON.stringify(lockDetails)}`)
     this.lockDetails = lockDetails
     this.lockStatus = lockDetails.LockStatus
+    const bridgeStatus = lockDetails.Bridge?.status?.current
+    if (bridgeStatus === 'offline' || bridgeStatus === 'online') {
+      await this.setBridgeOffline(bridgeStatus === 'offline', `August reports the bridge ${bridgeStatus}`)
+    }
     await this.parseStatus()
     await this.updateHomeKitCharacteristics()
   }
@@ -383,13 +419,12 @@ export class LockMechanism extends deviceBase {
     }
     const targetState = this.LockMechanism.LockTargetState
     const currentState = this.LockMechanism.LockCurrentState
+    // Send the command even when the lock already reports that state. The
+    // reported state can be stale (an offline bridge leaves August with the
+    // last state it heard), locking a locked lock is harmless, and sending
+    // it either corrects the state or surfaces the real failure.
     if (targetState === currentState) {
-      await this.debugLog(`No changes, LockTargetState: ${targetState}, LockCurrentState: ${currentState}`)
-      this.LockMechanism.LockTargetState = currentState === this.hap.Characteristic.LockCurrentState.SECURED
-        ? this.hap.Characteristic.LockTargetState.SECURED
-        : this.hap.Characteristic.LockTargetState.UNSECURED
-      await this.updateHomeKitCharacteristics()
-      return
+      await this.infoLog(`HomeKit ${this.actionName(targetState)}: lock already reports ${this.stateName(currentState)}, sending anyway`)
     }
 
     await this.debugLog(`Making API call - Target: ${targetState}, Current: ${currentState}`)
@@ -399,6 +434,7 @@ export class LockMechanism extends deviceBase {
       return
     }
 
+    const sentAt = Date.now()
     try {
       // throwOnOffline:true: user-initiated lock/unlock should fail
       // visibly to HomeKit when the network is down rather than
@@ -412,23 +448,129 @@ export class LockMechanism extends deviceBase {
       // If the user retries the action, the manager will either be
       // recovered by then or still offline (and throw OfflineError
       // again).
-      await this.platform.connectivity.execute(
+      const result = await this.platform.connectivity.execute(
         `pushChanges ${this.device.lockId}`,
         async (client) => {
           if (targetState === this.hap.Characteristic.LockTargetState.UNSECURED) {
-            await client.unlock(this.device.lockId)
+            return client.unlock(this.device.lockId)
           } else {
-            await client.lock(this.device.lockId)
+            return client.lock(this.device.lockId)
           }
         },
         { throwOnOffline: true },
       )
-      await this.successLog(`Sending request to August API: ${targetState === 1 ? 'Locked' : 'Unlocked'}`)
+      const settled = await this.applyOperationResult(result)
+      await this.setBridgeOffline(false, `${this.actionName(targetState).toLowerCase()} succeeded`)
+      const info = result as { info?: { duration?: number }, retryCount?: number } | undefined
+      const bridge = info?.info?.duration !== undefined ? `, bridge ${seconds(info.info.duration)}` : ''
+      const retries = info?.retryCount ? `, ${info.retryCount} retries` : ''
+      const timing = `(sent ${this.sinceCommand(sentAt)}, August replied after ${seconds(Date.now() - sentAt)}${bridge}${retries})`
+      if (settled) {
+        await this.successLog(`HomeKit ${this.actionName(targetState)}: ${this.stateName(this.LockMechanism.LockCurrentState)}`
+          + ` ${this.sinceCommand()} ${timing}`)
+      } else {
+        await this.warnLog(`HomeKit ${this.actionName(targetState)}: August's reply had no lock state`
+          + ` (${JSON.stringify((result as { status?: string } | undefined)?.status)}), waiting for its event ${timing}`)
+      }
       await this.updateHomeKitCharacteristics()
     } catch (e: any) {
+      if (/bridge is offline/i.test(e?.message ?? '')) {
+        await this.setBridgeOffline(true, `${this.actionName(targetState).toLowerCase()} failed`)
+      }
       await this.statusCode('pushChanges', e)
-      await this.errorLog(`pushChanges: ${e.message ?? e}`)
+      await this.errorLog(`HomeKit ${this.actionName(targetState)} failed ${this.sinceCommand()}`
+        + ` (August call took ${seconds(Date.now() - sentAt)}): ${e.message ?? e}`)
     }
+    this.scheduleConfirmCheck(targetState)
+  }
+
+  /**
+   * Warns if the lock still isn't in the requested state CONFIRM_CHECK_MS
+   * after a HomeKit command, which is how a missed or failed command shows up.
+   */
+  private scheduleConfirmCheck(targetState: CharacteristicValue): void {
+    clearTimeout(this.confirmTimer)
+    this.confirmTimer = setTimeout(() => {
+      if (this.LockMechanism && this.LockMechanism.LockCurrentState !== targetState) {
+        void this.warnLog(`HomeKit ${this.actionName(targetState)}: lock still reports`
+          + ` ${this.stateName(this.LockMechanism.LockCurrentState)} ${seconds(CONFIRM_CHECK_MS)} after the request`)
+      }
+    }, CONFIRM_CHECK_MS)
+  }
+
+  /**
+   * Records whether the lock's bridge is offline. Going offline shows the
+   * lock and door as No Response in HomeKit; coming back pushes the current
+   * state again, since HomeKit still holds the error.
+   */
+  async setBridgeOffline(offline: boolean, reason: string): Promise<void> {
+    if (offline === this.bridgeOffline) {
+      return
+    }
+    this.bridgeOffline = offline
+    const states: Array<[Service | undefined, any, CharacteristicValue | undefined]> = this.device.lock?.hide_lock
+      ? []
+      : [
+          [this.LockMechanism?.Service, this.hap.Characteristic.LockCurrentState, this.LockMechanism?.LockCurrentState],
+          [this.LockMechanism?.Service, this.hap.Characteristic.LockTargetState, this.LockMechanism?.LockTargetState],
+        ]
+    if (!this.device.lock?.hide_contactsensor) {
+      states.push([this.ContactSensor?.Service, this.hap.Characteristic.ContactSensorState, this.ContactSensor?.ContactSensorState])
+    }
+    for (const [service, characteristic, value] of states) {
+      if (service && value !== undefined) {
+        if (offline) {
+          service.updateCharacteristic(characteristic, new this.hap.HapStatusError(this.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE))
+        } else {
+          service.updateCharacteristic(characteristic, value)
+        }
+      }
+    }
+    if (offline) {
+      await this.warnLog(`Bridge offline (${reason}): showing the lock as No Response until it reconnects`)
+    } else {
+      await this.infoLog(`Bridge back online (${reason})`)
+    }
+  }
+
+  private throwIfBridgeOffline(): void {
+    if (this.bridgeOffline) {
+      throw new this.hap.HapStatusError(this.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE)
+    }
+  }
+
+  private actionName(targetState: CharacteristicValue): string {
+    return targetState === this.hap.Characteristic.LockTargetState.UNSECURED ? 'Unlock' : 'Lock'
+  }
+
+  private stateName(currentState: CharacteristicValue): string {
+    const { SECURED, UNSECURED, JAMMED } = this.hap.Characteristic.LockCurrentState
+    return currentState === SECURED ? 'Locked' : currentState === UNSECURED ? 'Unlocked' : currentState === JAMMED ? 'Jammed' : 'Unknown'
+  }
+
+  /** Time since the HomeKit command arrived, e.g. "+5.2s". */
+  private sinceCommand(at = Date.now()): string {
+    return `+${seconds(at - (this.commandStartedAt ?? at))}`
+  }
+
+  /**
+   * Sets LockCurrentState from the reply to a lock or unlock request.
+   *
+   * August only replies once the bridge has finished the operation, a few
+   * seconds before the PubNub event arrives, so this lets HomeKit show the
+   * new state sooner. A reply that isn't a settled locked/unlocked state
+   * is ignored and the PubNub event updates the state as before.
+   */
+  async applyOperationResult(result: { state?: { locked?: boolean, unlocked?: boolean } } | undefined): Promise<boolean> {
+    if (!this.LockMechanism || !result?.state || result.state.locked === result.state.unlocked) {
+      await this.debugLog(`Operation result has no settled lock state: ${JSON.stringify(result?.state)}`)
+      return false
+    }
+    this.LockMechanism.LockCurrentState = result.state.locked
+      ? this.hap.Characteristic.LockCurrentState.SECURED
+      : this.hap.Characteristic.LockCurrentState.UNSECURED
+    await this.debugLog(`LockCurrentState from operation result: ${this.LockMechanism.LockCurrentState}`)
+    return true
   }
 
   /**
@@ -437,7 +579,7 @@ export class LockMechanism extends deviceBase {
   async updateHomeKitCharacteristics(): Promise<void> {
     await this.debugLog('updateHomeKitCharacteristics')
     // Lock Mechanism
-    if (!this.device.lock?.hide_lock && this.LockMechanism?.Service) {
+    if (!this.bridgeOffline && !this.device.lock?.hide_lock && this.LockMechanism?.Service) {
       // LockTargetState
       await this.updateCharacteristic(this.LockMechanism.Service, 'LockMechanism', this.hap.Characteristic.LockTargetState, this.LockMechanism.LockTargetState, 'LockTargetState')
       // LockCurrentState
@@ -449,7 +591,7 @@ export class LockMechanism extends deviceBase {
     // StatusLowBattery
     await this.updateCharacteristic(this.Battery.Service, 'Battery', this.hap.Characteristic.StatusLowBattery, this.Battery.StatusLowBattery, 'StatusLowBattery')
     // Contact Sensor
-    if (!this.device.lock?.hide_contactsensor && this.ContactSensor?.Service) {
+    if (!this.bridgeOffline && !this.device.lock?.hide_contactsensor && this.ContactSensor?.Service) {
       // ContactSensorState
       await this.updateCharacteristic(this.ContactSensor.Service, 'ContactSensor', this.hap.Characteristic.ContactSensorState, this.ContactSensor.ContactSensorState, 'ContactSensorState', 1, 'Opened', 'Closed')
     }
@@ -464,8 +606,27 @@ export class LockMechanism extends deviceBase {
           + ` LockCurrentState: ${this.LockMechanism.LockCurrentState}`)
       }
 
+      this.commandStartedAt = Date.now()
+      await this.infoLog(`HomeKit ${this.actionName(value)} requested, lock reports ${this.stateName(this.LockMechanism.LockCurrentState)}`)
       this.accessory.context.LockMechanismLockTargetState = this.LockMechanism.LockTargetState = value
+
+      // Hold the HomeKit write open until August has answered, so Siri sees
+      // LockCurrentState change and says "Unlocked" rather than "Request
+      // Sent". HomeKit gives up on a write after about 10s, so stop waiting
+      // after SET_WAIT_MS and let the request finish in the background.
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const done = new Promise<void>(resolve => this.pendingLockUpdates.push(resolve))
+      const timeout = new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, SET_WAIT_MS)
+      })
       this.doLockUpdate.next()
+      const answered = await Promise.race([done.then(() => true), timeout.then(() => false)])
+      clearTimeout(timer)
+      if (!answered) {
+        await this.warnLog(`HomeKit ${this.actionName(value)}: no answer from August after ${seconds(SET_WAIT_MS)},`
+          + ' answered HomeKit anyway and the request carries on in the background')
+      }
+      this.throwIfBridgeOffline()
     }
   }
 

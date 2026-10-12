@@ -147,6 +147,8 @@ export interface lockDetails {
   battery: number
   LockStatus: lockStatus
   currentFirmwareVersion: string
+  // Absent for locks without a separate bridge (Wi-Fi locks)
+  Bridge?: Bridge
 }
 
 export interface lockStatus {
