@@ -1,3 +1,9 @@
+## v3.5.1 (Pending Release)
+
+### Changed
+
+- ci: update github actions to their latest versions
+
 ## v3.5.0 (2026-10-18)
 
 ### Changed
