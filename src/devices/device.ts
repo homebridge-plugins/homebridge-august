@@ -63,7 +63,7 @@ export abstract class deviceBase {
     // the LockMechanism constructor uses these values.
     this.deviceRefreshRate = device.refreshRate ?? this.platform.platformRefreshRate ?? 30
     this.deviceUpdateRate = device.updateRate ?? this.platform.platformUpdateRate ?? 5
-    this.devicePushRate = device.pushRate ?? this.platform.platformPushRate ?? 1
+    this.devicePushRate = device.pushRate ?? this.platform.platformPushRate ?? 0.1
 
     // Log after all assignments are complete
     const refreshRate = device.refreshRate ? 'Device Config' : this.platform.platformRefreshRate ? 'Platform Config' : 'Default'

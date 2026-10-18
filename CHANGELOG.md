@@ -1,3 +1,9 @@
+## v3.4.5 (Pending Release)
+
+### Changed
+
+- fix: send a lock or unlock to august after 0.1s by default, not 1s (@DaveHarrington)
+
 ## v3.4.4 (2026-10-18)
 
 ### Changed
