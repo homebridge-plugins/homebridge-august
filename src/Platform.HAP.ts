@@ -730,7 +730,9 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       || this.config.options?.logging === 'none')
       ? this.config.options.logging
       : 'debugMode'
-    const logging = this.config.options?.logging ? 'Platform Config' : 'Default'
+    // 'default' (what the config UI saves) is not one of the three above, so it
+    // lands on 'debugMode' exactly as an empty or missing value does.
+    const logging = this.config.options?.logging && this.config.options.logging !== 'default' ? 'Platform Config' : 'Default'
     await this.debugLog(`Using ${logging} Logging: ${this.platformLogging}`)
   }
 

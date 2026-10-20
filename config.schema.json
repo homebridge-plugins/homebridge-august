@@ -354,14 +354,14 @@
                 },
                 "logging": {
                   "title": "Device Logging Level Override",
-                  "description": "Overrides the plugin logging level for this device only. None turns off all messages from this plugin. Standard shows normal activity, warnings and errors. Debug adds detailed messages, and is what to use when reporting a problem. Default behaves the same as Standard.",
+                  "description": "Overrides the plugin logging level for this device only. None turns off all messages from this plugin. Standard shows normal activity, warnings and errors. Debug adds detailed messages, and is what to use when reporting a problem. Default uses the plugin logging level.",
                   "type": "string",
-                  "default": "",
+                  "default": "default",
                   "oneOf": [
                     {
-                      "title": "Default (same as Standard)",
+                      "title": "Default (uses the plugin logging level)",
                       "enum": [
-                        ""
+                        "default"
                       ]
                     },
                     {
@@ -421,14 +421,14 @@
           },
           "logging": {
             "title": "Plugin Logging Level",
-            "description": "None turns off all messages from this plugin. Standard shows normal activity, warnings and errors. Debug adds detailed messages, and is what to use when reporting a problem. Default behaves the same as Standard.",
+            "description": "None turns off all messages from this plugin. Standard shows normal activity, warnings and errors. Debug adds detailed messages, and is what to use when reporting a problem. Default behaves the same as Standard, and also shows debug messages when Homebridge's own debug mode is on.",
             "type": "string",
-            "default": "",
+            "default": "default",
             "oneOf": [
               {
-                "title": "Default (same as Standard)",
+                "title": "Default (follows the Homebridge debug setting)",
                 "enum": [
-                  ""
+                  "default"
                 ]
               },
               {

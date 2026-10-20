@@ -3,6 +3,7 @@
 ### Changed
 
 - ci: update github actions to their latest versions (#256)
+- fix(schema): give the default logging choice a value, so the ui stops flagging it as missing
 
 ## v3.5.0 (2026-10-18)
 

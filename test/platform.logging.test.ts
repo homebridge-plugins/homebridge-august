@@ -187,3 +187,50 @@ describe('logging switched off entirely', () => {
     expect(log.info).not.toHaveBeenCalled()
   })
 })
+
+/**
+ * The config UI now saves 'default' for the "Default" logging choice, because
+ * a required field that defaults to an empty string always failed the UI's
+ * validation. 'default' has to behave exactly as an empty or missing value
+ * always has: the platform follows Homebridge's debug setting and a device
+ * uses the platform's level.
+ */
+describe('the default logging choice', () => {
+  async function platformLoggingFor(options: Record<string, unknown>) {
+    const host = Object.create(AugustPlatform.prototype)
+    host.log = makeLog()
+    host.config = { options }
+    await host.getPlatformLogSettings()
+    return host
+  }
+
+  async function deviceLoggingFor(platformLogging: string, device: Record<string, unknown>) {
+    const host: any = Object.create(deviceBase.prototype)
+    host.log = makeLog()
+    host.platform = { platformLogging }
+    host.accessory = { displayName: 'Front Door' }
+    await host.getDeviceLogSettings(device)
+    return host.deviceLogging
+  }
+
+  it('resolves the plugin level the same as an empty or missing one', async () => {
+    const missing = (await platformLoggingFor({})).platformLogging
+    const empty = (await platformLoggingFor({ logging: '' })).platformLogging
+
+    expect((await platformLoggingFor({ logging: 'default' })).platformLogging).toBe(missing)
+    expect(empty).toBe(missing)
+    expect(missing).toBe('debugMode')
+  })
+
+  it('makes a lock use the plugin logging level, as a missing value does', async () => {
+    for (const platformLogging of ['debugMode', 'standard', 'debug', 'none']) {
+      expect(await deviceLoggingFor(platformLogging, { logging: 'default' }))
+        .toBe(await deviceLoggingFor(platformLogging, {}))
+      expect(await deviceLoggingFor(platformLogging, {})).toBe(platformLogging)
+    }
+  })
+
+  it('still lets a lock override the plugin logging level', async () => {
+    expect(await deviceLoggingFor('debugMode', { logging: 'none' })).toBe('none')
+  })
+})
