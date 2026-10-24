@@ -53,9 +53,13 @@ export abstract class deviceBase {
   async getDeviceLogSettings(device: devicesConfig): Promise<void> {
     // The config UI saves 'default' for "use the plugin logging level", which
     // must inherit exactly as a missing value always has.
-    const deviceLogging = device.logging === 'default' ? undefined : device.logging
+    const deviceLogging = device.logging === 'default'
+      ? undefined
+      : device.logging
     this.deviceLogging = deviceLogging ?? this.platform.platformLogging ?? 'standard'
-    const logging = deviceLogging ? 'Device Config' : this.platform.platformLogging ? 'Platform Config' : 'Default'
+    const logging = deviceLogging
+      ? 'Device Config'
+      : this.platform.platformLogging ? 'Platform Config' : 'Default'
     await this.debugLog(`Using ${logging} Logging: ${this.deviceLogging}`)
   }
 
@@ -69,11 +73,17 @@ export abstract class deviceBase {
     this.devicePushRate = device.pushRate ?? this.platform.platformPushRate ?? 0.1
 
     // Log after all assignments are complete
-    const refreshRate = device.refreshRate ? 'Device Config' : this.platform.platformRefreshRate ? 'Platform Config' : 'Default'
+    const refreshRate = device.refreshRate
+      ? 'Device Config'
+      : this.platform.platformRefreshRate ? 'Platform Config' : 'Default'
     await this.debugLog(`Using ${refreshRate} refreshRate: ${this.deviceRefreshRate}`)
-    const updateRate = device.updateRate ? 'Device Config' : this.platform.platformUpdateRate ? 'Platform Config' : 'Default'
+    const updateRate = device.updateRate
+      ? 'Device Config'
+      : this.platform.platformUpdateRate ? 'Platform Config' : 'Default'
     await this.debugLog(`Using ${updateRate} updateRate: ${this.deviceUpdateRate}`)
-    const pushRate = device.pushRate ? 'Device Config' : this.platform.platformPushRate ? 'Platform Config' : 'Default'
+    const pushRate = device.pushRate
+      ? 'Device Config'
+      : this.platform.platformPushRate ? 'Platform Config' : 'Default'
     await this.debugLog(`Using ${pushRate} pushRate: ${this.devicePushRate}`)
   }
 
@@ -154,13 +164,17 @@ export abstract class deviceBase {
       const contextBefore = this.accessory.context[contextKey]
       this.accessory.context[contextKey] = CharacteristicValue
       await this.debugWarnLog(`context after: ${this.accessory.context[contextKey]}`)
-      await this.debugLog(`updateCharacteristic ${CharacteristicName}: ${CharacteristicValue} (${CharacteristicValue === Value ? StatusMatch : StatusDoesNotMatch})`)
+      await this.debugLog(`updateCharacteristic ${CharacteristicName}: ${CharacteristicValue} (${CharacteristicValue === Value
+        ? StatusMatch
+        : StatusDoesNotMatch})`)
       if (contextBefore !== CharacteristicValue) {
         // Value actually changed - push update to HomeKit
         Service.updateCharacteristic(Characteristic, CharacteristicValue)
         // Only log state change messages when we had a prior known value (not initial discovery)
         if (contextBefore !== undefined && StatusMatch && StatusDoesNotMatch) {
-          await this.infoLog(`was ${CharacteristicValue === Value ? StatusMatch : StatusDoesNotMatch}`)
+          await this.infoLog(`was ${CharacteristicValue === Value
+            ? StatusMatch
+            : StatusDoesNotMatch}`)
         }
       }
     }

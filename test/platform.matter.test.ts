@@ -53,8 +53,12 @@ describe('augustMatterPlatform', () => {
     vi.clearAllMocks()
 
     mockMatterApi = {
-      uuid: { generate: vi.fn((id: string) => `matter-uuid-${id}`) },
-      deviceTypes: { DoorLock: { deviceType: 11 } },
+      uuid: {
+        generate: vi.fn((id: string) => `matter-uuid-${id}`),
+      },
+      deviceTypes: {
+        DoorLock: { deviceType: 11 },
+      },
       types: {
         DoorLock: {
           LockState: {
@@ -73,7 +77,9 @@ describe('augustMatterPlatform', () => {
 
     mockApi = {
       hap: {
-        uuid: { generate: vi.fn(() => 'hap-uuid') },
+        uuid: {
+          generate: vi.fn(() => 'hap-uuid'),
+        },
       },
       user: {
         configPath: vi.fn(() => '/mock/config.json'),
@@ -358,8 +364,14 @@ describe('augustMatterPlatform', () => {
     it('should update lockState to 1 (Locked) when lock is locked', async () => {
       platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
 
-      const mockDetailsResult = { LockStatus: { state: { locked: true, unlocked: false } } }
-      installConnectivityMock(platform, { details: vi.fn().mockResolvedValue(mockDetailsResult) })
+      const mockDetailsResult = {
+        LockStatus: {
+          state: { locked: true, unlocked: false },
+        },
+      }
+      installConnectivityMock(platform, {
+        details: vi.fn().mockResolvedValue(mockDetailsResult),
+      })
 
       const device = { lockId: 'lock-test', LockName: 'Test Lock' } as any
 
@@ -371,8 +383,14 @@ describe('augustMatterPlatform', () => {
     it('should update lockState to 2 (Unlocked) when lock is unlocked', async () => {
       platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
 
-      const mockDetailsResult = { LockStatus: { state: { locked: false, unlocked: true } } }
-      installConnectivityMock(platform, { details: vi.fn().mockResolvedValue(mockDetailsResult) })
+      const mockDetailsResult = {
+        LockStatus: {
+          state: { locked: false, unlocked: true },
+        },
+      }
+      installConnectivityMock(platform, {
+        details: vi.fn().mockResolvedValue(mockDetailsResult),
+      })
 
       const device = { lockId: 'lock-test', LockName: 'Test Lock' } as any
 
@@ -384,8 +402,14 @@ describe('augustMatterPlatform', () => {
     it('should update lockState to 0 (NotFullyLocked) for ambiguous state', async () => {
       platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
 
-      const mockDetailsResult = { LockStatus: { state: { locked: false, unlocked: false } } }
-      installConnectivityMock(platform, { details: vi.fn().mockResolvedValue(mockDetailsResult) })
+      const mockDetailsResult = {
+        LockStatus: {
+          state: { locked: false, unlocked: false },
+        },
+      }
+      installConnectivityMock(platform, {
+        details: vi.fn().mockResolvedValue(mockDetailsResult),
+      })
 
       const device = { lockId: 'lock-test', LockName: 'Test Lock' } as any
 
@@ -397,7 +421,9 @@ describe('augustMatterPlatform', () => {
     it('should not throw when August API details call fails', async () => {
       platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
 
-      installConnectivityMock(platform, { details: vi.fn().mockRejectedValue(new Error('API error')) })
+      installConnectivityMock(platform, {
+        details: vi.fn().mockRejectedValue(new Error('API error')),
+      })
 
       const device = { lockId: 'lock-test', LockName: 'Test Lock' } as any
 
@@ -555,7 +581,9 @@ describe('augustMatterPlatform', () => {
       const uuid = 'matter-uuid-hidden-poll'
       mockMatterApi.uuid.generate.mockReturnValueOnce(uuid)
 
-      const fakeSubscription = { unsubscribe: vi.fn() }
+      const fakeSubscription = {
+        unsubscribe: vi.fn(),
+      }
       ;(platform as any).matterPollingSubscriptions.set(uuid, fakeSubscription)
 
       const device = {
@@ -685,8 +713,12 @@ describe('augustMatterPlatform', () => {
     // Install a stub connectivity manager whose execute() runs the poll fn
     // against a fake august client, matching the suite's conventions.
     function withDetails(p: any, detail: any) {
-      const client = { details: vi.fn().mockResolvedValue(detail) }
-      p.connectivity = { execute: vi.fn(async (_label: string, fn: (c: any) => Promise<any>) => fn(client)) }
+      const client = {
+        details: vi.fn().mockResolvedValue(detail),
+      }
+      p.connectivity = {
+        execute: vi.fn(async (_label: string, fn: (c: any) => Promise<any>) => fn(client)),
+      }
       return client
     }
 
@@ -742,7 +774,11 @@ describe('augustMatterPlatform', () => {
 
     it('leaves PowerSource untouched when the detail has no battery field', async () => {
       platform = new AugustMatterPlatform(mockLog, mockConfig, mockApi)
-      withDetails(platform, { LockStatus: { state: { locked: true } } }) // no battery
+      withDetails(platform, {
+        LockStatus: {
+          state: { locked: true },
+        },
+      }) // no battery
 
       await (platform as any).fetchAndUpdateMatterLockState(
         { lockId: 'lock-3', LockName: 'Guest Door' } as any,

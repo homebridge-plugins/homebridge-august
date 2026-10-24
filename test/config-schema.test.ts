@@ -36,7 +36,9 @@ function asSeenByUi(schema: JsonSchema | undefined, data: unknown): unknown {
   }
   const shaped: Record<string, unknown> = { ...(data as Record<string, unknown>) }
   for (const [key, sub] of Object.entries(schema?.properties ?? {})) {
-    const value = Object.hasOwn(shaped, key) ? shaped[key] : sub.default
+    const value = Object.hasOwn(shaped, key)
+      ? shaped[key]
+      : sub.default
     if (value === undefined || value === '') {
       delete shaped[key]
     } else {
@@ -57,7 +59,10 @@ function requiredWithEmptyDefault(schema: JsonSchema, path: string): string[] {
     .map(key => `${path}.${key}`)
   const nested = Object.entries(schema.properties ?? {})
     .flatMap(([key, sub]) => requiredWithEmptyDefault(sub.items ?? sub, `${path}.${key}`))
-  return [...own, ...nested]
+  return [
+    ...own,
+    ...nested,
+  ]
 }
 
 const credentials = {
@@ -80,7 +85,11 @@ describe('config.schema.json as the config UI sees it', () => {
     expect(uiErrors({
       name: 'August',
       credentials,
-      options: { devices: [{ lockId: 'ABC123', configLockName: 'Front Door' }] },
+      options: {
+        devices: [
+          { lockId: 'ABC123', configLockName: 'Front Door' },
+        ],
+      },
     })).toEqual([])
   })
 
@@ -88,7 +97,12 @@ describe('config.schema.json as the config UI sees it', () => {
     expect(uiErrors({
       name: 'August',
       credentials,
-      options: { logging: 'default', devices: [{ lockId: 'ABC123', configLockName: 'Front Door', logging: 'default' }] },
+      options: {
+        logging: 'default',
+        devices: [
+          { lockId: 'ABC123', configLockName: 'Front Door', logging: 'default' },
+        ],
+      },
     })).toEqual([])
   })
 })

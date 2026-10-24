@@ -16,7 +16,9 @@ import { AugustPlatform } from '../src/Platform.HAP.js'
 vi.mock('august-yale', () => {
   // eslint-disable-next-line prefer-arrow-callback
   const MockAugust = vi.fn().mockImplementation(function () {
-    return { end: vi.fn() }
+    return {
+      end: vi.fn(),
+    }
   })
 
   // Type assertion to add static methods

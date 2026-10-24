@@ -54,7 +54,15 @@ export type ConnectivityState = 'healthy' | 'degraded' | 'offline' | 'recovering
  * Capped at 5 minutes; ±10% jitter is applied at use to avoid synchronized
  * probes across instances during ISP-level events.
  */
-const BACKOFF_SCHEDULE_MS = [5_000, 10_000, 20_000, 40_000, 80_000, 160_000, 300_000]
+const BACKOFF_SCHEDULE_MS = [
+  5_000,
+  10_000,
+  20_000,
+  40_000,
+  80_000,
+  160_000,
+  300_000,
+]
 
 /** Probe timeout — short on purpose. A healthy August API responds in <1s. */
 const PROBE_TIMEOUT_MS = 8_000
@@ -459,8 +467,10 @@ export class ConnectivityManager {
     const lastFailure = this.lastFailureMessage ?? 'unknown'
     this.log.warn(
       `Connectivity: still offline after ${minutes} min — `
-      + `${this.probeAttempts} probe attempt${this.probeAttempts === 1 ? '' : 's'}, `
-      + `last failure: ${lastFailure}`,
+      + `${this.probeAttempts} probe attempt${this.probeAttempts === 1
+        ? ''
+        : 's'}, `
+        + `last failure: ${lastFailure}`,
     )
   }
 
