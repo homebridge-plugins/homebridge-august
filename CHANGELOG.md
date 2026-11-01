@@ -5,6 +5,7 @@
 - ci: update github actions to their latest versions (#256)
 - fix(schema): give the default logging choice a value, so the ui stops flagging it as missing
 - chore(deps): dependency updates
+- docs: say that matter is used by default and how to turn it off
 
 ## v3.5.0 (2026-10-18)
 
