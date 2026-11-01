@@ -37,6 +37,12 @@ Homebridge plugin to integrate August and Yale locks into HomeKit
 - [Beta Version](https://github.com/homebridge-plugins/homebridge-august/wiki/Beta-Version)
 - [Node Version](https://github.com/homebridge-plugins/homebridge-august/wiki/Node-Version)
 
+### Features
+
+- **Matter** support is available when running Homebridge v2.0+ with Matter enabled:
+  - The plugin uses Matter by default when Matter is available and enabled in Homebridge, and falls back to HAP otherwise.
+  - Set `options.disableMatter: true` to always use HAP.
+
 ### Supported Devices
 
 - August Smart Lock (AUG-SL04-C03-N04)
