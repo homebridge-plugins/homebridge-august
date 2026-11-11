@@ -703,7 +703,9 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       this.pollTimer = undefined
     }
     this.connectivity?.shutdown()
-    for (const lockId of [...this.lockMechanisms.keys()]) {
+    for (const lockId of [
+      ...this.lockMechanisms.keys(),
+    ]) {
       this.tearDownLockMechanism(lockId)
     }
   }
@@ -732,7 +734,9 @@ export class AugustPlatform implements DynamicPlatformPlugin {
       : 'debugMode'
     // 'default' (what the config UI saves) is not one of the three above, so it
     // lands on 'debugMode' exactly as an empty or missing value does.
-    const logging = this.config.options?.logging && this.config.options.logging !== 'default' ? 'Platform Config' : 'Default'
+    const logging = this.config.options?.logging && this.config.options.logging !== 'default'
+      ? 'Platform Config'
+      : 'Default'
     await this.debugLog(`Using ${logging} Logging: ${this.platformLogging}`)
   }
 

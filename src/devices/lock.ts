@@ -249,7 +249,9 @@ export class LockMechanism extends deviceBase {
             ? this.hap.Characteristic.LockCurrentState.SECURED
             : this.lockStatus.state.unlocked
               ? this.hap.Characteristic.LockCurrentState.UNSECURED
-              : retryCount > 1 ? this.hap.Characteristic.LockCurrentState.JAMMED : this.hap.Characteristic.LockCurrentState.UNKNOWN
+              : retryCount > 1
+                ? this.hap.Characteristic.LockCurrentState.JAMMED
+                : this.hap.Characteristic.LockCurrentState.UNKNOWN
           if (!this.lockUpdateInProgress) {
             this.LockMechanism.LockTargetState = this.LockMechanism.LockCurrentState
           }
@@ -316,7 +318,9 @@ export class LockMechanism extends deviceBase {
         // Lock Mechanism
         this.platform.augustConfig?.addSimpleProps(this.lockEvent)
         if (this.LockMechanism && (this.lockEvent.state.unlocking || this.lockEvent.state.locking)) {
-          await this.debugLog(`is  ${this.lockEvent.state.unlocking ? 'Unlocking' : this.lockEvent.state.locking ? 'Locking' : ''}, parseEventStatus`
+          await this.debugLog(`is  ${this.lockEvent.state.unlocking
+            ? 'Unlocking'
+            : this.lockEvent.state.locking ? 'Locking' : ''}, parseEventStatus`
             + ` lockEventState: ${JSON.stringify(this.lockEvent.state)}`)
           return
         }
@@ -325,7 +329,9 @@ export class LockMechanism extends deviceBase {
             ? this.hap.Characteristic.LockCurrentState.SECURED
             : this.lockEvent.state.unlocked
               ? this.hap.Characteristic.LockCurrentState.UNSECURED
-              : retryCount > 1 ? this.hap.Characteristic.LockCurrentState.JAMMED : this.hap.Characteristic.LockCurrentState.UNKNOWN
+              : retryCount > 1
+                ? this.hap.Characteristic.LockCurrentState.JAMMED
+                : this.hap.Characteristic.LockCurrentState.UNKNOWN
           if (!this.lockUpdateInProgress) {
             this.LockMechanism.LockTargetState = this.LockMechanism.LockCurrentState
           }
@@ -462,8 +468,12 @@ export class LockMechanism extends deviceBase {
       const settled = await this.applyOperationResult(result)
       await this.setBridgeOffline(false, `${this.actionName(targetState).toLowerCase()} succeeded`)
       const info = result as { info?: { duration?: number }, retryCount?: number } | undefined
-      const bridge = info?.info?.duration !== undefined ? `, bridge ${seconds(info.info.duration)}` : ''
-      const retries = info?.retryCount ? `, ${info.retryCount} retries` : ''
+      const bridge = info?.info?.duration !== undefined
+        ? `, bridge ${seconds(info.info.duration)}`
+        : ''
+      const retries = info?.retryCount
+        ? `, ${info.retryCount} retries`
+        : ''
       const timing = `(sent ${this.sinceCommand(sentAt)}, August replied after ${seconds(Date.now() - sentAt)}${bridge}${retries})`
       if (settled) {
         await this.successLog(`HomeKit ${this.actionName(targetState)}: ${this.stateName(this.LockMechanism.LockCurrentState)}`
@@ -540,12 +550,20 @@ export class LockMechanism extends deviceBase {
   }
 
   private actionName(targetState: CharacteristicValue): string {
-    return targetState === this.hap.Characteristic.LockTargetState.UNSECURED ? 'Unlock' : 'Lock'
+    return targetState === this.hap.Characteristic.LockTargetState.UNSECURED
+      ? 'Unlock'
+      : 'Lock'
   }
 
   private stateName(currentState: CharacteristicValue): string {
     const { SECURED, UNSECURED, JAMMED } = this.hap.Characteristic.LockCurrentState
-    return currentState === SECURED ? 'Locked' : currentState === UNSECURED ? 'Unlocked' : currentState === JAMMED ? 'Jammed' : 'Unknown'
+    return currentState === SECURED
+      ? 'Locked'
+      : currentState === UNSECURED
+        ? 'Unlocked'
+        : currentState === JAMMED
+          ? 'Jammed'
+          : 'Unknown'
   }
 
   /** Time since the HomeKit command arrived, e.g. "+5.2s". */
@@ -620,7 +638,10 @@ export class LockMechanism extends deviceBase {
         timer = setTimeout(resolve, SET_WAIT_MS)
       })
       this.doLockUpdate.next()
-      const answered = await Promise.race([done.then(() => true), timeout.then(() => false)])
+      const answered = await Promise.race([
+        done.then(() => true),
+        timeout.then(() => false),
+      ])
       clearTimeout(timer)
       if (!answered) {
         await this.warnLog(`HomeKit ${this.actionName(value)}: no answer from August after ${seconds(SET_WAIT_MS)},`

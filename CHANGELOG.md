@@ -6,6 +6,7 @@
 - fix(schema): give the default logging choice a value, so the ui stops flagging it as missing
 - docs: say that matter is used by default and how to turn it off
 - chore: leave CLAUDE.md out of the published package
+- chore(deps): dependency updates
 
 ## v3.5.0 (2026-10-18)
 

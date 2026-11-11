@@ -39,7 +39,12 @@ import { AugustPlatform } from '../src/Platform.HAP.js'
 vi.mock('august-yale', () => {
   // eslint-disable-next-line prefer-arrow-callback
   const MockAugust = vi.fn().mockImplementation(function () {
-    return { destroy: vi.fn(), end: vi.fn(), details: vi.fn(), locks: vi.fn() }
+    return {
+      destroy: vi.fn(),
+      end: vi.fn(),
+      details: vi.fn(),
+      locks: vi.fn(),
+    }
   })
   const MockConstructor = MockAugust as any
   MockConstructor.details = vi.fn()
@@ -107,8 +112,14 @@ describe('augustPlatform.startPolling', () => {
     vi.mocked(readFileSync).mockReturnValue(JSON.stringify({ version: '1.0.0-test' }))
 
     mockApi = {
-      hap: { uuid: { generate: vi.fn(() => 'mock-uuid') } },
-      user: { configPath: vi.fn(() => '/mock/config.json') },
+      hap: {
+        uuid: {
+          generate: vi.fn(() => 'mock-uuid'),
+        },
+      },
+      user: {
+        configPath: vi.fn(() => '/mock/config.json'),
+      },
       on: vi.fn(),
       registerPlatformAccessories: vi.fn(),
       updatePlatformAccessories: vi.fn(),
@@ -198,7 +209,9 @@ describe('augustPlatform.startPolling', () => {
     })
 
     it('skips entire cycle when connectivity is offline', async () => {
-      const client = { details: vi.fn() }
+      const client = {
+        details: vi.fn(),
+      }
       installConnectivity(platform, client, 'offline')
       const locks = registerLocks(platform, 3)
 
@@ -269,7 +282,9 @@ describe('augustPlatform.startPolling', () => {
 
   describe('lifecycle', () => {
     it('startPolling is idempotent — calling twice does not stack timers', async () => {
-      const client = { details: vi.fn().mockResolvedValue({}) }
+      const client = {
+        details: vi.fn().mockResolvedValue({}),
+      }
       installConnectivity(platform, client)
       registerLocks(platform, 1)
 
@@ -283,7 +298,9 @@ describe('augustPlatform.startPolling', () => {
     })
 
     it('is a no-op when platformRefreshRate is 0', async () => {
-      const client = { details: vi.fn() }
+      const client = {
+        details: vi.fn(),
+      }
       installConnectivity(platform, client)
       registerLocks(platform, 1)
       ;(platform as any).platformRefreshRate = 0
@@ -295,7 +312,9 @@ describe('augustPlatform.startPolling', () => {
     })
 
     it('stopPolling clears the timer', async () => {
-      const client = { details: vi.fn().mockResolvedValue({}) }
+      const client = {
+        details: vi.fn().mockResolvedValue({}),
+      }
       installConnectivity(platform, client)
       registerLocks(platform, 1)
 

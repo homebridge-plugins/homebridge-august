@@ -90,7 +90,13 @@ function makeLog(): Logging & { _calls: { level: string, msg: string }[] } {
   const calls: { level: string, msg: string }[] = []
   const stub = (() => {}) as any
   stub._calls = calls
-  for (const level of ['info', 'warn', 'error', 'debug', 'success'] as const) {
+  for (const level of [
+    'info',
+    'warn',
+    'error',
+    'debug',
+    'success',
+  ] as const) {
     stub[level] = (msg: string) => calls.push({ level, msg })
   }
   return stub
