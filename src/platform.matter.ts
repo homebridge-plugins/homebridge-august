@@ -368,7 +368,9 @@ export class AugustMatterPlatform extends AugustPlatform {
       const low = pct < 0.15
       await matterApi.updateAccessoryState(uuid, 'powerSource', {
         batPercentRemaining: Math.round(pct * 200),
-        batChargeLevel: pct < 0.10 ? 2 : low ? 1 : 0, // Critical / Warning / Ok
+        batChargeLevel: pct < 0.10
+          ? 2
+          : low ? 1 : 0, // Critical / Warning / Ok
         batReplacementNeeded: low,
       })
       await this.debugLog(`Matter: Poll updated battery to ${Math.round(pct * 100)}% for ${device.LockName}`)

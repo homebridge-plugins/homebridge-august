@@ -53,7 +53,12 @@ describe('redactConfig', () => {
       name: 'Roomba',
       debug: true,
       disableDiscovery: false,
-      mission: { ordered: 1, regions: [{ region_id: '3' }] },
+      mission: {
+        ordered: 1,
+        regions: [
+          { region_id: '3' },
+        ],
+      },
     }) as Record<string, any>
 
     expect(out.name).toBe('Roomba')

@@ -7,6 +7,7 @@
 - docs: say that matter is used by default and how to turn it off
 - chore: leave CLAUDE.md out of the published package
 - ci: publish releases with node.js v26, the current lts
+- chore(deps): dependency updates
 
 ## v3.5.0 (2026-10-18)
 
