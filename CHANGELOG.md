@@ -3,6 +3,7 @@
 ### Changed
 
 - chore(deps): dependency updates
+- fix(build): list the node.js types in tsconfig, a dependency stopped loading them
 
 ## v3.5.1 (2026-11-14)
 
@@ -19,11 +20,11 @@
 
 ### Changed
 
-- fix: send a lock or unlock to august after 0.1s by default, not 1s (@DaveHarrington)
-- fix: show a lock's new state as soon as august confirms a lock or unlock (@DaveHarrington)
-- fix: let siri confirm a lock or unlock instead of saying request sent (@DaveHarrington)
-- feat: log how long each homekit lock and unlock takes, and warn when one goes wrong (@DaveHarrington)
-- fix: always send a homekit lock or unlock, and show no response while the bridge is offline (@DaveHarrington)
+- fix: send a lock or unlock to august after 0.1s by default, not 1s (#251) (@DaveHarrington)
+- fix: show a lock's new state as soon as august confirms a lock or unlock (#253) (@DaveHarrington)
+- fix: let siri confirm a lock or unlock instead of saying request sent (#253) (@DaveHarrington)
+- feat: log how long each homekit lock and unlock takes, and warn when one goes wrong (#254) (@DaveHarrington)
+- fix: always send a homekit lock or unlock, and show no response while the bridge is offline (#255) (@DaveHarrington)
 
 ## v3.4.4 (2026-10-18)
 

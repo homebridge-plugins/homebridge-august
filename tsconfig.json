@@ -8,6 +8,9 @@
     "rootDir": "src",
     "module": "ES2022",
     "moduleResolution": "bundler",
+    "types": [
+      "node"
+    ],
     "strict": true,
     "noImplicitAny": false,
     "declaration": true,
