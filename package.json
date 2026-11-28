@@ -57,14 +57,14 @@
     "access": "public"
   },
   "dependencies": {
-    "@homebridge/plugin-ui-utils": "^2.3.0",
-    "august-yale": "^1.2.10",
+    "@homebridge/plugin-ui-utils": "^2.3.1",
+    "august-yale": "1.2.11-beta.0",
     "rxjs": "^7.8.2"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^10.0.0",
-    "@types/node": "^26.6.6",
-    "@vitest/coverage-v8": "^5.1.1",
+    "@types/node": "^26.6.11",
+    "@vitest/coverage-v8": "^5.1.2",
     "ajv": "^8.20.0",
     "homebridge": "^2.5.0",
     "nodemon": "^3.1.14",
@@ -72,7 +72,7 @@
     "ts-node": "^10.9.2",
     "typedoc": "^0.28.20",
     "typescript": "^6.0.3",
-    "vitest": "^5.1.1"
+    "vitest": "^5.1.2"
   },
   "allowScripts": {
     "fsevents": true
